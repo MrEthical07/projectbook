@@ -1,0 +1,26 @@
+
+> web@0.0.1 dev
+> vite dev --port 3000
+
+1:48:20 PM [vite] (client) Forced re-optimization of dependencies
+
+  VITE v7.3.1  ready in 1997 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
+1:52:30 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+1:52:30 PM [vite] (ssr) page reload src/lib/mocks/task-data.ts
+1:53:16 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+1:53:16 PM [vite] (ssr) page reload src/routes/project/[projectId]/tasks/[slug]/+page.svelte
+1:55:45 PM [vite-plugin-svelte] src/routes/project/[projectId]/tasks/[slug]/+page.svelte:261:20 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+https://svelte.dev/e/event_directive_deprecated
+1:55:45 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+1:55:45 PM [vite] (ssr) page reload src/routes/project/[projectId]/tasks/[slug]/+page.svelte
+1:55:59 PM [vite-plugin-svelte] src/routes/project/[projectId]/tasks/[slug]/+page.svelte:261:20 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+https://svelte.dev/e/event_directive_deprecated
+1:56:01 PM [vite-plugin-svelte] src/routes/project/[projectId]/tasks/[slug]/+page.svelte:261:20 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+https://svelte.dev/e/event_directive_deprecated
+1:56:43 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+1:56:43 PM [vite] (ssr) page reload src/routes/project/[projectId]/tasks/[slug]/+page.svelte
+1:57:25 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+1:57:25 PM [vite] (ssr) page reload src/routes/project/[projectId]/tasks/[slug]/+page.svelte

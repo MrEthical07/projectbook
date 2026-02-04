@@ -1,0 +1,17 @@
+
+> web@0.0.1 dev
+> vite dev --port 3000
+
+
+  VITE v7.3.1  ready in 1724 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
+2:03:06 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+2:03:06 PM [vite] (ssr) page reload src/lib/mocks/task-data.ts
+2:03:36 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+2:03:36 PM [vite] (ssr) page reload src/lib/mocks/task-data.ts
+2:03:52 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+2:03:52 PM [vite] (ssr) page reload src/routes/project/[projectId]/tasks/[slug]/+page.svelte
+2:03:59 PM [vite] (client) hmr update /src/routes/project/[projectId]/tasks/[slug]/+page.svelte, /src/routes/layout.css
+2:03:59 PM [vite] (ssr) page reload src/routes/project/[projectId]/tasks/[slug]/+page.svelte
