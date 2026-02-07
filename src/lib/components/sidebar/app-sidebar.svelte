@@ -6,7 +6,7 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import ProjectSwitcher from "./project-switcher.svelte";
 	import type { ComponentProps } from "svelte";
-	import { UserLock, UserCog, Users, LayoutDashboard } from "@lucide/svelte"
+	import { UserLock, Settings, Users, LayoutDashboard } from "@lucide/svelte"
 
 	import { page } from "$app/state";
 
@@ -220,19 +220,9 @@
 				},
 				resources: {
 					title: "Resources",
-					prefix: "resources",
+					url: "/project/"+ projectId +"/resources",
 					icon: Folder,
 					isActive: path.includes("resources"),
-					items: [
-						{
-							title: "All Resources",
-							slug: "all"
-						},
-						{
-							title: "Pitch Decks",
-							slug: "pitch-decks"
-						},
-					],
 				},
 				pages: {
 					title: "Pages",
@@ -265,10 +255,10 @@
 				isActive: path.includes("roles"),
 			},
 			{
-				name: "Team Settings",
-				url: "/project/"+ projectId +"/team/settings",
-				icon: UserCog,
-				tooltip: "Team Settings",
+				name: "Project Settings",
+				url: "/project/"+ projectId +"/settings",
+				icon: Settings,
+				tooltip: "Project Settings",
 				isActive: path.includes("settings"),
 			},
 		],
@@ -288,67 +278,55 @@
 	</Sidebar.Header>
 	<Sidebar.Content>
 		<Sidebar.Group>
-			<Sidebar.GroupLabel>Book</Sidebar.GroupLabel>
 				<Sidebar.GroupContent class="space-y-0">
 					<Sidebar.MenuItem>
-					<Sidebar.MenuButton class={data.dashboard.isActive ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""} tooltipContent="Project Dashboard">
-						{#snippet child({ props })}
-						<a href={data.dashboard.url} {...props} >
-							<data.dashboard.icon />
-							<span>{data.dashboard.title}</span>
-						</a>
-						{/snippet}
-					</Sidebar.MenuButton>
-				</Sidebar.MenuItem>
-				<Collapsible.Root open={data.designThinking.isActive} class="group/collapsible">
-					{#snippet child({ props })}
-						{@const item = data.designThinking}
-							<Sidebar.MenuItem {...props}>
-								<Collapsible.Trigger >
-									{#snippet child({ props })}
-										<Sidebar.MenuButton {...props} tooltipContent={item.name}>
-											{#if item.icon}
-												<item.icon />
-											{/if}
-											<span>{item.name}</span>
-											<div class="ml-auto pl-4">
-												<ChevronRightIcon
-													size={16}
-													class="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
-												/>
-											</div>
-										</Sidebar.MenuButton>
-									{/snippet}
-								</Collapsible.Trigger>
-								<Collapsible.Content>
-									{#each item.subMenus as subMenu}
-									<Sidebar.Group>
-										<Sidebar.GroupLabel class="-mt-2 text-xs">{subMenu.name}</Sidebar.GroupLabel>
-										<Sidebar.GroupContent>
-											<Sidebar.Menu class="px-1 gap-0 -mt-2">
-												{#each subMenu.items as item}
-												<SubMenu item={item} projectId={projectId} path={path}/>
-												{/each}
-											</Sidebar.Menu>
-										</Sidebar.GroupContent>
-									</Sidebar.Group>
+						<Sidebar.MenuButton class={data.dashboard.isActive ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""} tooltipContent="Project Dashboard">
+							{#snippet child({ props })}
+							<a href={data.dashboard.url} {...props} >
+								<data.dashboard.icon />
+								<span>{data.dashboard.title}</span>
+							</a>
+							{/snippet}
+						</Sidebar.MenuButton>
+					</Sidebar.MenuItem>
+					<Sidebar.MenuItem class="p-0">
+							{#each data.designThinking.subMenus as subMenu}
+							<Sidebar.Group class="px-0 py-1">
+								<Sidebar.GroupLabel class="-mt-1 text-xs">{subMenu.name}</Sidebar.GroupLabel>
+								<Sidebar.GroupContent>
+									{#each subMenu.items as item}
+										<SubMenu item={item} projectId={projectId} path={path}/>
 									{/each}
-								</Collapsible.Content>
+								</Sidebar.GroupContent>
+							</Sidebar.Group>
+							{/each}
+					</Sidebar.MenuItem>
+					<Sidebar.Group class="px-0">
+						<Sidebar.GroupLabel class="-mt-1 text-xs">Other</Sidebar.GroupLabel>
+						<Sidebar.GroupContent>
+							<Sidebar.MenuItem>
+							<Sidebar.MenuButton class={data.projectSupport.items.calendar.isActive ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""} tooltipContent={data.projectSupport.items.calendar.title}>
+									{#snippet child({ props })}
+									<a href={data.projectSupport.items.calendar.url} {...props}>
+										<data.projectSupport.items.calendar.icon />
+										<span>{data.projectSupport.items.calendar.title}</span>
+									</a>
+									{/snippet}
+								</Sidebar.MenuButton>
 							</Sidebar.MenuItem>
-					{/snippet}
-				</Collapsible.Root>
-				<Sidebar.MenuItem>
-					<Sidebar.MenuButton class={data.projectSupport.items.calendar.isActive ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""} tooltipContent={data.projectSupport.items.calendar.title}>
-						{#snippet child({ props })}
-						<a href={data.projectSupport.items.calendar.url} {...props}>
-							<data.projectSupport.items.calendar.icon />
-							<span>{data.projectSupport.items.calendar.title}</span>
-						</a>
-						{/snippet}
-					</Sidebar.MenuButton>
-				</Sidebar.MenuItem>
-				<SubMenu item={data.projectSupport.items.resources} projectId={projectId} path={path}/>
-				<SubMenu item={data.projectSupport.items.pages} projectId={projectId} path={path}/>
+							<Sidebar.MenuItem>
+								<Sidebar.MenuButton class={data.projectSupport.items.resources.isActive ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""} tooltipContent={data.projectSupport.items.resources.title}>
+									{#snippet child({ props })}
+									<a href={data.projectSupport.items.resources.url} {...props}>
+										<data.projectSupport.items.resources.icon />
+										<span>{data.projectSupport.items.resources.title}</span>
+									</a>
+									{/snippet}
+								</Sidebar.MenuButton>
+							</Sidebar.MenuItem>
+						<SubMenu item={data.projectSupport.items.pages} projectId={projectId} path={path}/>
+						</Sidebar.GroupContent>
+					</Sidebar.Group>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 

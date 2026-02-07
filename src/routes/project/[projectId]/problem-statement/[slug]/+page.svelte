@@ -1,16 +1,18 @@
 <script lang="ts">
+import { onDestroy, onMount } from "svelte";
 	import * as Alert from "$lib/components/ui/alert";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
 	import { Checkbox } from "$lib/components/ui/checkbox";
-	import * as Collapsible from "$lib/components/ui/collapsible";
 	import * as Dialog from "$lib/components/ui/dialog";
 	import { Input } from "$lib/components/ui/input";
 	import { Label } from "$lib/components/ui/label";
+	import * as Select from "$lib/components/ui/select";
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import * as Card from "$lib/components/ui/card";
+	import { ExternalLink } from "@lucide/svelte";
 
 	type ProblemStatus = "Draft" | "Locked" | "Archived";
 
@@ -22,22 +24,54 @@
 		href: string;
 	};
 
+	type SourceOption = {
+		id: string;
+		title: string;
+		phase: "Empathize";
+		href: string;
+	};
+
 	type SourcePainPoint = {
 		id: string;
 		text: string;
 		sourceLabel: string;
 	};
 
-	type OptionalModuleKey =
-		| "why"
-		| "constraints"
-		| "success"
-		| "assumptions"
-		| "notes";
+	type OptionalModuleKey = "why" | "constraints" | "success" | "assumptions";
 
 	const statusOptions: ProblemStatus[] = ["Draft", "Locked", "Archived"];
 
-	const linkedSources: LinkedSource[] = [
+	const storyOptions: SourceOption[] = [
+		{
+			id: "story-1",
+			title: "Streamline the checkout experience",
+			phase: "Empathize",
+			href: "/project/alpha/stories/streamline-checkout",
+		},
+		{
+			id: "story-2",
+			title: "Reduce cart abandonment",
+			phase: "Empathize",
+			href: "/project/alpha/stories/reduce-cart-abandonment",
+		},
+	];
+
+	const journeyOptions: SourceOption[] = [
+		{
+			id: "journey-1",
+			title: "Checkout journey map",
+			phase: "Empathize",
+			href: "/project/alpha/journeys/checkout-journey",
+		},
+		{
+			id: "journey-2",
+			title: "Subscription renewal journey",
+			phase: "Empathize",
+			href: "/project/alpha/journeys/renewal-journey",
+		},
+	];
+
+	let linkedSources = $state<LinkedSource[]>([
 		{
 			id: "story-1",
 			title: "Streamline the checkout experience",
@@ -52,23 +86,23 @@
 			phase: "Empathize",
 			href: "/project/alpha/journeys/checkout-journey",
 		},
-	];
+	]);
 
 	const sourcePainPoints: SourcePainPoint[] = [
 		{
 			id: "pain-1",
 			text: "Users abandon checkout when the form asks for repeated information.",
-			sourceLabel: "User Story · Avery Patel",
+			sourceLabel: "User Story - Avery Patel",
 		},
 		{
 			id: "pain-2",
 			text: "Payment errors leave customers unsure if the order went through.",
-			sourceLabel: "User Journey · Payment stage",
+			sourceLabel: "User Journey - Payment stage",
 		},
 		{
 			id: "pain-3",
 			text: "Shipping options are buried and hard to compare quickly.",
-			sourceLabel: "User Story · Avery Patel",
+			sourceLabel: "User Story - Avery Patel",
 		},
 	];
 
@@ -102,12 +136,6 @@
 			description: "State beliefs that still need validation.",
 			placeholder: "List risky assumptions tied to this problem.",
 		},
-		{
-			key: "notes",
-			title: "Notes",
-			description: "Capture additional context without changing the statement.",
-			placeholder: "Add anything else the team should remember.",
-		},
 	];
 
 	let status = $state<ProblemStatus>("Draft");
@@ -115,34 +143,69 @@
 	let finalStatement = $state("");
 	let orphanAcknowledged = $state(false);
 	let selectedPainPoints = $state<string[]>([]);
-	let isInsightsOpen = $state(true);
 	let addSectionOpen = $state(false);
+	let linkStoryOpen = $state(false);
+	let linkJourneyOpen = $state(false);
+	let archiveOpen = $state(false);
+	let unarchiveOpen = $state(false);
+	let removeSourceOpen = $state(false);
+	let statusConfirmOpen = $state(false);
+	let pendingStatus = $state<ProblemStatus | null>(null);
+	let sourceToRemove = $state<LinkedSource | null>(null);
+	let selectedStoryId = $state("");
+	let selectedJourneyId = $state("");
 	let activeModules = $state<OptionalModuleKey[]>(["why"]);
 	let moduleContent = $state<Record<OptionalModuleKey, string>>({
 		why: "",
 		constraints: "",
 		success: "",
 		assumptions: "",
-		notes: "",
 	});
-	let notesOpen = $state(true);
+	let notesText = $state("");
+type SavePhase = "idle" | "saving" | "saved";
+let savePhase = $state<SavePhase>("idle");
+let savedSignature = $state("");
+let saveReady = $state(false);
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	/**
-	 * Keep the title synced with the statement while in draft mode.
-	 */
-	$effect(() => {
-		if (status !== "Draft") {
-			return;
+	const isDraft = (currentStatus: ProblemStatus) => currentStatus === "Draft";
+
+	const suggestedTitle = $derived(
+		isDraft(status) && !title ? finalStatement : title
+	);
+	const currentSignature = $derived(
+		JSON.stringify({
+			title,
+			finalStatement,
+			orphanAcknowledged,
+			selectedPainPoints,
+			linkedSources: linkedSources.map((source) => ({
+				id: source.id,
+				type: source.type,
+			})),
+			activeModules,
+			moduleContent,
+			notesText,
+		})
+	);
+const isDirty = $derived(saveReady && currentSignature !== savedSignature);
+const saveIndicator = $derived.by(() => {
+	if (savePhase === "saving") {
+		return "saving";
+	}
+
+		if (isDirty) {
+			return "edited";
 		}
 
-		if (!title && finalStatement) {
-			title = finalStatement;
+		if (savePhase === "saved") {
+			return "saved";
 		}
-	});
 
-	/**
-	 * Map status to the appropriate badge variant.
-	 */
+	return "idle";
+});
+
 	const statusVariant = (currentStatus: ProblemStatus) => {
 		if (currentStatus === "Locked") {
 			return "secondary";
@@ -155,9 +218,6 @@
 		return "default";
 	};
 
-	/**
-	 * Toggle a pain point selection for the locked statement requirements.
-	 */
 	const togglePainPoint = (id: string) => {
 		if (selectedPainPoints.includes(id)) {
 			selectedPainPoints = selectedPainPoints.filter((pointId) => pointId !== id);
@@ -167,9 +227,6 @@
 		selectedPainPoints = [...selectedPainPoints, id];
 	};
 
-	/**
-	 * Check if the lock criteria are satisfied before allowing confirmation.
-	 */
 	const canLock = () => {
 		const hasSources = linkedSources.length > 0;
 		const hasPainPoints = selectedPainPoints.length > 0;
@@ -179,101 +236,388 @@
 		return hasPainPoints && hasStatement && hasOrphanApproval;
 	};
 
-	/**
-	 * Mark the problem statement as locked after confirmation.
-	 */
 	const confirmLock = () => {
 		status = "Locked";
 	};
 
-	/**
-	 * Add an optional module to the page.
-	 */
+	const requestStatusChange = (nextStatus: ProblemStatus) => {
+		pendingStatus = nextStatus;
+		statusConfirmOpen = true;
+	};
+
+	const confirmStatusChange = () => {
+		if (!pendingStatus) {
+			return;
+		}
+
+		if (pendingStatus === "Locked" && !canLock()) {
+			return;
+		}
+
+		status = pendingStatus;
+		pendingStatus = null;
+		statusConfirmOpen = false;
+	};
+
 	const addModule = (moduleKey: OptionalModuleKey) => {
 		if (!activeModules.includes(moduleKey)) {
 			activeModules = [...activeModules, moduleKey];
 		}
 	};
+
+	const removeModule = (moduleKey: OptionalModuleKey) => {
+		if (activeModules.includes(moduleKey)) {
+			activeModules = activeModules.filter((key) => key !== moduleKey);
+		}
+	};
+
+	const requestRemoveSource = (source: LinkedSource) => {
+		sourceToRemove = source;
+		removeSourceOpen = true;
+	};
+
+	const confirmRemoveSource = () => {
+		if (!sourceToRemove) {
+			return;
+		}else{
+			linkedSources = linkedSources.filter((source) => source.id !== sourceToRemove?.id);
+			sourceToRemove = null;
+			removeSourceOpen = false;
+		}
+	};
+
+	const linkStory = () => {
+		const selected = storyOptions.find((story) => story.id === selectedStoryId);
+		if (!selected) {
+			return;
+		}
+
+		if (!linkedSources.some((source) => source.id === selected.id)) {
+			linkedSources = [
+				...linkedSources,
+				{ ...selected, type: "User Story" },
+			];
+		}
+
+		selectedStoryId = "";
+		linkStoryOpen = false;
+	};
+
+	const linkJourney = () => {
+		const selected = journeyOptions.find((journey) => journey.id === selectedJourneyId);
+		if (!selected) {
+			return;
+		}
+
+		if (!linkedSources.some((source) => source.id === selected.id)) {
+			linkedSources = [
+				...linkedSources,
+				{ ...selected, type: "User Journey" },
+			];
+		}
+
+		selectedJourneyId = "";
+		linkJourneyOpen = false;
+	};
+
+	const triggerSave = () => {
+		if (savePhase === "saving" || !isDirty) {
+			return;
+		}
+
+		if (saveTimer) {
+			clearTimeout(saveTimer);
+		}
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+
+		savePhase = "saving";
+		saveTimer = setTimeout(() => {
+			savedSignature = currentSignature;
+			savePhase = "saved";
+			savedBadgeTimer = setTimeout(() => {
+				if (!isDirty) {
+					savePhase = "idle";
+				}
+			}, 1400);
+		}, 900);
+	};
+
+onDestroy(() => {
+	if (saveTimer) {
+		clearTimeout(saveTimer);
+	}
+
+	if (savedBadgeTimer) {
+		clearTimeout(savedBadgeTimer);
+	}
+});
+
+onMount(() => {
+	savedSignature = currentSignature;
+	saveReady = true;
+});
 </script>
 
-<div class="flex flex-col gap-6 rounded-lg bg-background p-4">
+<div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
 	<header
-		class="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-5"
+		class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div class="flex items-center gap-2">
-				<Sidebar.Trigger class="-ms-1" />
-				<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
-				<div>
-					<div class="text-xs uppercase tracking-wide text-muted-foreground">
-						Problem Statement · Define
-					</div>
-					<h1 class="text-2xl font-semibold">{title || "Untitled problem"}</h1>
-				</div>
-			</div>
-			<div class="flex flex-wrap items-center gap-2">
-				<Badge variant={statusVariant(status)}>{status}</Badge>
-				{#if linkedSources.length === 0}
-					<Badge variant="destructive">Orphan</Badge>
-				{/if}
-				<Button variant="outline" size="sm">Archive</Button>
-				<Button variant="ghost" size="sm">Change history</Button>
-			</div>
-		</div>
-		<div class="grid gap-2">
-			<Label for="problem-title">Problem Statement Title</Label>
-			<Input
-				id="problem-title"
-				placeholder="Auto-generated from the final problem statement"
-				bind:value={title}
-				disabled={status !== "Draft"}
-			/>
+		<div class="flex items-center gap-2 px-4">
+			<Sidebar.Trigger class="-ms-1" />
+			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
+			<Breadcrumb.Root>
+				<Breadcrumb.List>
+					<Breadcrumb.Item class="hidden md:block">
+						<Breadcrumb.Link href="../problem-statement">Problem Statements</Breadcrumb.Link>
+					</Breadcrumb.Item>
+					<Breadcrumb.Separator class="hidden md:block" />
+					<Breadcrumb.Item>
+						<Breadcrumb.Page>{suggestedTitle || "New Problem Statement"}</Breadcrumb.Page>
+					</Breadcrumb.Item>
+				</Breadcrumb.List>
+			</Breadcrumb.Root>
 		</div>
 	</header>
 
-	<section class="flex flex-col gap-4">
-		<div class="flex items-center justify-between">
-			<h2 class="text-lg font-semibold">Linked Sources</h2>
-			<div class="flex gap-2">
-				<Button variant="outline" size="sm">+ Link User Story</Button>
-				<Button variant="ghost" size="sm">+ Link User Journey</Button>
+	<div class="flex flex-col md:px-20 gap-4 py-2">
+		<div class="flex mt-2 flex-col bg-white rounded-lg gap-2 p-2">
+			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
+				Problem Statement - Define
+			</div>
+			<Input
+				type="text"
+				value={suggestedTitle}
+				class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3"
+				placeholder="Problem Statement Title"
+				disabled={!isDraft(status)}
+				oninput={(event) => {
+					title = event.currentTarget.value;
+				}}
+			/>
+			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
+				<div class="flex flex-wrap items-center gap-2">
+					<Badge variant={statusVariant(status)}>{status}</Badge>
+					{#if linkedSources.length === 0}
+						<Badge variant="destructive">Orphan</Badge>
+					{/if}
+					{#if status === "Archived"}
+						<Dialog.Root bind:open={unarchiveOpen}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+								Unarchive
+							</Dialog.Trigger>
+							<Dialog.Content>
+								<Dialog.Header>
+									<Dialog.Title>Unarchive this problem statement?</Dialog.Title>
+									<Dialog.Description>
+										This will make the problem statement editable again.
+									</Dialog.Description>
+								</Dialog.Header>
+								<Dialog.Footer>
+									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+										Cancel
+									</Dialog.Close>
+									<Dialog.Close
+										class={buttonVariants()}
+										onclick={() => {
+											status = "Draft";
+										}}
+									>
+										Unarchive
+									</Dialog.Close>
+								</Dialog.Footer>
+							</Dialog.Content>
+						</Dialog.Root>
+					{:else}
+						<Dialog.Root bind:open={archiveOpen}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+								Archive
+							</Dialog.Trigger>
+							<Dialog.Content>
+								<Dialog.Header>
+									<Dialog.Title>Archive this problem statement?</Dialog.Title>
+									<Dialog.Description>
+										Archived problems are read-only and kept for history.
+									</Dialog.Description>
+								</Dialog.Header>
+								<Dialog.Footer>
+									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+										Cancel
+									</Dialog.Close>
+									<Dialog.Close
+										class={buttonVariants()}
+										onclick={() => {
+											status = "Archived";
+										}}
+									>
+										Archive
+									</Dialog.Close>
+								</Dialog.Footer>
+							</Dialog.Content>
+						</Dialog.Root>
+					{/if}
+					<Button variant="ghost" size="sm">Change history</Button>
+				</div>
+				<div class="flex items-center gap-3">
+					<div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
+						{#if saveIndicator === "edited"}
+							<span class="text-amber-600">Edited</span>
+						{:else if saveIndicator === "saving"}
+							<span class="text-blue-600">Saving...</span>
+						{:else if saveIndicator === "saved"}
+							<span class="text-emerald-600">Saved</span>
+						{/if}
+					</div>
+					<Button
+						size="sm"
+						onclick={triggerSave}
+						disabled={savePhase === "saving" || !isDirty}
+					>
+						{savePhase === "saving" ? "Saving..." : "Save changes"}
+					</Button>
+				</div>
 			</div>
 		</div>
-		{#if linkedSources.length === 0}
-			<Alert.Root variant="destructive">
-				<Alert.Title>Orphan problem statement</Alert.Title>
-				<Alert.Description>
-					This problem is not connected to any empathy artifact.
-				</Alert.Description>
-			</Alert.Root>
-		{/if}
-		<div class="grid gap-3 md:grid-cols-2">
-			{#each linkedSources as source}
-				<Card.Root class="border border-border">
-					<Card.Header class="gap-2">
-						<Card.Title class="text-base">{source.title}</Card.Title>
-						<div class="flex items-center gap-2 text-xs text-muted-foreground">
-							<Badge variant="secondary">{source.phase}</Badge>
-							<span>{source.type}</span>
-						</div>
-					</Card.Header>
-					<Card.Content>
-						<Button variant="link" href={source.href}>View source</Button>
-					</Card.Content>
-				</Card.Root>
-			{/each}
-		</div>
-	</section>
 
-	<section class="flex flex-col gap-4">
-		<h2 class="text-lg font-semibold">Source Insights</h2>
-		<Collapsible.Root bind:open={isInsightsOpen} class="rounded-lg border border-border">
-			<Collapsible.Trigger class="flex w-full items-center justify-between px-4 py-3 text-sm font-medium">
-				<span>Reference only</span>
-				<span class="text-xs text-muted-foreground">{isInsightsOpen ? "Hide" : "Show"}</span>
-			</Collapsible.Trigger>
-			<Collapsible.Content class="border-t border-border px-4 py-4 text-sm text-muted-foreground">
-				<div class="grid gap-4 md:grid-cols-2">
+		<Separator class="mt-2 px-2"></Separator>
+
+		<div class="py-2 w-full flex flex-col gap-4">
+			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Linked Sources</span>
+					<Separator></Separator>
+					<div class="flex gap-2">
+						<Dialog.Root bind:open={linkStoryOpen}>
+							<Dialog.Trigger class={buttonVariants({ size: "sm" })}>
+								+ Link User Story
+							</Dialog.Trigger>
+							<Dialog.Content>
+								<Dialog.Header>
+									<Dialog.Title>Link a user story</Dialog.Title>
+									<Dialog.Description>
+										Choose a user story to connect to this problem statement.
+									</Dialog.Description>
+								</Dialog.Header>
+								<div class="grid gap-2">
+									<Label for="link-story">User Story</Label>
+									<Select.Root type="single" bind:value={selectedStoryId}>
+										<Select.Trigger id="link-story">
+											{selectedStoryId
+												? storyOptions.find((story) => story.id === selectedStoryId)?.title
+												: "Select a story"}
+										</Select.Trigger>
+										<Select.Content>
+											{#each storyOptions as story (story.id)}
+												<Select.Item value={story.id} label={story.title}>
+													{story.title}
+												</Select.Item>
+											{/each}
+										</Select.Content>
+									</Select.Root>
+								</div>
+								<Dialog.Footer>
+									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+										Cancel
+									</Dialog.Close>
+									<Button class={buttonVariants()} onclick={linkStory} disabled={!selectedStoryId}>
+										Link story
+									</Button>
+								</Dialog.Footer>
+							</Dialog.Content>
+						</Dialog.Root>
+						<Dialog.Root bind:open={linkJourneyOpen}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+								+ Link User Journey
+							</Dialog.Trigger>
+							<Dialog.Content>
+								<Dialog.Header>
+									<Dialog.Title>Link a user journey</Dialog.Title>
+									<Dialog.Description>
+										Choose a user journey to connect to this problem statement.
+									</Dialog.Description>
+								</Dialog.Header>
+								<div class="grid gap-2">
+									<Label for="link-journey">User Journey</Label>
+									<Select.Root type="single" bind:value={selectedJourneyId}>
+										<Select.Trigger id="link-journey">
+											{selectedJourneyId
+												? journeyOptions.find((journey) => journey.id === selectedJourneyId)?.title
+												: "Select a journey"}
+										</Select.Trigger>
+										<Select.Content>
+											{#each journeyOptions as journey (journey.id)}
+												<Select.Item value={journey.id} label={journey.title}>
+													{journey.title}
+												</Select.Item>
+											{/each}
+										</Select.Content>
+									</Select.Root>
+								</div>
+								<Dialog.Footer>
+									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+										Cancel
+									</Dialog.Close>
+									<Button class={buttonVariants()} onclick={linkJourney} disabled={!selectedJourneyId}>
+										Link journey
+									</Button>
+								</Dialog.Footer>
+							</Dialog.Content>
+						</Dialog.Root>
+					</div>
+				</div>
+				{#if linkedSources.length === 0}
+					<Alert.Root variant="destructive">
+						<Alert.Title>Orphan problem statement</Alert.Title>
+						<Alert.Description>
+							This problem is not connected to any empathy artifact.
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
+				<div class="grid gap-3">
+					{#each linkedSources as source (source.id)}
+						<div class="flex flex-col gap-3 rounded-lg border border-border p-4">
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex flex-col gap-1">
+									<span class="text-sm font-medium text-foreground">{source.title}</span>
+									<span class="text-xs text-muted-foreground">{source.type}</span>
+								</div>
+								<div class="flex items-center gap-2">
+									<Button
+										variant="ghost"
+										size="sm"
+										class="h-8 w-8 p-0"
+										href={source.href}
+										aria-label={`Open ${source.type.toLowerCase()}`}
+									>
+										<ExternalLink class="h-4 w-4" />
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										class="h-7 px-2 text-destructive hover:text-destructive"
+										onclick={() => requestRemoveSource(source)}
+									>
+										Remove
+									</Button>
+								</div>
+							</div>
+							<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+								<Badge variant="secondary">{source.phase}</Badge>
+								<span>{source.type}</span>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Source Insights</span>
+					<Separator></Separator>
+				</div>
+				<div class="grid gap-4 md:grid-cols-2 text-sm text-muted-foreground">
 					<div>
 						<div class="text-xs font-semibold uppercase text-muted-foreground">Persona</div>
 						<div class="mt-2 text-sm text-foreground">Avery Patel</div>
@@ -303,68 +647,69 @@
 						</ul>
 					</div>
 				</div>
-			</Collapsible.Content>
-		</Collapsible.Root>
-	</section>
+			</section>
 
-	<section class="flex flex-col gap-4">
-		<h2 class="text-lg font-semibold">Source Pain Points</h2>
-		<div class="grid gap-3">
-			{#each sourcePainPoints as painPoint}
-				<Card.Root class="border border-border">
-					<Card.Content class="flex items-start gap-3 py-4">
-						<Checkbox
-							checked={selectedPainPoints.includes(painPoint.id)}
-							onclick={() => togglePainPoint(painPoint.id)}
-						/>
-						<div class="flex flex-col gap-1">
-							<div class="text-sm font-medium text-foreground">{painPoint.text}</div>
-							<div class="text-xs text-muted-foreground">{painPoint.sourceLabel}</div>
+			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Source Pain Points</span>
+					<Separator></Separator>
+				</div>
+				<div class="grid gap-3">
+					{#each sourcePainPoints as painPoint (painPoint.id)}
+						<div class="flex items-start gap-3 rounded-lg border border-border px-4 py-3">
+							<Checkbox
+								checked={selectedPainPoints.includes(painPoint.id)}
+								onclick={() => togglePainPoint(painPoint.id)}
+								disabled={!isDraft(status)}
+							/>
+							<div class="flex flex-col gap-1">
+								<div class="text-sm font-medium text-foreground">{painPoint.text}</div>
+								<div class="text-xs text-muted-foreground">{painPoint.sourceLabel}</div>
+							</div>
 						</div>
-					</Card.Content>
-				</Card.Root>
-			{/each}
-		</div>
-	</section>
-
-	<section class="flex flex-col gap-3">
-		<h2 class="text-lg font-semibold">Final Problem Statement</h2>
-		<div class="rounded-lg border border-primary/40 bg-primary/5 p-4">
-			<Label for="final-problem" class="text-sm font-medium">
-				Final Problem Statement
-			</Label>
-			<Textarea
-				id="final-problem"
-				placeholder="[User] needs a way to [need] because [insight]."
-				bind:value={finalStatement}
-				disabled={status !== "Draft"}
-				class="mt-2 min-h-28"
-			/>
-		</div>
-	</section>
-
-	<section class="flex flex-col gap-4">
-		<h2 class="text-lg font-semibold">Status &amp; Locking</h2>
-		<Card.Root>
-			<Card.Content class="flex flex-col gap-4 py-4">
-				<div class="flex flex-wrap items-center gap-2">
-					{#each statusOptions as option}
-						<Button
-							variant={status === option ? "default" : "outline"}
-							onclick={() => {
-								status = option;
-							}}
-							disabled={status === "Locked" && option === "Draft"}
-						>
-							{option}
-						</Button>
 					{/each}
 				</div>
-				<Separator />
-				<div class="flex flex-col gap-2">
-					<div class="text-sm text-muted-foreground">
-						Locking freezes the statement and references. Unlocking is not supported.
+			</section>
+
+			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Final Problem Statement</span>
+					<Separator></Separator>
+				</div>
+				<Textarea
+					id="final-problem"
+					placeholder="[User] needs a way to [need] because [insight]."
+					bind:value={finalStatement}
+					disabled={!isDraft(status)}
+					class="min-h-28 text-base md:text-lg font-medium"
+				/>
+			</section>
+
+			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Status &amp; Locking</span>
+					<Separator></Separator>
+				</div>
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<div class="flex items-center gap-2 text-sm text-muted-foreground">
+						Current status
+						<Badge variant={statusVariant(status)}>{status}</Badge>
 					</div>
+					<div class="flex items-center gap-2">
+						{#each statusOptions as option (option)}
+							<Button
+								variant={status === option ? "default" : "outline"}
+								onclick={() => requestStatusChange(option)}
+								disabled={status === "Locked" && option === "Draft"}
+							>
+								{option}
+							</Button>
+						{/each}
+					</div>
+				</div>
+				<Separator />
+				<div class="flex flex-col gap-2 text-sm text-muted-foreground">
+					<span>Locking freezes the statement and references. Unlocking is not supported.</span>
 					{#if linkedSources.length === 0}
 						<div class="flex items-center gap-2">
 							<Checkbox bind:checked={orphanAcknowledged} />
@@ -374,14 +719,17 @@
 						</div>
 					{/if}
 					<Dialog.Root>
-					<Dialog.Trigger class={buttonVariants()} disabled={status !== "Draft"}>
-						Lock Problem Statement
-					</Dialog.Trigger>
+						<Dialog.Trigger
+							class={buttonVariants()}
+							disabled={!isDraft(status)}
+						>
+							Lock Problem Statement
+						</Dialog.Trigger>
 						<Dialog.Content>
 							<Dialog.Header>
 								<Dialog.Title>Lock this problem statement?</Dialog.Title>
 								<Dialog.Description>
-									Locking will freeze the definition. Ideas can now be created from it.
+									Locking will freeze the definition. This cannot be undone.
 								</Dialog.Description>
 							</Dialog.Header>
 							<div class="grid gap-2 text-sm">
@@ -391,104 +739,178 @@
 									</span>
 								</div>
 								<div class="flex items-center gap-2">
-									<span class={selectedPainPoints.length > 0 ? "text-foreground" : "text-muted-foreground"}>
+									<span
+										class={
+											selectedPainPoints.length > 0
+												? "text-foreground"
+												: "text-muted-foreground"
+										}
+									>
 										Selected pain points
 									</span>
 								</div>
 								<div class="flex items-center gap-2">
-									<span class={finalStatement.trim() ? "text-foreground" : "text-muted-foreground"}>
+									<span
+										class={finalStatement.trim() ? "text-foreground" : "text-muted-foreground"}
+									>
 										Final problem statement
 									</span>
 								</div>
 							</div>
-						<Dialog.Footer>
-							<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-								Cancel
-							</Dialog.Close>
-							<Dialog.Close
-								class={buttonVariants()}
-								disabled={!canLock()}
-								onclick={confirmLock}
-							>
-								Confirm Lock
-							</Dialog.Close>
-						</Dialog.Footer>
+							<Dialog.Footer>
+								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+									Cancel
+								</Dialog.Close>
+								<Dialog.Close
+									class={buttonVariants()}
+									disabled={!canLock()}
+									onclick={confirmLock}
+								>
+									Confirm Lock
+								</Dialog.Close>
+							</Dialog.Footer>
+						</Dialog.Content>
+					</Dialog.Root>
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Add Section</span>
+					<Separator></Separator>
+				</div>
+				<Dialog.Root bind:open={addSectionOpen}>
+					<Dialog.Trigger class={buttonVariants({ variant: "outline" })}>
+						+ Add Section
+					</Dialog.Trigger>
+					<Dialog.Content>
+						<Dialog.Header>
+							<Dialog.Title>Add optional module</Dialog.Title>
+							<Dialog.Description>
+								Choose extra context to capture without changing the main statement.
+							</Dialog.Description>
+						</Dialog.Header>
+						<div class="grid gap-3">
+							{#each optionalModules as module (module.key)}
+								<div class="border border-border rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+									<div>
+										<div class="text-sm font-medium">{module.title}</div>
+										<div class="text-xs text-muted-foreground">
+											{module.description}
+										</div>
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										onclick={() => addModule(module.key)}
+										disabled={activeModules.includes(module.key)}
+									>
+										{activeModules.includes(module.key) ? "Added" : "Add"}
+									</Button>
+								</div>
+							{/each}
+						</div>
 					</Dialog.Content>
 				</Dialog.Root>
-			</div>
-			</Card.Content>
-		</Card.Root>
-	</section>
+			</section>
 
-	<section class="flex flex-col gap-4">
-		<h2 class="text-lg font-semibold">Add Section</h2>
-		<Dialog.Root bind:open={addSectionOpen}>
-			<Dialog.Trigger class={buttonVariants({ variant: "outline" })}>
-				+ Add Section
-			</Dialog.Trigger>
-			<Dialog.Content>
-				<Dialog.Header>
-					<Dialog.Title>Add optional module</Dialog.Title>
-					<Dialog.Description>
-						Choose extra context to capture without changing the main statement.
-					</Dialog.Description>
-				</Dialog.Header>
-				<div class="grid gap-3">
-					{#each optionalModules as module}
-						<Card.Root class="border border-border">
-							<Card.Content class="flex items-start justify-between gap-4 py-4">
-								<div>
-									<div class="text-sm font-medium">{module.title}</div>
-									<div class="text-xs text-muted-foreground">{module.description}</div>
+			{#if activeModules.length > 0}
+				<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+					<div class="flex flex-row gap-2 items-center w-full">
+						<span class="font-medium text-nowrap">Optional Modules</span>
+						<Separator></Separator>
+					</div>
+					<div class="grid gap-3">
+						{#each optionalModules as module (module.key)}
+							{#if activeModules.includes(module.key)}
+								<div class="flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
+									<div class="flex items-start justify-between gap-3">
+										<div class="flex flex-col gap-1">
+											<span class="text-sm font-medium">{module.title}</span>
+											<span class="text-xs text-muted-foreground">
+												{module.description}
+											</span>
+										</div>
+										<Button
+											variant="ghost"
+											size="sm"
+											class="h-7 px-2 text-destructive hover:text-destructive"
+											onclick={() => removeModule(module.key)}
+										>
+											Remove
+										</Button>
+									</div>
+									<Textarea
+										placeholder={module.placeholder}
+										bind:value={moduleContent[module.key]}
+									/>
 								</div>
-								<Button
-									variant="outline"
-									size="sm"
-									onclick={() => addModule(module.key)}
-									disabled={activeModules.includes(module.key)}
-								>
-									{activeModules.includes(module.key) ? "Added" : "Add"}
-								</Button>
-							</Card.Content>
-						</Card.Root>
-					{/each}
+							{/if}
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Additional Notes</span>
+					<Separator></Separator>
 				</div>
-			</Dialog.Content>
-		</Dialog.Root>
-	</section>
-
-	<section class="flex flex-col gap-4">
-		<h2 class="text-lg font-semibold">Optional Modules</h2>
-		<div class="grid gap-4">
-			{#each optionalModules as module}
-				{#if activeModules.includes(module.key) && module.key !== "notes"}
-					<Collapsible.Root class="rounded-lg border border-border">
-						<Collapsible.Trigger class="flex w-full items-center justify-between px-4 py-3 text-sm font-medium">
-							<span>{module.title}</span>
-							<span class="text-xs text-muted-foreground">Toggle</span>
-						</Collapsible.Trigger>
-						<Collapsible.Content class="border-t border-border px-4 py-4">
-							<Textarea
-								placeholder={module.placeholder}
-								bind:value={moduleContent[module.key]}
-							/>
-						</Collapsible.Content>
-					</Collapsible.Root>
-				{/if}
-			{/each}
+				<Textarea
+					placeholder="Additional notes"
+					bind:value={notesText}
+				/>
+			</section>
 		</div>
-	</section>
-
-	<section class="flex flex-col gap-4">
-		<h2 class="text-lg font-semibold">Notes</h2>
-		<Collapsible.Root bind:open={notesOpen} class="rounded-lg border border-border">
-			<Collapsible.Trigger class="flex w-full items-center justify-between px-4 py-3 text-sm font-medium">
-				<span>Notes</span>
-				<span class="text-xs text-muted-foreground">{notesOpen ? "Hide" : "Show"}</span>
-			</Collapsible.Trigger>
-			<Collapsible.Content class="border-t border-border px-4 py-4">
-				<Textarea placeholder="Additional notes" bind:value={moduleContent.notes} />
-			</Collapsible.Content>
-		</Collapsible.Root>
-	</section>
+	</div>
 </div>
+
+<Dialog.Root bind:open={removeSourceOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Remove linked source?</Dialog.Title>
+			<Dialog.Description>
+				This will detach the source from the problem statement.
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+				Cancel
+			</Dialog.Close>
+			<Dialog.Close class={buttonVariants()} onclick={confirmRemoveSource}>
+				Remove
+			</Dialog.Close>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={statusConfirmOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Confirm status change</Dialog.Title>
+			<Dialog.Description>
+				{#if pendingStatus === "Locked"}
+					Locking makes this problem statement read-only and cannot be undone.
+				{:else if pendingStatus === "Archived"}
+					Archiving hides this problem statement from active work. You can unarchive later.
+				{:else if pendingStatus === "Draft"}
+					Moving back to Draft will reopen the statement for edits.
+				{:else}
+					Confirm the status change.
+				{/if}
+			</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+				Cancel
+			</Dialog.Close>
+			<Dialog.Close
+				class={buttonVariants()}
+				disabled={pendingStatus === "Locked" && !canLock()}
+				onclick={confirmStatusChange}
+			>
+				Confirm
+			</Dialog.Close>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

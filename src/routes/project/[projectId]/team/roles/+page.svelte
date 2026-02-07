@@ -6,9 +6,11 @@
 	import * as Select from "$lib/components/ui/select";
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { Switch } from "$lib/components/ui/switch";
 	import { Toaster } from "$lib/components/ui/sonner";
 	import * as Table from "$lib/components/ui/table";
 	import { MemberRole } from "$lib/constants/member-roles";
+	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
 
 	type Member = {
@@ -20,6 +22,14 @@
 	};
 
 	const roleOptions = Object.values(MemberRole);
+	const permissions = [
+		{ id: "create", label: "Create artifacts" },
+		{ id: "edit", label: "Edit artifacts" },
+		{ id: "lock", label: "Lock artifacts" },
+		{ id: "archive", label: "Archive artifacts" },
+		{ id: "manage_members", label: "Manage members" },
+		{ id: "edit_settings", label: "Edit project settings" }
+	] as const;
 
 	let members = $state<Member[]>([
 		{
@@ -52,13 +62,66 @@
 		}
 	]);
 
+	let permissionsSaving = $state(false);
+	let permissionsSavePhase = $state<"idle" | "saving" | "saved">("idle");
+	let permissionsSavedSignature = $state("");
+	let permissionsSaveTimer: ReturnType<typeof setTimeout> | null = null;
+	let permissionsSavedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+	let permissionMatrix = $state<Record<(typeof permissions)[number]["id"], Record<MemberRole, boolean>>>({
+		create: {
+			[MemberRole.Owner]: true,
+			[MemberRole.Admin]: true,
+			[MemberRole.Editor]: true,
+			[MemberRole.Viewer]: false
+		},
+		edit: {
+			[MemberRole.Owner]: true,
+			[MemberRole.Admin]: true,
+			[MemberRole.Editor]: true,
+			[MemberRole.Viewer]: false
+		},
+		lock: {
+			[MemberRole.Owner]: true,
+			[MemberRole.Admin]: true,
+			[MemberRole.Editor]: false,
+			[MemberRole.Viewer]: false
+		},
+		archive: {
+			[MemberRole.Owner]: true,
+			[MemberRole.Admin]: false,
+			[MemberRole.Editor]: false,
+			[MemberRole.Viewer]: false
+		},
+		manage_members: {
+			[MemberRole.Owner]: true,
+			[MemberRole.Admin]: true,
+			[MemberRole.Editor]: false,
+			[MemberRole.Viewer]: false
+		},
+		edit_settings: {
+			[MemberRole.Owner]: true,
+			[MemberRole.Admin]: true,
+			[MemberRole.Editor]: false,
+			[MemberRole.Viewer]: false
+		}
+	});
+
+	const permissionsSignature = $derived(JSON.stringify(permissionMatrix));
+	const permissionsDirty = $derived(permissionsSignature !== permissionsSavedSignature);
+	const permissionsIndicator = $derived.by(() => {
+		if (permissionsSavePhase === "saving") return "saving";
+		if (permissionsDirty) return "edited";
+		if (permissionsSavePhase === "saved") return "saved";
+		return "idle";
+	});
+
 	/**
 	 * Persist a role update for a member and surface a toast confirmation.
 	 */
 	const saveRoleChange = (member: Member) => {
 		toast.success(`Role updated for ${member.name}.`);
 		member.updatedAt = "Just now";
-		members = members;
+		members = [...members];
 	};
 
 	/**
@@ -71,6 +134,28 @@
 
 		return "default";
 	};
+
+	const savePermissions = () => {
+		if (permissionsSaving) return;
+		if (!permissionsDirty) return;
+		permissionsSaving = true;
+		permissionsSavePhase = "saving";
+		if (permissionsSaveTimer) clearTimeout(permissionsSaveTimer);
+		if (permissionsSavedBadgeTimer) clearTimeout(permissionsSavedBadgeTimer);
+		setTimeout(() => {
+			permissionsSaving = false;
+			permissionsSavedSignature = permissionsSignature;
+			permissionsSavePhase = "saved";
+			toast.success("Role permissions saved.");
+			permissionsSavedBadgeTimer = setTimeout(() => {
+				if (!permissionsDirty) permissionsSavePhase = "idle";
+			}, 1400);
+		}, 900);
+	};
+
+	onMount(() => {
+		permissionsSavedSignature = permissionsSignature;
+	});
 </script>
 
 <div class="flex flex-col gap-4 rounded-lg bg-background p-4">
@@ -97,6 +182,53 @@
 
 	<Card.Root>
 		<Card.Header>
+			<Card.Title>Roles permissions</Card.Title>
+			<Card.Description>
+				Configure what each role can do across the project workspace.
+			</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>Permission</Table.Head>
+						{#each roleOptions as role (role)}
+							<Table.Head class="text-center">{role}</Table.Head>
+						{/each}
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each permissions as permission (permission.id)}
+						<Table.Row>
+							<Table.Cell class="font-medium">{permission.label}</Table.Cell>
+							{#each roleOptions as role (role)}
+								<Table.Cell class="text-center">
+									<Switch bind:checked={permissionMatrix[permission.id][role]} />
+								</Table.Cell>
+							{/each}
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+			<div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+				<div class="text-xs text-muted-foreground min-h-4">
+					{#if permissionsIndicator === "edited"}
+						<span class="text-amber-600">Edited</span>
+					{:else if permissionsIndicator === "saving"}
+						<span class="text-blue-600">Saving...</span>
+					{:else if permissionsIndicator === "saved"}
+						<span class="text-emerald-600">Saved</span>
+					{/if}
+				</div>
+				<Button on:click={savePermissions} disabled={permissionsSaving || !permissionsDirty}>
+					{permissionsSaving ? "Saving..." : "Save permissions"}
+				</Button>
+			</div>
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header>
 			<Card.Title>Member roles</Card.Title>
 			<Card.Description>
 				Review access levels, update roles, and track the latest changes.
@@ -116,7 +248,7 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each members as member}
+					{#each members as member (member.email)}
 						<Table.Row>
 							<Table.Cell class="font-medium">{member.name}</Table.Cell>
 							<Table.Cell>{member.email}</Table.Cell>
@@ -131,7 +263,7 @@
 										{member.role}
 									</Select.Trigger>
 									<Select.Content>
-										{#each roleOptions as role}
+										{#each roleOptions as role (role)}
 											<Select.Item value={role} label={role}>
 												{role}
 											</Select.Item>
@@ -141,7 +273,7 @@
 							</Table.Cell>
 							<Table.Cell>{member.updatedAt}</Table.Cell>
 							<Table.Cell class="text-right">
-								<Button variant="outline" onclick={() => saveRoleChange(member)}>
+								<Button variant="outline" on:click={() => saveRoleChange(member)}>
 									Save
 								</Button>
 							</Table.Cell>
