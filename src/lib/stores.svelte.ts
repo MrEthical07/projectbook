@@ -69,7 +69,7 @@ const initialProjects: Project[] = [
                 id: "mem-3",
                 name: "Jordan Lee",
                 email: "jordan@league.dev",
-                role: "Member",
+                role: "Editor",
                 status: "Invited",
                 joinedAt: "2026-02-06",
             },
@@ -87,6 +87,14 @@ const initialProjects: Project[] = [
             feedbackAdded: true,
             resourceUpdated: true,
             deliveryChannel: "In-app",
+        },
+        permissions: {
+            create: { Owner: true, Admin: true, Editor: true, Viewer: false },
+            edit: { Owner: true, Admin: true, Editor: true, Viewer: false },
+            lock: { Owner: true, Admin: true, Editor: false, Viewer: false },
+            archive: { Owner: true, Admin: false, Editor: false, Viewer: false },
+            manage_members: { Owner: true, Admin: true, Editor: false, Viewer: false },
+            edit_settings: { Owner: true, Admin: true, Editor: false, Viewer: false }
         }
     },
     {
@@ -309,7 +317,7 @@ const initialInvites: Invite[] = [
         inviterName: "Maya Singh",
         inviterRole: "Owner",
         inviterEmail: "maya@league.dev",
-        assignedRole: "Member",
+        assignedRole: "Editor",
         sentAt: "Feb 3, 2026",
         expiresAt: "Feb 10, 2026",
     },

@@ -18,7 +18,7 @@
     import { store } from "$lib/stores.svelte";
     import type { Project, ProjectRole, MemberStatus } from "$lib/types";
 
-    const projectId = $derived(page.params.projectId);
+    const projectId = $derived(page.params.projectId ?? "");
     const project = $derived(store.projects.find(p => p.id === projectId));
 
 	type Role = ProjectRole;

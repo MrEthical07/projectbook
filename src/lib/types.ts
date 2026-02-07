@@ -88,13 +88,13 @@ export type Invite = {
     inviterName: string;
     inviterRole: "Owner" | "Admin";
     inviterEmail?: string;
-    assignedRole: "Member" | "Viewer";
+    assignedRole: "Editor" | "Viewer";
     sentAt: string;
     expiresAt?: string;
     expired?: boolean;
 };
 
-export type ProjectRole = "Owner" | "Admin" | "Member" | "Viewer";
+export type ProjectRole = "Owner" | "Admin" | "Editor" | "Viewer";
 export type MemberStatus = "Active" | "Invited";
 
 export type Member = {
@@ -126,6 +126,7 @@ export type Project = {
         resourceUpdated: boolean;
         deliveryChannel: "In-app" | "Email";
     };
+    permissions?: Record<string, Record<ProjectRole, boolean>>;
 };
 
 export type UserSession = {

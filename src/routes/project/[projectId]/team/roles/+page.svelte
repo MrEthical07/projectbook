@@ -43,44 +43,51 @@
 	let permissionsSavedSignature = $state("");
 	let permissionsSaveTimer: ReturnType<typeof setTimeout> | null = null;
 	let permissionsSavedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
-	let permissionMatrix = $state<Record<(typeof permissions)[number]["id"], Record<MemberRole, boolean>>>({
-		create: {
-			[MemberRole.Owner]: true,
-			[MemberRole.Admin]: true,
-			[MemberRole.Editor]: true,
-			[MemberRole.Viewer]: false
-		},
-		edit: {
-			[MemberRole.Owner]: true,
-			[MemberRole.Admin]: true,
-			[MemberRole.Editor]: true,
-			[MemberRole.Viewer]: false
-		},
-		lock: {
-			[MemberRole.Owner]: true,
-			[MemberRole.Admin]: true,
-			[MemberRole.Editor]: false,
-			[MemberRole.Viewer]: false
-		},
-		archive: {
-			[MemberRole.Owner]: true,
-			[MemberRole.Admin]: false,
-			[MemberRole.Editor]: false,
-			[MemberRole.Viewer]: false
-		},
-		manage_members: {
-			[MemberRole.Owner]: true,
-			[MemberRole.Admin]: true,
-			[MemberRole.Editor]: false,
-			[MemberRole.Viewer]: false
-		},
-		edit_settings: {
-			[MemberRole.Owner]: true,
-			[MemberRole.Admin]: true,
-			[MemberRole.Editor]: false,
-			[MemberRole.Viewer]: false
-		}
+
+    // Load from store if available, else default
+    let permissionMatrix = $state<Record<(typeof permissions)[number]["id"], Record<MemberRole, boolean>>>({
+        // Default fallbacks
+		create: { Owner: true, Admin: true, Editor: true, Viewer: false },
+		edit: { Owner: true, Admin: true, Editor: true, Viewer: false },
+		lock: { Owner: true, Admin: true, Editor: false, Viewer: false },
+		archive: { Owner: true, Admin: false, Editor: false, Viewer: false },
+		manage_members: { Owner: true, Admin: true, Editor: false, Viewer: false },
+		edit_settings: { Owner: true, Admin: true, Editor: false, Viewer: false }
 	});
+
+    $effect(() => {
+        if (project && project.permissions) {
+            // Need to map store keys (if strings) to MemberRole enum if they match
+            // Store uses keys "Owner", "Admin", etc. which match MemberRole values.
+            // However, store permissions is `Record<string, Record<ProjectRole, boolean>>`.
+            // We need to cast carefully.
+            // For now, assuming direct mapping.
+            // Ideally we would do a deep merge or check.
+            // Since we want to respect store state over local default on load:
+            // But we also want to allow local edits.
+            // Simple sync: if we haven't edited yet (signature matches saved), update.
+            // Or just update on project change.
+
+            // To simplify: if project loads and we are in "clean" state, load.
+            // But permissionsSavedSignature is set on mount.
+
+            // Let's just overwrite local state if project loads, assuming mostly single user.
+            // But we need to handle the type mismatch if `permissionMatrix` keys are strictly typed.
+            // The store has dynamic keys (string), local has specific union keys.
+            // We'll trust the store has the right keys for now or fallback.
+
+            // Note: Store might not have all keys if schema evolves.
+
+            const storePerms = project.permissions as any;
+            let newMatrix = { ...permissionMatrix };
+            for (const key of permissions) {
+                if (storePerms[key.id]) {
+                    newMatrix[key.id] = { ...storePerms[key.id] };
+                }
+            }
+            permissionMatrix = newMatrix;
+        }
+    });
 
 	const permissionsSignature = $derived(JSON.stringify(permissionMatrix));
 	const permissionsDirty = $derived(permissionsSignature !== permissionsSavedSignature);
@@ -120,6 +127,11 @@
 		permissionsSavePhase = "saving";
 		if (permissionsSaveTimer) clearTimeout(permissionsSaveTimer);
 		if (permissionsSavedBadgeTimer) clearTimeout(permissionsSavedBadgeTimer);
+
+        if (project) {
+            store.updateProject(project.id, { permissions: permissionMatrix as any });
+        }
+
 		setTimeout(() => {
 			permissionsSaving = false;
 			permissionsSavedSignature = permissionsSignature;
