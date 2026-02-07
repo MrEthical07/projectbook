@@ -12,6 +12,9 @@
 	import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table";
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { ExternalLink } from "@lucide/svelte";
+	import { page } from "$app/state";
+
+	const projectId = page.params.projectId;
 
 	type ResourceStatus = "Active" | "Archived";
 	type LinkedArtifactType = "User Story" | "Problem Statement" | "Idea" | "Task";
@@ -202,7 +205,7 @@
 			<Breadcrumb.Root>
 				<Breadcrumb.List>
 					<Breadcrumb.Item class="hidden md:block">
-						<Breadcrumb.Link href="../../resources">Resources</Breadcrumb.Link>
+						<Breadcrumb.Link href="/project/{projectId}/resources">Resources</Breadcrumb.Link>
 					</Breadcrumb.Item>
 					<Breadcrumb.Separator class="hidden md:block" />
 					<Breadcrumb.Item>

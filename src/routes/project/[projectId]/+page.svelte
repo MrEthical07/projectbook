@@ -244,7 +244,7 @@
 			phase: "Empathize",
 			description: "updated",
 			target: "User Story: Interview synthesis",
-			targetHref: `./stories/story-interview-synthesis`,
+			targetHref: `/stories/story-interview-synthesis`,
 			createdAt: addHoursIso(-2),
 		},
 		{
@@ -253,7 +253,7 @@
 			phase: "Define",
 			description: "edited",
 			target: "Problem Statement: Deadline clarity",
-			targetHref: `./problem-statement/deadline-clarity`,
+			targetHref: `/problem-statement/deadline-clarity`,
 			createdAt: addHoursIso(-5),
 		},
 		{
@@ -262,7 +262,7 @@
 			phase: "Ideate",
 			description: "selected",
 			target: "Idea: Smart reminder bundles",
-			targetHref: `./ideas/smart-reminder-bundles`,
+			targetHref: `/ideas/smart-reminder-bundles`,
 			createdAt: addHoursIso(-9),
 		},
 		{
@@ -271,7 +271,7 @@
 			phase: "Prototype",
 			description: "completed",
 			target: "Task: Clickable path prototype",
-			targetHref: `./tasks/prototype-click-path`,
+			targetHref: `/tasks/prototype-click-path`,
 			createdAt: addHoursIso(-16),
 		},
 		{
@@ -280,7 +280,7 @@
 			phase: "Test",
 			description: "commented on",
 			target: "Feedback: First test cycle",
-			targetHref: `./feedback/first-test-cycle`,
+			targetHref: `/feedback/first-test-cycle`,
 			createdAt: addHoursIso(-22),
 		},
 	]);
@@ -406,7 +406,7 @@
 				key: "overdue",
 				title: `${overdueTasks} overdue task${overdueTasks === 1 ? "" : "s"}`,
 				detail: "Past due date and still open.",
-				href: `./tasks?status=In+Progress&overdue=true`,
+				href: `/tasks?status=In+Progress&overdue=true`,
 				tone: "border-red-300 bg-red-50 text-red-800",
 			});
 		}
@@ -415,7 +415,7 @@
 				key: "blocked",
 				title: `${blockedTasks} blocked task${blockedTasks === 1 ? "" : "s"}`,
 				detail: "Waiting on dependency or review.",
-				href: `./tasks?blocked=true`,
+				href: `/tasks?blocked=true`,
 				tone: "border-amber-300 bg-amber-50 text-amber-800",
 			});
 		}
@@ -424,7 +424,7 @@
 				key: "orphan",
 				title: `${orphanTasks} orphan artifact${orphanTasks === 1 ? "" : "s"}`,
 				detail: "Missing owner or upstream linkage.",
-				href: `./tasks?orphan=true`,
+				href: `/tasks?orphan=true`,
 				tone: "border-red-300 bg-red-50 text-red-800",
 			});
 		}
@@ -436,31 +436,31 @@
 			label: "Total Tasks",
 			value: totalTasks,
 			tone: "text-slate-900",
-			href: `./tasks`,
+			href: `/tasks`,
 		},
 		{
 			label: "Overall Completion",
 			value: `${overallCompletion}%`,
 			tone: "text-emerald-700",
-			href: `./tasks?status=Completed`,
+			href: `/tasks?status=Completed`,
 		},
 		{
 			label: "Tasks Overdue",
 			value: overdueTasks,
 			tone: "text-red-700",
-			href: `./tasks?overdue=true`,
+			href: `/tasks?overdue=true`,
 		},
 		{
 			label: "Tasks Blocked",
 			value: blockedTasks,
 			tone: "text-amber-700",
-			href: `./tasks?blocked=true`,
+			href: `/tasks?blocked=true`,
 		},
 		{
 			label: "Orphan Items",
 			value: orphanTasks,
 			tone: "text-red-700",
-			href: `./tasks?orphan=true`,
+			href: `/tasks?orphan=true`,
 		},
 	]);
 </script>
@@ -517,7 +517,7 @@
 										<Alert.Title>{item.title}</Alert.Title>
 										<Alert.Description class="flex items-center justify-between gap-2">
 											<span>{item.detail}</span>
-											<a href={item.href} class="inline-flex items-center gap-1 text-xs font-medium hover:underline">
+											<a href={"/project/" + projectId + item.href} class="inline-flex items-center gap-1 text-xs font-medium hover:underline">
 												Open
 												<ArrowUpRight class="h-3.5 w-3.5" />
 											</a>
@@ -531,7 +531,7 @@
 					<section class="space-y-4 rounded-lg bg-white p-4">
 						<div class="flex flex-wrap items-center justify-between gap-2">
 							<h2 class="text-sm font-medium">Global Overview</h2>
-							<a href="./tasks" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline">
+							<a href="/project/{projectId}/tasks" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline">
 								Open tasks index
 								<ArrowUpRight class="h-3.5 w-3.5" />
 							</a>
@@ -553,7 +553,7 @@
 								<Tooltip.Root>
 									<Tooltip.Trigger>
 										<a
-											href={`./tasks?phase=${encodeURIComponent(row.phase)}`}
+											href={`/project/${projectId}/tasks?phase=${encodeURIComponent(row.phase)}`}
 											class="flex flex-col items-center rounded-md border p-2 transition-colors hover:bg-muted/40"
 										>
 											<div class="flex h-24 w-full items-end rounded-md border bg-muted/30 p-1">
@@ -589,7 +589,7 @@
 							{#each phaseSummary as row (row.phase)}
 								<div class="rounded-md border p-3">
 									<div class="mb-2 flex items-center justify-between gap-2">
-										<a href={`./tasks?phase=${encodeURIComponent(row.phase)}`} class="text-sm font-medium hover:underline">
+										<a href={`/project/${projectId}/tasks?phase=${encodeURIComponent(row.phase)}`} class="text-sm font-medium hover:underline">
 											{row.phase}
 										</a>
 										<div class="text-xs text-muted-foreground">
@@ -641,7 +641,7 @@
 									<ul class="space-y-2">
 										{#each myUrgent as task (task.id)}
 											<li class="rounded-md border p-2">
-												<a href={`./tasks/${task.id}`} class="text-sm font-medium hover:underline">{task.title}</a>
+												<a href={`/project/${projectId}/tasks/${task.id}`} class="text-sm font-medium hover:underline">{task.title}</a>
 												<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 													<Badge.Badge class={phaseClass(task.phase)}>{task.phase}</Badge.Badge>
 													<Badge.Badge class={statusClass(task.status)}>{task.status}</Badge.Badge>
@@ -664,7 +664,7 @@
 									<ul class="space-y-2">
 										{#each myToday as task (task.id)}
 											<li class="rounded-md border p-2">
-												<a href={`./tasks/${task.id}`} class="text-sm font-medium hover:underline">{task.title}</a>
+												<a href={`/project/${projectId}/tasks/${task.id}`} class="text-sm font-medium hover:underline">{task.title}</a>
 											</li>
 										{/each}
 									</ul>
@@ -682,7 +682,7 @@
 									<ul class="space-y-2">
 										{#each myUpcoming as task (task.id)}
 											<li class="rounded-md border p-2">
-												<a href={`./tasks/${task.id}`} class="text-sm font-medium hover:underline">{task.title}</a>
+												<a href={`/project/${projectId}/tasks/${task.id}`} class="text-sm font-medium hover:underline">{task.title}</a>
 												<div class="mt-1 text-xs text-muted-foreground">Due {task.dueDate}</div>
 											</li>
 										{/each}
@@ -695,7 +695,7 @@
 					<section class="space-y-3 rounded-lg bg-white p-4">
 						<div class="flex items-center justify-between">
 							<h2 class="text-sm font-medium">Upcoming Events</h2>
-							<a href="./calendar" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline">
+							<a href="/project/{projectId}/calendar" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline">
 								Open calendar
 								<ArrowUpRight class="h-3.5 w-3.5" />
 							</a>
@@ -710,7 +710,7 @@
 									<li class="rounded-md border p-3">
 										<div class="flex items-start justify-between gap-2">
 											<div class="min-w-0">
-												<a href={`./calendar/${event.id}`} class="truncate text-sm font-medium hover:underline">
+												<a href={`/project/${projectId}/calendar/${event.id}`} class="truncate text-sm font-medium hover:underline">
 													{event.title}
 												</a>
 												<div class="mt-1 text-xs text-muted-foreground">{formatDateTime(event.startAt)}</div>

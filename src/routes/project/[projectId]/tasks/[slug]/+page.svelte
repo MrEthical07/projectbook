@@ -13,6 +13,9 @@
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { DateFormatter, getLocalTimeZone, today, type CalendarDate } from "@internationalized/date";
 	import { Calendar as CalendarIcon, ExternalLink, GripVertical, Plus } from "@lucide/svelte";
+	import { page } from "$app/state";
+
+	const projectId = page.params.projectId;
 
 	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
 	type OptionalModuleKey = "plan" | "execution";
@@ -236,11 +239,11 @@
 			<Breadcrumb.Root>
 				<Breadcrumb.List>
 					<Breadcrumb.Item class="hidden md:block">
-						<Breadcrumb.Link href="../../prototype">Prototype</Breadcrumb.Link>
+						<Breadcrumb.Link href="/project/{projectId}/tasks">Prototype</Breadcrumb.Link>
 					</Breadcrumb.Item>
 					<Breadcrumb.Separator class="hidden md:block" />
 					<Breadcrumb.Item class="hidden md:block">
-						<Breadcrumb.Link href="../tasks">Taskboard</Breadcrumb.Link>
+						<Breadcrumb.Link href="/project/{projectId}/tasks">Taskboard</Breadcrumb.Link>
 					</Breadcrumb.Item>
 					<Breadcrumb.Separator class="hidden md:block" />
 					<Breadcrumb.Item>
