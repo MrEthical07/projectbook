@@ -23,13 +23,6 @@ The application relies heavily on component-local state using `$state` initializ
 
 **File Path:** `src/routes/project/[projectId]/+page.svelte`
 
-**Bug Location:** Link Construction in Template
-
-**Issue Description:**
-- **Double Slashes:** The construction `href={"/project/" + projectId + item.href}` results in double slashes (e.g., `/project/123//tasks...`) because `item.href` typically starts with `/`.
-- **Relative Links:** Stat cards use `href={card.href}` where `card.href` is like `/tasks`. This resolves relative to the current URL, potentially leading to incorrect paths depending on the current route depth, or if intended to be root-relative, it misses the project context.
-- **Recent Activity Targets:** `item.targetHref` is used directly. If these paths are intended to be within the project context, they are missing the `/project/[projectId]` prefix.
-
 **Bug Location:** Date Handling
 
 **Issue Description:**
@@ -92,11 +85,6 @@ The application relies heavily on component-local state using `$state` initializ
 
 **File Path:** `src/routes/project/[projectId]/calendar/+page.svelte`
 
-**Bug Location:** Imports
-
-**Issue Description:**
-- **`SvelteDate`:** The code imports `SvelteDate` from `svelte/reactivity`. This export does not exist in standard Svelte 5. This will likely cause a runtime error. It should use standard `Date` or a wrapped reactive date object.
-
 **Bug Location:** `createEvent`
 
 **Issue Description:**
@@ -106,10 +94,9 @@ The application relies heavily on component-local state using `$state` initializ
 **Bug Location:** `goPrevMonth` / `goNextMonth`
 
 **Issue Description:**
-- **Mutation:** The navigation logic modifies `currentMonth` string by creating a date object, modifying it, and converting back to string. If `SvelteDate` is just `Date`, this works logic-wise but relies on the non-existent import.
+- **Mutation:** The navigation logic modifies `currentMonth` string by creating a date object, modifying it, and converting back to string.
 
 **Possible Solution:**
-- Remove `SvelteDate` import and use standard `Date` with `DateFormatter` or `@internationalized/date`.
 - Add validation for time ranges.
 
 ---
