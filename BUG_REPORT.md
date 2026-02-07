@@ -219,3 +219,63 @@ The application relies heavily on component-local state using `$state` initializ
 - Use a more robust routing/matching logic (e.g., SvelteKit's `page.route.id`).
 
 ---
+
+## 11. Settings (`src/routes/project/[projectId]/settings/+page.svelte`)
+
+**File Path:** `src/routes/project/[projectId]/settings/+page.svelte`
+
+**Bug Location:** Actions
+
+**Issue Description:**
+- **No-op Actions:** "Archive Project" and "Delete Project" buttons update local state or do nothing (`onclick={() => {}}`). The "Delete" confirmation validates user input but triggers no backend logic.
+- **Hardcoded Members:** The members list is hardcoded and not derived from any actual project member store.
+- **Switches:** Feature toggles (e.g., "Enable whiteboards") only update local state and reset on refresh.
+
+**Possible Solution:**
+- Connect to project store/backend.
+
+---
+
+## 12. My Account (`src/routes/my-account/+page.svelte`)
+
+**File Path:** `src/routes/my-account/+page.svelte`
+
+**Bug Location:** Actions
+
+**Issue Description:**
+- **No-op Actions:** "Log out" buttons on individual sessions and "Log out of all sessions" are purely cosmetic.
+- **Password/Photo:** "Change Password" and "Upload Photo" dialogs are functional UI-wise but perform no validation or data submission.
+- **Delete Account:** Similar to project settings, the delete account confirmation logic exists but the final action is empty.
+
+**Possible Solution:**
+- Implement actual authentication state management.
+
+---
+
+## 13. Root Page (`src/routes/+page.svelte`)
+
+**File Path:** `src/routes/+page.svelte`
+
+**Bug Location:** Sidebar Context
+
+**Issue Description:**
+- **Missing Provider:** This page uses `<Sidebar.Trigger />` but is not wrapped in a `<Sidebar.Provider />` (unlike the project layout). This will likely cause a runtime error or a non-functional sidebar trigger when visiting the root path `/`.
+
+**Possible Solution:**
+- Wrap the root layout or page in a `Sidebar.Provider` or ensure the `Trigger` is only rendered when the context is available.
+
+---
+
+## 14. Logout (`src/routes/logout/+page.svelte`)
+
+**File Path:** `src/routes/logout/+page.svelte`
+
+**Bug Location:** Logic
+
+**Issue Description:**
+- **Static Page:** The page displays "Logout Successful" but contains no logic to actually clear session tokens, cookies, or local storage. It is purely a visual placeholder.
+
+**Possible Solution:**
+- Add an `onMount` or server-side load function to perform the actual logout logic.
+
+---
