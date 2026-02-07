@@ -7,11 +7,12 @@
     import * as Dialog from "$lib/components/ui/dialog";
     import { Input } from "$lib/components/ui/input";
     import { Label } from "$lib/components/ui/label";
-    import { Button } from "$lib/components/ui/button";
+    import { Button, buttonVariants } from "$lib/components/ui/button";
 	import { PlusIcon, EllipsisIcon, Pen, Trash } from "@lucide/svelte";
   	import type { Component } from "svelte";
     import { store } from "$lib/stores.svelte";
     import type { ArtifactKind } from "$lib/types";
+  import { Trigger } from "../ui/accordion";
 
 	const sidebar = useSidebar();
 	let {
@@ -48,6 +49,7 @@
         "ideas": "idea",
         "whiteboard": "whiteboard",
         "feedback": "feedback",
+		"tasks": "tasks",
         "pages": "page"
     };
 
@@ -72,7 +74,6 @@
         const title = newItemTitle.trim();
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
         const id = crypto.randomUUID();
-
         store.addArtifact({
             id,
             projectId,
@@ -119,7 +120,7 @@
 						<Collapsible.Content class="pr-0">
 							<Sidebar.MenuSub class="px-1.5 mr-0 pr-0">
 								<Sidebar.MenuSubItem class="w-full mr-0 pr-0">
-									<Sidebar.MenuSubButton class={path === activePrefix ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""}>
+									<Sidebar.MenuSubButton class={path.endsWith(activePrefix) ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""}>
 										{#snippet child({ props })}
 											<a href="/project/{projectId}/{activePrefix}"  {...props}>
 												<span class="pr-6">All</span>
@@ -128,7 +129,7 @@
 									</Sidebar.MenuSubButton>
 								</Sidebar.MenuSubItem>
 								{#each item.items ?? [] as subItem (subItem.id ?? subItem.slug)}
-									<Sidebar.MenuSubItem class="w-full mr-0 pr-0">
+									<Sidebar.MenuSubItem class={path.endsWith(activePrefix +'/'+ subItem.slug) ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""}>
 										<Sidebar.MenuSubButton class={path.endsWith(activePrefix +'/'+ subItem.slug) ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""}>
 											{#snippet child({ props })}
 												<a href="/project/{projectId}/{activePrefix}/{subItem.slug}"  {...props}>
@@ -165,16 +166,27 @@
 									</Sidebar.MenuSubItem>
 								{/each}
                                 {#if getKind(activePrefix)}
-								<Sidebar.MenuSubItem>
-									<Sidebar.MenuSubButton onclick={openAddDialog}>
-										{#snippet child({ props })}
-											<div class="flex flex-row items-center gap-2 ml-1 px-2 py-1 border justify-center rounded hover:bg-accent"> 
-												<PlusIcon class="size-4" />
-												<div class=" text-xs">Add New Page</div>
+									<Dialog.Root bind:open={dialogOpen}>
+										<Dialog.Trigger class="flex flex-row items-center gap-2 ml-1 px-2 py-1 border justify-center rounded hover:bg-accent">
+											<PlusIcon class="size-4" />
+											<div class=" text-xs">Add New Page</div>
+										</Dialog.Trigger>
+										<Dialog.Content>
+											<Dialog.Header>
+												<Dialog.Title>Add New {getKind(activePrefix) ?? "Item"}</Dialog.Title>
+											</Dialog.Header>
+											<div class="grid gap-4 py-4">
+												<div class="grid gap-2">
+													<Label for="name">Name</Label>
+													<Input id="name" bind:value={newItemTitle} placeholder="Enter name..." />
+												</div>
 											</div>
-										{/snippet}
-									</Sidebar.MenuSubButton>
-								</Sidebar.MenuSubItem>
+											<Dialog.Footer>
+												<Button variant="outline" onclick={() => dialogOpen = false}>Cancel</Button>
+												<Button onclick={saveNewItem} disabled={!newItemTitle.trim()}>Create</Button>
+											</Dialog.Footer>
+										</Dialog.Content>
+									</Dialog.Root>
                                 {/if}
 							</Sidebar.MenuSub>
 						</Collapsible.Content>
@@ -183,20 +195,3 @@
 			</Collapsible.Root>
 	</Sidebar.Menu>
 
-    <Dialog.Root bind:open={dialogOpen}>
-        <Dialog.Content>
-            <Dialog.Header>
-                <Dialog.Title>Add New {getKind(activePrefix) ?? "Item"}</Dialog.Title>
-            </Dialog.Header>
-            <div class="grid gap-4 py-4">
-                <div class="grid gap-2">
-                    <Label for="name">Name</Label>
-                    <Input id="name" bind:value={newItemTitle} placeholder="Enter name..." />
-                </div>
-            </div>
-            <Dialog.Footer>
-                <Button variant="outline" onclick={() => dialogOpen = false}>Cancel</Button>
-                <Button onclick={saveNewItem} disabled={!newItemTitle.trim()}>Create</Button>
-            </Dialog.Footer>
-        </Dialog.Content>
-    </Dialog.Root>

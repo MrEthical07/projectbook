@@ -51,7 +51,7 @@ export type CalendarEvent = {
     lastEdited?: string;
 };
 
-export type ArtifactKind = "story" | "journey" | "problem" | "idea" | "whiteboard" | "feedback" | "page";
+export type ArtifactKind = "story" | "journey" | "problem" | "idea" | "whiteboard" | "feedback" | "page" | "tasks";
 
 export type Artifact = {
     id: string;

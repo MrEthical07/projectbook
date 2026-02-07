@@ -128,22 +128,7 @@
 							icon: ClipboardList,
 							prefix: "tasks",
 							isActive: isActive("tasks"),
-							items: [
-								// Tasks are a bit different, they have a main board + list of tasks
-								// For now, let's keep the mock structure or list tasks?
-								// The original code had "My Tasks", "Urgent Tasks".
-								// These seem like filters.
-								// For now, let's just keep generic "Task Board" link or specific views if needed.
-								// Since tasks are managed in a specific route, maybe we don't list individual tasks here unless they are distinct boards.
-								// The bug report doesn't explicitly ask for dynamic task lists in sidebar, but generic persistence.
-								// I'll keep the static links for "My Tasks" and "Urgent" as filters for now,
-								// or I can just link to the main board.
-								// Let's link to the main board.
-								{
-									title: "All Tasks",
-									slug: "" // Empty slug goes to /tasks/
-								}
-							]
+							items: getArtifacts("tasks")
 						}
 					]
 				},
