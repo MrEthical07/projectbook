@@ -412,11 +412,11 @@ function createStore() {
         addTask(task: TaskRow) {
             state.tasks = [task, ...state.tasks];
         },
-        updateTask(id: string, updates: Partial<TaskRow>) {
-            state.tasks = state.tasks.map(t => t.id === id ? { ...t, ...updates } : t);
+        updateTask(projectId: string, id: string, updates: Partial<TaskRow>) {
+            state.tasks = state.tasks.map(t => (t.id === id && t.projectId === projectId) ? { ...t, ...updates } : t);
         },
-        deleteTask(id: string) {
-            state.tasks = state.tasks.filter(t => t.id !== id);
+        deleteTask(projectId: string, id: string) {
+            state.tasks = state.tasks.filter(t => !(t.id === id && t.projectId === projectId));
         },
 
         // Event Actions

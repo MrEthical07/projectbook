@@ -21,7 +21,7 @@
     const taskId = $derived(page.params.slug);
 
     // Derived task from store
-    const task = $derived(store.tasks.find(t => t.id === taskId));
+    const task = $derived(store.tasks.find(t => t.id === taskId && t.projectId === projectId));
 
     // Fallback if task not found (should handle 404 in real app)
     const currentTask = $derived(task ?? {
@@ -110,8 +110,8 @@
 
     // Helpers to update store
     const update = (updates: Partial<TaskRow>) => {
-        if (task) {
-            store.updateTask(task.id, updates);
+        if (task && projectId) {
+            store.updateTask(projectId, task.id, updates);
         }
     };
 
@@ -172,12 +172,36 @@
     let planItems = $state<KeyedItem[]>([]);
 
     // Sync store -> local
+    // Use an effect that tracks the task ID to force a re-sync when navigating
     $effect(() => {
-        // If length differs or we suspect desync, reload.
-        // Simple check: if local is empty and store has items.
-        // Or strictly strictly sync: map store items to keyed items, reusing keys if possible?
-        // For this assignment, simplified: just recreate if length changes significantly or on init
-        if (planItems.length === 0 && (currentTask.planItems?.length ?? 0) > 0) {
+        // Track ID to trigger re-run
+        const _ = currentTask.id;
+
+        // Re-initialize plan items from store whenever task ID changes or if empty
+        // We use untracked for the actual sync to avoid loops if we wrote back, but here we just read.
+        // However, we want to respect local edits if we are on the same task.
+        // But if ID changes, we MUST reset.
+        // The simplest way in Svelte 5 is often just keying the component, but here we are inside the component.
+        // We can check if the current local items belong to this task? No, local state is ephemeral.
+        // Let's just re-map whenever currentTask.planItems changes, but we need to preserve IDs if possible or just regeneration is fine for nav.
+
+        // Actually, we should only reset if the task changed.
+        // We can compare planItems content with currentTask.planItems content? No, that causes loops.
+
+        // Better pattern: use a key or derived.
+        // But planItems is mutable ($state).
+
+        // Let's rely on a tracking variable for the last loaded ID.
+    });
+
+    let lastLoadedTaskId = $state("");
+
+    $effect(() => {
+        if (currentTask.id !== lastLoadedTaskId) {
+            planItems = (currentTask.planItems || [""]).map(text => ({ id: crypto.randomUUID(), text }));
+            lastLoadedTaskId = currentTask.id;
+        } else if (planItems.length === 0 && (currentTask.planItems?.length ?? 0) > 0) {
+             // Initial load fallback
              planItems = (currentTask.planItems || [""]).map(text => ({ id: crypto.randomUUID(), text }));
         }
     });

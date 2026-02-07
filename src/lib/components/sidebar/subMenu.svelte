@@ -4,6 +4,10 @@
 	import { useSidebar } from "$lib/components/ui/sidebar/context.svelte.js";
 	import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+    import * as Dialog from "$lib/components/ui/dialog";
+    import { Input } from "$lib/components/ui/input";
+    import { Label } from "$lib/components/ui/label";
+    import { Button } from "$lib/components/ui/button";
 	import { PlusIcon, EllipsisIcon, Pen, Trash } from "@lucide/svelte";
   	import type { Component } from "svelte";
     import { store } from "$lib/stores.svelte";
@@ -49,15 +53,23 @@
 
     const getKind = (p: string): ArtifactKind | undefined => kindMap[p];
 
-	const add = () => {
-        const kind = getKind(activePrefix);
-        if (!kind) {
-            console.warn("Unknown prefix kind:", activePrefix);
-            return;
-        }
-        const title = prompt(`Enter name for new ${kind}:`);
-        if (!title) return;
+    let dialogOpen = $state(false);
+    let newItemTitle = $state("");
 
+    // For rename (simplified dialog reuse or prompt? Let's use separate state if dialog logic expands, but prompt is fine for rename as per original scope request just said "dialog for adding")
+    // Re-reading request: "in the submenu, implement the dialog for actually adding the articfact."
+    // It implies specifically for "add". I will stick to prompt for rename/delete for now unless asked, to minimize complexity shift.
+
+	const openAddDialog = () => {
+        newItemTitle = "";
+		dialogOpen = true;
+	}
+
+    const saveNewItem = () => {
+        const kind = getKind(activePrefix);
+        if (!kind || !newItemTitle.trim()) return;
+
+        const title = newItemTitle.trim();
         const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
         const id = crypto.randomUUID();
 
@@ -69,7 +81,9 @@
             slug,
             createdAt: new Date().toISOString().split('T')[0]
         });
-	}
+
+        dialogOpen = false;
+    };
 
     const rename = (id: string, currentTitle: string) => {
         const newTitle = prompt("Rename to:", currentTitle);
@@ -152,7 +166,7 @@
 								{/each}
                                 {#if getKind(activePrefix)}
 								<Sidebar.MenuSubItem>
-									<Sidebar.MenuSubButton onclick={add}>
+									<Sidebar.MenuSubButton onclick={openAddDialog}>
 										{#snippet child({ props })}
 											<div class="flex flex-row items-center gap-2 ml-1 px-2 py-1 border justify-center rounded hover:bg-accent"> 
 												<PlusIcon class="size-4" />
@@ -168,3 +182,21 @@
 				{/snippet}
 			</Collapsible.Root>
 	</Sidebar.Menu>
+
+    <Dialog.Root bind:open={dialogOpen}>
+        <Dialog.Content>
+            <Dialog.Header>
+                <Dialog.Title>Add New {getKind(activePrefix) ?? "Item"}</Dialog.Title>
+            </Dialog.Header>
+            <div class="grid gap-4 py-4">
+                <div class="grid gap-2">
+                    <Label for="name">Name</Label>
+                    <Input id="name" bind:value={newItemTitle} placeholder="Enter name..." />
+                </div>
+            </div>
+            <Dialog.Footer>
+                <Button variant="outline" onclick={() => dialogOpen = false}>Cancel</Button>
+                <Button onclick={saveNewItem} disabled={!newItemTitle.trim()}>Create</Button>
+            </Dialog.Footer>
+        </Dialog.Content>
+    </Dialog.Root>

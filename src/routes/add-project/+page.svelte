@@ -82,7 +82,10 @@
 		projectName = trimmed;
 		projectDescription = projectDescription.trim();
 
-        const id = normalizeName(trimmed).replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, "");
+        let id = normalizeName(trimmed).replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, "");
+        if (!id) {
+            id = `proj-${crypto.randomUUID().slice(0,8)}`;
+        }
         createdProjectId = id;
 
         const newProject: Project = {

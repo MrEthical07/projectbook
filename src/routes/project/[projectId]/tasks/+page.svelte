@@ -94,7 +94,7 @@
 
 	const onDrop = (targetStatus: TaskStatus) => {
 		if (!draggingTaskId) return;
-        store.updateTask(draggingTaskId, { status: targetStatus });
+        store.updateTask(projectId, draggingTaskId, { status: targetStatus });
 		draggingTaskId = "";
 	};
 
