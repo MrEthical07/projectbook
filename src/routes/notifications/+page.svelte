@@ -10,65 +10,15 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Tooltip from "$lib/components/ui/tooltip";
 	import { ExternalLink, Inbox, MailOpen, Trash2 } from "@lucide/svelte";
+    import { store } from "$lib/stores.svelte";
+    import type { Notification, NotificationSourceType } from "$lib/types";
 
-	type SourceType = "Project Activity" | "Project Invitation" | "System Notification";
 	type ReadState = "Unread" | "Read";
 
-	type Notification = {
-		id: string;
-		title: string;
-		description: string;
-		project?: string;
-		sourceType: SourceType;
-		read: boolean;
-		timestamp: string;
-		inviter?: string;
-		role?: string;
-		dismissed?: boolean;
-	};
-
-	let notifications = $state<Notification[]>([
-		{
-			id: "n-1",
-			title: "Task assigned",
-			description: "You were assigned to “Prototype onboarding flow”.",
-			project: "Atlas Research",
-			sourceType: "Project Activity",
-			read: false,
-			timestamp: "2m ago",
-		},
-		{
-			id: "n-2",
-			title: "Invitation to project",
-			description: "Join “Northwind revamp” as a Contributor.",
-			project: "Northwind revamp",
-			sourceType: "Project Invitation",
-			read: false,
-			timestamp: "1h ago",
-			inviter: "Maya Singh",
-			role: "Member",
-		},
-		{
-			id: "n-3",
-			title: "Problem statement locked",
-			description: "“Checkout anxiety in students” is now locked.",
-			project: "Atlas Research",
-			sourceType: "Project Activity",
-			read: true,
-			timestamp: "Yesterday",
-		},
-		{
-			id: "n-4",
-			title: "Security notice",
-			description: "New login detected on MacBook Pro · Chrome.",
-			sourceType: "System Notification",
-			read: false,
-			timestamp: "2 days ago",
-		},
-	]);
+    const notifications = $derived(store.notifications);
 
 	let filterRead = $state<"All" | ReadState>("All");
-	let filterSource = $state<"All" | SourceType>("All");
+	let filterSource = $state<"All" | NotificationSourceType>("All");
 	let filterProject = $state<string>("All Projects");
 	let sortOrder = $state<"Newest first" | "Oldest first">("Newest first");
 
@@ -109,15 +59,11 @@
 	});
 
 	const markAllRead = () => {
-		notifications = notifications.map((item) =>
-			item.dismissed ? item : { ...item, read: true }
-		);
+        store.markAllNotificationsRead();
 	};
 
 	const markAsRead = (id: string) => {
-		notifications = notifications.map((item) =>
-			item.id === id ? { ...item, read: true } : item
-		);
+        store.markNotificationRead(id);
 	};
 
 	const openDismissDialog = (notification: Notification) => {
@@ -127,9 +73,7 @@
 
 	const dismissNotification = () => {
 		if (!dismissTarget) return;
-		notifications = notifications.map((item) =>
-			item.id === dismissTarget!.id ? { ...item, dismissed: true } : item
-		);
+        store.dismissNotification(dismissTarget.id);
 		dismissOpen = false;
 		dismissTarget = null;
 	};

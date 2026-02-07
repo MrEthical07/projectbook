@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { goto } from "$app/navigation";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -13,25 +14,21 @@
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { onMount } from "svelte";
 	import { LogOut, Shield, Trash2, UserCircle2 } from "@lucide/svelte";
+    import { store } from "$lib/stores.svelte";
+    import type { User, UserSettings } from "$lib/types";
 
 	type ThemeMode = "Light" | "Dark" | "System";
 	type Density = "Comfortable" | "Compact";
 	type Landing = "Last Project" | "Project Selector";
 	type TimeFormat = "12-hour" | "24-hour";
 
-	type Session = {
-		id: string;
-		device: string;
-		location: string;
-		lastActive: string;
-		current: boolean;
-	};
+    const user = $derived(store.user);
 
-	let displayName = $state("Avery Patel");
-	let handle = $state("avery");
-	let email = $state("avery@league.dev");
+	let displayName = $state("");
+	let handle = $state("");
+	let email = $state("");
 	let accountStatus = $state("Active");
-	let bio = $state("Product design lead exploring new workflow systems.");
+	let bio = $state("");
 
 	let theme = $state<ThemeMode>("System");
 	let density = $state<Density>("Comfortable");
@@ -41,29 +38,27 @@
 	let inAppNotifications = $state(true);
 	let emailNotifications = $state(true);
 
-	let sessions = $state<Session[]>([
-		{
-			id: "sess-1",
-			device: "MacBook Pro · Chrome",
-			location: "San Francisco, CA",
-			lastActive: "Active now",
-			current: true,
-		},
-		{
-			id: "sess-2",
-			device: "iPhone 15 · Safari",
-			location: "San Francisco, CA",
-			lastActive: "2 hours ago",
-			current: false,
-		},
-		{
-			id: "sess-3",
-			device: "Windows PC · Edge",
-			location: "Austin, TX",
-			lastActive: "2 days ago",
-			current: false,
-		},
-	]);
+    $effect(() => {
+        if (user) {
+            // Simplified sync (overwriting local changes if store updates externally)
+            // Ideally check if dirty or not editing.
+            if (displayName === "") { // Init only once or if empty
+                displayName = user.displayName;
+                handle = user.handle;
+                email = user.email;
+                accountStatus = user.status;
+                bio = user.bio;
+                theme = user.settings.theme;
+                density = user.settings.density;
+                landing = user.settings.landing;
+                timeFormat = user.settings.timeFormat;
+                inAppNotifications = user.settings.inAppNotifications;
+                emailNotifications = user.settings.emailNotifications;
+            }
+        }
+    });
+
+	let sessions = $derived(user.sessions);
 
 	let savePhase = $state<"idle" | "saving" | "saved">("idle");
 	let savedSignature = $state("");
@@ -113,6 +108,20 @@
 		if (saveTimer) clearTimeout(saveTimer);
 		if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
 		savePhase = "saving";
+
+        store.updateUser({
+            displayName,
+            bio
+        });
+        store.updateUserSettings({
+            theme,
+            density,
+            landing,
+            timeFormat,
+            inAppNotifications,
+            emailNotifications
+        });
+
 		saveTimer = setTimeout(() => {
 			savedSignature = currentSignature;
 			savePhase = "saved";
@@ -121,6 +130,16 @@
 			}, 1400);
 		}, 900);
 	};
+
+    const deleteAccount = () => {
+        store.logout();
+        goto("/logout");
+    }
+
+    const logout = () => {
+        store.logout();
+        goto("/logout");
+    }
 
 	onMount(() => {
 		savedSignature = currentSignature;
@@ -152,7 +171,7 @@
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="flex flex-wrap items-center gap-3">
 					<Avatar.Root class="h-10 w-10">
-						<Avatar.Fallback>AP</Avatar.Fallback>
+						<Avatar.Fallback>{displayName.split(" ").map(n=>n[0]).join("").slice(0,2)}</Avatar.Fallback>
 					</Avatar.Root>
 					<div class="flex flex-col">
 						<h1 class="text-3xl font-semibold">Account Settings</h1>
@@ -333,6 +352,7 @@
 							size="sm"
 							variant="outline"
 							disabled={session.current}
+                            onclick={logout}
 							class="gap-2"
 						>
 							<LogOut class="h-4 w-4" />
@@ -342,7 +362,7 @@
 				{/each}
 			</div>
 			<div>
-				<Button variant="outline" class="gap-2">
+				<Button variant="outline" class="gap-2" onclick={logout}>
 					<Shield class="h-4 w-4" />
 					Log out of all sessions
 				</Button>
@@ -458,9 +478,9 @@
 		</div>
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Dialog.Close class={buttonVariants({ variant: "destructive" })} disabled={!canConfirmDelete}>
+			<Button variant="destructive" disabled={!canConfirmDelete} onclick={deleteAccount}>
 				Delete account
-			</Dialog.Close>
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

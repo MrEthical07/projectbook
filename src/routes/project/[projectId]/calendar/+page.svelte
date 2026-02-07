@@ -2,7 +2,6 @@
 	import { onMount } from "svelte";
 	import { page } from "$app/state";
 	import { Calendar as CalendarPicker } from "$lib/components/ui/calendar";
-	import { SvelteDate } from "svelte/reactivity";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -16,7 +15,7 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Tooltip from "$lib/components/ui/tooltip";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { parseDate, type CalendarDate } from "@internationalized/date";
+	import { parseDate, getLocalTimeZone, today, type CalendarDate, startOfMonth, startOfWeek } from "@internationalized/date";
 	import {
 		Calendar as CalendarIcon,
 		CalendarDays,
@@ -25,34 +24,10 @@
 		ChevronRight,
 		Plus,
 	} from "@lucide/svelte";
+    import { store } from "$lib/stores.svelte";
+    import type { CalendarEvent, ArtifactType, PhaseOption, ManualEventKind, CalendarEventSourceType } from "$lib/types";
 
 	type CalendarView = "Month" | "Week";
-	type EventSourceType = "Derived" | "Manual";
-	type ArtifactType = "Task" | "Feedback" | "Manual";
-	type Phase = "Empathize" | "Define" | "Ideate" | "Prototype" | "Test";
-	type PhaseOption = Phase | "None";
-	type ManualEventKind = "Workshop" | "Review" | "Testing Session" | "Meeting" | "Other";
-
-	type CalendarEvent = {
-		id: string;
-		title: string;
-		type: EventSourceType;
-		start: string;
-		end: string;
-		startTime?: string;
-		endTime?: string;
-		allDay: boolean;
-		owner: string;
-		phase: PhaseOption;
-		artifactType: ArtifactType;
-		sourceTitle?: string;
-		description?: string;
-		location?: string;
-		eventKind?: string;
-		linkedArtifacts?: string[];
-		tags?: string[];
-		createdAt: string;
-	};
 
 	const phaseChoices: PhaseOption[] = [
 		"None",
@@ -79,75 +54,38 @@
 		"Page - Opportunity notes",
 	];
 
-	const today = new Date().toISOString().split("T")[0];
-	const addDays = (date: string, amount: number) => {
-		const base = new SvelteDate(date);
-		base.setDate(base.getDate() + amount);
-		return base.toISOString().slice(0, 10);
+    const localTimeZone = getLocalTimeZone();
+	const todayDate = today(localTimeZone);
+    const todayStr = todayDate.toString();
+
+	const addDays = (dateStr: string, amount: number) => {
+        try {
+            return parseDate(dateStr).add({ days: amount }).toString();
+        } catch (e) {
+            return dateStr;
+        }
 	};
+
 	let view = $state<CalendarView>("Month");
-	let currentMonth = $state(today);
-	let selectedDay = $state(today);
-	let weekStart = $state(today);
+	let currentMonth = $state(todayDate);
+	let selectedDay = $state(todayStr);
+	let weekStart = $state(startOfWeek(todayDate, "en-US"));
+
 	let filterArtifact = $state<ArtifactType | "All">("All");
 	let filterOwner = $state<string | "All">("All");
 	let filterPhase = $state<PhaseOption | "All">("All");
 
-	let events = $state<CalendarEvent[]>([
-		{
-			id: "evt-1",
-			title: "Prototype deadline",
-			type: "Derived",
-			start: today,
-			end: today,
-			allDay: true,
-			owner: "Avery Patel",
-			phase: "Prototype",
-			artifactType: "Task",
-			sourceTitle: "Task - Timeline prototype",
-			createdAt: today,
-		},
-		{
-			id: "evt-2",
-			title: "Usability testing session",
-			type: "Derived",
-			start: addDays(today, 4),
-			end: addDays(today, 4),
-			allDay: false,
-			startTime: "14:00",
-			endTime: "15:00",
-			owner: "Nia Clark",
-			phase: "Test",
-			artifactType: "Feedback",
-			sourceTitle: "Feedback - Reminder test",
-			createdAt: today,
-		},
-		{
-			id: "evt-3",
-			title: "Weekly prototype review",
-			type: "Manual",
-			start: addDays(today, 2),
-			end: addDays(today, 2),
-			allDay: false,
-			startTime: "10:00",
-			endTime: "11:00",
-			owner: "Jordan Lee",
-			phase: "Prototype",
-			artifactType: "Manual",
-			description: "Share progress and align on next steps.",
-			location: "Project room",
-			eventKind: "Review",
-			linkedArtifacts: ["Task - Prototype timeline"],
-			createdAt: today,
-		},
-	]);
+	const projectId = $derived(page.params.projectId ?? "");
+
+    // Derived from store
+    const events = $derived(store.events.filter(e => e.projectId === projectId));
 
 	let addEventOpen = $state(false);
 	let eventDetailsOpen = $state(false);
 	let selectedEventId = $state<string | null>(null);
 
 	let newTitle = $state("");
-	let newDateValue = $state<CalendarDate>(parseDate(today));
+	let newDateValue = $state<CalendarDate>(todayDate);
 	let newStartTime = $state("10:00");
 	let newEndTime = $state("11:00");
 	let newAllDay = $state(false);
@@ -159,6 +97,8 @@
 	let newLocation = $state("");
 	let newLinked = $state<string[]>([]);
 	let newTags = $state("");
+
+    let timeError = $state("");
 
 	const filteredEvents = $derived(
 		events.filter((event) => {
@@ -174,7 +114,7 @@
 			return true;
 		})
 	);
-	const projectId = $derived(page.params.projectId);
+
 	const ownerOptions = $derived.by(() => {
 		const list = Array.from(new Set(events.map((event) => event.owner))).filter(Boolean);
 		return list.length ? list : ["Unassigned"];
@@ -190,50 +130,44 @@
 	);
 	const newDateLabel = $derived.by(() => {
 		if (!newDateValue) return "";
-		const date = new SvelteDate(newDateValue.toString());
-		return date.toLocaleDateString("en-US", {
+		return newDateValue.toDate(localTimeZone).toLocaleDateString("en-US", {
 			month: "short",
 			day: "numeric",
 			year: "numeric",
 		});
 	});
 
-	const startOfMonth = $derived.by(() => {
-		const date = new SvelteDate(currentMonth);
-		date.setDate(1);
-		return date.toISOString().slice(0, 10);
-	});
+	const startOfMonthDate = $derived(startOfMonth(currentMonth));
+    const startOfMonthStr = $derived(startOfMonthDate.toString());
 
-	const monthLabel = $derived.by(() => {
-		const date = new SvelteDate(currentMonth);
-		return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-	});
+	const monthLabel = $derived(
+        currentMonth.toDate(localTimeZone).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    );
 
 	const monthDays = $derived.by(() => {
-		const first = new SvelteDate(startOfMonth);
-		const dayOfWeek = first.getDay() === 0 ? 7 : first.getDay();
-		const gridStart = new SvelteDate(first);
-		gridStart.setDate(first.getDate() - (dayOfWeek - 1));
+		// Calculate grid start (Sunday based)
+        // In @internationalized/date, day of week is 0-6? No, getDay() depends on calendar.
+        // Let's use startOfWeek
+        const gridStart = startOfWeek(startOfMonthDate, "en-US");
+
 		return Array.from({ length: 42 }, (_, index) => {
-			const date = new SvelteDate(gridStart);
-			date.setDate(gridStart.getDate() + index);
+			const date = gridStart.add({ days: index });
 			return {
-				label: String(date.getDate()),
-				date: date.toISOString().slice(0, 10),
-				inMonth: date.getMonth() === first.getMonth(),
+				label: String(date.day),
+				date: date.toString(),
+				inMonth: date.month === currentMonth.month,
 			};
 		});
 	});
 
 	const weekDates = $derived(
-		Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
+		Array.from({ length: 7 }, (_, index) => weekStart.add({ days: index }).toString())
 	);
 
 	const weekLabel = $derived.by(() => {
-		const start = new SvelteDate(weekStart);
-		const end = new SvelteDate(addDays(weekStart, 6));
-		const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-		const endLabel = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+		const end = weekStart.add({ days: 6 });
+		const startLabel = weekStart.toDate(localTimeZone).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+		const endLabel = end.toDate(localTimeZone).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 		return `${startLabel} - ${endLabel}`;
 	});
 
@@ -249,16 +183,16 @@
 	);
 
 	const eventsToday = $derived(
-		filteredEvents.filter((event) => event.start === today).length
+		filteredEvents.filter((event) => event.start === todayStr).length
 	);
 	const eventsLate = $derived(
-		filteredEvents.filter((event) => event.start < today && event.type === "Manual").length
+		filteredEvents.filter((event) => event.start < todayStr && event.type === "Manual").length
 	);
 	const upcomingDeadlines = $derived(
-		filteredEvents.filter((event) => event.start > today && event.type === "Derived").length
+		filteredEvents.filter((event) => event.start > todayStr && event.type === "Derived").length
 	);
 
-	const eventTypeBadge = (value: EventSourceType) =>
+	const eventTypeBadge = (value: CalendarEventSourceType) =>
 		value === "Derived"
 			? "bg-slate-100 text-slate-700 border-slate-200"
 			: "bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -271,7 +205,7 @@
 
 	const openAddEvent = () => {
 		newTitle = "";
-		newDateValue = parseDate(today);
+		newDateValue = todayDate;
 		newStartTime = "10:00";
 		newEndTime = "11:00";
 		newAllDay = false;
@@ -283,6 +217,7 @@
 		newLocation = "";
 		newLinked = [];
 		newTags = "";
+        timeError = "";
 		addEventOpen = true;
 	};
 
@@ -302,21 +237,29 @@
 	};
 
 	const createEvent = () => {
+        timeError = "";
 		if (!newTitle.trim()) {
 			return;
 		}
-		const nextId = `evt-${Date.now()}`;
+        if (!newAllDay && newEndTime <= newStartTime) {
+            timeError = "End time must be after start time.";
+            return;
+        }
+
+		const nextId = `evt-${crypto.randomUUID()}`;
 		const eventKind =
 			newKind === "Other" ? newCustomKind.trim() || "Other" : newKind;
 		const tags = parseTags(newTags);
-		events = [
-			...events,
-			{
+
+        const dateStr = newDateValue.toString();
+
+        store.addEvent({
 				id: nextId,
+                projectId,
 				title: newTitle.trim(),
 				type: "Manual",
-				start: newDateValue.toString(),
-				end: newDateValue.toString(),
+				start: dateStr,
+				end: dateStr,
 				startTime: newAllDay ? undefined : newStartTime,
 				endTime: newAllDay ? undefined : newEndTime,
 				allDay: newAllDay,
@@ -328,49 +271,36 @@
 				eventKind,
 				linkedArtifacts: newLinked,
 				tags,
-				createdAt: today,
-			},
-		];
+				createdAt: todayStr,
+        });
+
 		addEventOpen = false;
 	};
 
 	const goPrevMonth = () => {
-		const date = new SvelteDate(currentMonth);
-		date.setMonth(date.getMonth() - 1);
-		currentMonth = date.toISOString().slice(0, 10);
+        currentMonth = currentMonth.subtract({ months: 1 });
 	};
 
 	const goNextMonth = () => {
-		const date = new SvelteDate(currentMonth);
-		date.setMonth(date.getMonth() + 1);
-		currentMonth = date.toISOString().slice(0, 10);
+        currentMonth = currentMonth.add({ months: 1 });
 	};
 
 	const goPrevWeek = () => {
-		weekStart = addDays(weekStart, -7);
+        weekStart = weekStart.subtract({ weeks: 1 });
 	};
 
 	const goNextWeek = () => {
-		weekStart = addDays(weekStart, 7);
+        weekStart = weekStart.add({ weeks: 1 });
 	};
 
 	const goToday = () => {
-		const date = new SvelteDate(today);
-		date.setDate(1);
-		currentMonth = date.toISOString().slice(0, 10);
-		selectedDay = today;
-		setWeekFromDay(today);
-	};
-
-	const setWeekFromDay = (date: string) => {
-		const base = new SvelteDate(date);
-		const weekday = base.getDay() === 0 ? 7 : base.getDay();
-		base.setDate(base.getDate() - (weekday - 1));
-		weekStart = base.toISOString().slice(0, 10);
+        currentMonth = todayDate;
+		selectedDay = todayStr;
+        weekStart = startOfWeek(todayDate, "en-US");
 	};
 
 	onMount(() => {
-		setWeekFromDay(selectedDay);
+        // Init logic if needed
 	});
 </script>
 
@@ -512,11 +442,12 @@
 										class={`flex h-28 flex-col gap-2 rounded-md border border-border p-2 text-left hover:bg-muted/40 ${
 											selectedDay === day.date ? "bg-muted/50" : ""
 										} ${day.inMonth ? "" : "text-muted-foreground/60"} ${
-											day.date === today ? "border-primary/40 bg-primary/5" : ""
+											day.date === todayStr ? "border-primary/40 bg-primary/5" : ""
 										}`}
 										onclick={() => {
 											selectedDay = day.date;
-											setWeekFromDay(day.date);
+											// If we wanted to jump week view to this day:
+                                            // weekStart = startOfWeek(parseDate(day.date), "en-US");
 										}}
 									>
 										<div class="text-sm font-medium">{day.label}</div>
@@ -571,13 +502,13 @@
 							<div class="min-w-245 grid grid-cols-[72px_repeat(7,minmax(0,1fr))] gap-x-3 gap-y-0 text-xs">
 								<span></span>
 								{#each weekDates as date (date)}
-									<span class={`text-muted-foreground ${date === today ? "bg-primary/5 rounded-md px-1" : ""}`}>
+									<span class={`text-muted-foreground ${date === todayStr ? "bg-primary/5 rounded-md px-1" : ""}`}>
 										{date}
 									</span>
 								{/each}
 								<div class="text-muted-foreground border-b border-border/60 py-2">All day</div>
 								{#each weekDates as date (date)}
-									<div class={`min-h-12 border-b border-border/60 p-2 text-left ${date === today ? "bg-primary/5" : ""}`}>
+									<div class={`min-h-12 border-b border-border/60 p-2 text-left ${date === todayStr ? "bg-primary/5" : ""}`}>
 										{#each filteredEvents.filter((event) => event.start === date && event.allDay) as event (event.id)}
 											<button
 												type="button"
@@ -593,7 +524,7 @@
 								{#each timeSlots as slot (slot)}
 									<div class="text-muted-foreground border-b border-border/60 py-3">{slot}</div>
 									{#each weekDates as date (date)}
-										<div class={`min-h-16 border-b border-border/60 p-2 text-left ${date === today ? "bg-primary/5" : ""}`}>
+										<div class={`min-h-16 border-b border-border/60 p-2 text-left ${date === todayStr ? "bg-primary/5" : ""}`}>
 											{#each filteredEvents.filter((event) => event.start === date && event.startTime === slot) as event (event.id)}
 												<button
 													type="button"
@@ -651,6 +582,9 @@
 					<input type="checkbox" bind:checked={newAllDay} />
 					All day
 				</label>
+                {#if timeError}
+                    <div class="text-xs text-destructive">{timeError}</div>
+                {/if}
 			</div>
 			<div class="grid gap-2">
 				<Label for="event-owner">Owner</Label>

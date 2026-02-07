@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { goto } from "$app/navigation";
+    import { page } from "$app/state";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -13,27 +15,24 @@
 	import { onMount } from "svelte";
 	import { Archive, Trash2 } from "@lucide/svelte";
 	import * as Select from "$lib/components/ui/select";
+    import { store } from "$lib/stores.svelte";
+    import type { Project, ProjectRole, MemberStatus } from "$lib/types";
 
-	type Role = "Owner" | "Admin" | "Member" | "Viewer";
-	type Status = "Active" | "Invited";
+    const projectId = $derived(page.params.projectId);
+    const project = $derived(store.projects.find(p => p.id === projectId));
 
-	type Member = {
-		id: string;
-		name: string;
-		email: string;
-		role: Role;
-		status: Status;
-		joinedAt: string;
-	};
+	type Role = ProjectRole;
+	type Status = MemberStatus;
 
-	let currentRole: Role = "Admin" as Role;
+    // Use current user to determine permissions (mock)
+	let currentRole: Role = "Owner" as Role;
 	const canEdit = currentRole === "Owner" || currentRole === "Admin";
 	const canDelete = currentRole === "Owner";
 
-	let projectName = $state("Project Atlas");
-	let projectId = $state("atlas-2026");
+    // Local state for editing, initialized from store project
+	let projectName = $state("");
 	let projectStatus = $state<"Active" | "Archived">("Active");
-	let projectDescription = $state("Core product research and prototype delivery.");
+	let projectDescription = $state("");
 
 	let whiteboardsEnabled = $state(true);
 	let advancedDatabasesEnabled = $state(true);
@@ -45,33 +44,37 @@
 	let notifyArtifactLocked = $state(true);
 	let notifyFeedbackAdded = $state(true);
 	let notifyResourceUpdated = $state(true);
+    let deliveryChannel = $state<"In-app" | "Email">("In-app");
 
-	let members = $state<Member[]>([
-		{
-			id: "mem-1",
-			name: "Avery Patel",
-			email: "avery@league.dev",
-			role: "Owner",
-			status: "Active",
-			joinedAt: "2026-02-04",
-		},
-		{
-			id: "mem-2",
-			name: "Nia Clark",
-			email: "nia@league.dev",
-			role: "Admin",
-			status: "Active",
-			joinedAt: "2026-02-05",
-		},
-		{
-			id: "mem-3",
-			name: "Jordan Lee",
-			email: "jordan@league.dev",
-			role: "Member",
-			status: "Invited",
-			joinedAt: "2026-02-06",
-		},
-	]);
+    // Sync from store when project loads or changes externally
+    $effect(() => {
+        if (project) {
+            // Only update if we are not in the middle of editing (check dirty?)
+            // Or just update if ID changes (navigation)
+            // Simplified: update local state if project changes
+            // Note: This might overwrite unsaved changes if store updates from elsewhere.
+            // For this app, assuming single user session mostly.
+            if (projectName !== project.name || projectDescription !== project.description) {
+                 projectName = project.name;
+                 projectDescription = project.description;
+                 projectStatus = project.status;
+
+                 whiteboardsEnabled = project.features.whiteboards;
+                 advancedDatabasesEnabled = project.features.advancedDatabases;
+                 calendarManualEventsEnabled = project.features.calendarManualEvents;
+                 resourceVersioningEnabled = project.features.resourceVersioning;
+                 feedbackAggregationEnabled = project.features.feedbackAggregation;
+
+                 notifyArtifactCreated = project.notifications.artifactCreated;
+                 notifyArtifactLocked = project.notifications.artifactLocked;
+                 notifyFeedbackAdded = project.notifications.feedbackAdded;
+                 notifyResourceUpdated = project.notifications.resourceUpdated;
+                 deliveryChannel = project.notifications.deliveryChannel;
+            }
+        }
+    });
+
+	let members = $derived(project?.members || []);
 
 	let archiveOpen = $state(false);
 	let deleteOpen = $state(false);
@@ -97,6 +100,7 @@
 			notifyArtifactLocked,
 			notifyFeedbackAdded,
 			notifyResourceUpdated,
+            deliveryChannel
 		})
 	);
 	const isDirty = $derived(currentSignature !== savedSignature);
@@ -110,10 +114,31 @@
 	});
 
 	const triggerSave = () => {
-		if (savePhase === "saving" || !isDirty) return;
+		if (savePhase === "saving" || !isDirty || !project) return;
 		if (saveTimer) clearTimeout(saveTimer);
 		if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
 		savePhase = "saving";
+
+        store.updateProject(project.id, {
+            name: projectName,
+            description: projectDescription,
+            status: projectStatus,
+            features: {
+                whiteboards: whiteboardsEnabled,
+                advancedDatabases: advancedDatabasesEnabled,
+                calendarManualEvents: calendarManualEventsEnabled,
+                resourceVersioning: resourceVersioningEnabled,
+                feedbackAggregation: feedbackAggregationEnabled
+            },
+            notifications: {
+                artifactCreated: notifyArtifactCreated,
+                artifactLocked: notifyArtifactLocked,
+                feedbackAdded: notifyFeedbackAdded,
+                resourceUpdated: notifyResourceUpdated,
+                deliveryChannel
+            }
+        });
+
 		saveTimer = setTimeout(() => {
 			savedSignature = currentSignature;
 			savePhase = "saved";
@@ -122,6 +147,18 @@
 			}, 1400);
 		}, 900);
 	};
+
+    const deleteProject = () => {
+        if (!project) return;
+        store.deleteProject(project.id);
+        goto("/");
+    };
+
+    const archiveProject = () => {
+        projectStatus = "Archived";
+        triggerSave();
+        archiveOpen = false;
+    };
 
 	onMount(() => {
 		savedSignature = currentSignature;
@@ -185,9 +222,9 @@
 								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 									Cancel
 								</Dialog.Close>
-								<Dialog.Close class={buttonVariants()} onclick={() => (projectStatus = "Archived")}>
+								<Button onclick={archiveProject}>
 									Archive
-								</Dialog.Close>
+								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
@@ -222,13 +259,13 @@
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 										Cancel
 									</Dialog.Close>
-									<Dialog.Close
-										class={buttonVariants({ variant: "destructive" })}
+									<Button
+										variant="destructive"
 										disabled={!canConfirmDelete}
-										onclick={() => {}}
+										onclick={deleteProject}
 									>
 										Delete
-									</Dialog.Close>
+									</Button>
 								</Dialog.Footer>
 							</Dialog.Content>
 						</Dialog.Root>
@@ -368,8 +405,8 @@
 			</div>
 			<div class="grid gap-2">
 				<Label>Delivery channel</Label>
-				<Select.Root type="single" value="In-app">
-					<Select.Trigger>In-app</Select.Trigger>
+				<Select.Root type="single" bind:value={deliveryChannel}>
+					<Select.Trigger>{deliveryChannel}</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="In-app" label="In-app">In-app</Select.Item>
 						<Select.Item value="Email" label="Email">Email</Select.Item>
@@ -449,13 +486,13 @@
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 										Cancel
 									</Dialog.Close>
-									<Dialog.Close
-										class={buttonVariants({ variant: "destructive" })}
+									<Button
+										variant="destructive"
 										disabled={!canConfirmDelete}
-										onclick={() => {}}
+										onclick={deleteProject}
 									>
 										Delete
-									</Dialog.Close>
+									</Button>
 								</Dialog.Footer>
 							</Dialog.Content>
 						</Dialog.Root>

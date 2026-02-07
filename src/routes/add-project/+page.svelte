@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { goto } from "$app/navigation";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
 	import * as Dialog from "$lib/components/ui/dialog";
@@ -8,11 +9,14 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { Check, MailPlus, Plus, Trash2 } from "@lucide/svelte";
+    import { store } from "$lib/stores.svelte";
+    import type { Project } from "$lib/types";
 
 	type Step = "details" | "invite";
 	type SavePhase = "idle" | "saving" | "saved";
 
-	const existingProjects = ["Project Atlas", "Research Hub", "Delta Sprint"];
+	const existingProjects = $derived(store.projects.map(p => p.name));
+    // Mock user DB for validation
 	const existingUsers = [
 		"avery@league.dev",
 		"nia@league.dev",
@@ -31,6 +35,8 @@
 	let savePhase = $state<SavePhase>("idle");
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    let createdProjectId = $state("");
 
 	const maxNameLength = 60;
 	const isNameValid = $derived(projectName.trim().length > 0);
@@ -75,6 +81,43 @@
 		const trimmed = projectName.trim();
 		projectName = trimmed;
 		projectDescription = projectDescription.trim();
+
+        const id = normalizeName(trimmed).replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, "");
+        createdProjectId = id;
+
+        const newProject: Project = {
+            id,
+            name: projectName,
+            description: projectDescription,
+            status: "Active",
+            members: [
+                {
+                    id: store.user.id,
+                    name: store.user.displayName,
+                    email: store.user.email,
+                    role: "Owner",
+                    status: "Active",
+                    joinedAt: new Date().toISOString().split('T')[0]
+                }
+            ],
+            features: {
+                whiteboards: true,
+                advancedDatabases: true,
+                calendarManualEvents: true,
+                resourceVersioning: true,
+                feedbackAggregation: true,
+            },
+            notifications: {
+                artifactCreated: true,
+                artifactLocked: true,
+                feedbackAdded: true,
+                resourceUpdated: true,
+                deliveryChannel: "In-app",
+            }
+        };
+
+        store.addProject(newProject);
+
 		startSave(() => {
 			step = "invite";
 		});
@@ -91,20 +134,34 @@
 	};
 
 	const validateEmails = () => {
+        let hasError = false;
 		emailErrors = inviteEmails.map((email) => {
 			const trimmed = email.trim();
-			if (!trimmed) return "";
+			if (!trimmed) return ""; // Allow empty rows (ignored)
 			const isValidFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-			if (!isValidFormat) return "Invalid email format.";
-			if (!existingUsers.includes(trimmed)) return "User not found.";
+			if (!isValidFormat) {
+                hasError = true;
+                return "Invalid email format.";
+            }
+			// In real app, we might check if user exists, but here we just simulate
+			// if (!existingUsers.includes(trimmed)) return "User not found.";
 			return "";
 		});
-		return emailErrors.every((err) => !err);
+		return !hasError;
 	};
+
+    const finish = async () => {
+        if (createdProjectId) {
+            await goto(`/project/${createdProjectId}`);
+        }
+    }
 
 	const sendInvites = () => {
 		if (!validateEmails()) return;
-		startSave(() => {});
+        // In real app, send invites here
+		startSave(() => {
+            finish();
+        });
 	};
 </script>
 
@@ -249,7 +306,7 @@
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 										Cancel
 									</Dialog.Close>
-									<Dialog.Close class={buttonVariants()} onclick={() => {}}>
+									<Dialog.Close class={buttonVariants()} onclick={finish}>
 										Finish
 									</Dialog.Close>
 								</Dialog.Footer>

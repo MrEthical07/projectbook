@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
+    import { page } from "$app/state";
+    import { goto } from "$app/navigation";
 	import { Calendar as CalendarPicker } from "$lib/components/ui/calendar";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -15,26 +17,19 @@
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { parseDate, type DateValue } from "@internationalized/date";
 	import { ArrowUpRight, Calendar, Trash2 } from "@lucide/svelte";
+    import { store } from "$lib/stores.svelte";
+    import type { CalendarEvent, ManualEventKind, CalendarEventSourceType } from "$lib/types";
 
-	type EventSourceType = "Derived" | "Manual";
-	type ManualEventKind = "Workshop" | "Review" | "Testing Session" | "Meeting" | "Other";
+    type EventSourceType = CalendarEventSourceType;
 
-	type CalendarEvent = {
-		id: string;
-		title: string;
-		type: EventSourceType;
-		date: string;
-		allDay: boolean;
-		owner: string;
-		eventKind?: string;
-		tags?: string[];
-		description?: string;
-		location?: string;
-		linkedArtifacts?: string[];
-		createdAt: string;
-		lastEdited: string;
-		sourceTitle?: string;
-	};
+	// We need to extend the type locally to match the UI expectations (date vs start/end)
+    // or adapt the UI to use start/end.
+    // The UI uses 'date' for single day events.
+    // I will map 'start' <-> 'date'.
+
+    const projectId = $derived(page.params.projectId);
+    const eventId = $derived(page.params.eventId);
+    const storeEvent = $derived(store.events.find(e => e.id === eventId));
 
 	const manualKinds: ManualEventKind[] = [
 		"Workshop",
@@ -54,20 +49,44 @@
 	];
 
 	const today = new Date().toISOString().split("T")[0];
-	let event = $state<CalendarEvent>({
-		id: "evt-3",
-		title: "Weekly prototype review",
+
+    // Local state initialized from store
+	let event = $state<CalendarEvent & { date: string }>({
+		id: "evt-new",
+        projectId: "",
+		title: "New Event",
 		type: "Manual",
+        start: today,
+        end: today,
 		date: today,
 		allDay: false,
-		owner: "Jordan Lee",
-		eventKind: "Review",
-		description: "Share progress and align on next steps.",
-		location: "Project room",
-		linkedArtifacts: ["Task - Prototype timeline"],
+		owner: "Me",
+        phase: "None",
+        artifactType: "Manual",
+		eventKind: "Meeting",
+		description: "",
+		location: "",
+		linkedArtifacts: [],
 		createdAt: today,
 		lastEdited: today,
 	});
+
+    // Effect to load data when storeEvent is available
+    $effect(() => {
+        if (storeEvent) {
+            // Only update if we haven't dirtied it?
+            // Or simpler: strictly bind to store if we want realtime updates?
+            // But we have a "Save" button. So we want local state.
+            // We only initialize once or if ID changes.
+            if (event.id !== storeEvent.id) {
+                event = { ...storeEvent, date: storeEvent.start };
+                eventDateValue = parseDate(storeEvent.start);
+                tagsInput = (storeEvent.tags ?? []).join(", ");
+                applyKindFromEvent();
+                savedSignature = getSignature(event);
+            }
+        }
+    });
 
 	let deleteOpen = $state(false);
 	let eventDateValue = $state<DateValue>(parseDate(today));
@@ -86,14 +105,15 @@
 	const currentEventKind = $derived.by(() =>
 		eventKindSelection === "Other" ? customEventKind.trim() || "Other" : eventKindSelection
 	);
-	const currentSignature = $derived(
-		JSON.stringify({
-			...event,
-			date: eventDateString,
+
+    const getSignature = (e: any) => JSON.stringify({
+			...e,
+			date: eventDateString, // Use current UI value
 			eventKind: currentEventKind,
 			tags: parsedTags,
-		})
-	);
+    });
+
+	const currentSignature = $derived(getSignature(event));
 	const isDirty = $derived(currentSignature !== savedSignature);
 	const isReadOnly = $derived(event.type === "Derived");
 	const saveIndicator = $derived.by(() => {
@@ -109,7 +129,7 @@
 		return "idle";
 	});
 
-	const eventTypeBadge = (value: EventSourceType) =>
+	const eventTypeBadge = (value: CalendarEventSourceType) =>
 		value === "Derived"
 			? "bg-slate-100 text-slate-700 border-slate-200"
 			: "bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -136,12 +156,18 @@
 		if (savePhase === "saving" || !isDirty) {
 			return;
 		}
-		event = {
+
+        const updatedEvent: CalendarEvent = {
 			...event,
-			date: eventDateString,
+			start: eventDateString,
+            end: eventDateString, // Assuming single day for this UI
 			eventKind: currentEventKind,
 			tags: parsedTags,
+            lastEdited: new Date().toISOString().split('T')[0]
 		};
+
+        store.updateEvent(event.id, updatedEvent);
+
 		if (saveTimer) {
 			clearTimeout(saveTimer);
 		}
@@ -159,6 +185,11 @@
 			}, 1400);
 		}, 900);
 	};
+
+    const deleteEvent = () => {
+        store.deleteEvent(event.id);
+        goto(`../calendar`);
+    };
 
 	onDestroy(() => {
 		if (saveTimer) {
@@ -181,10 +212,7 @@
 	};
 
 	onMount(() => {
-		eventDateValue = parseDate(event.date);
-		tagsInput = (event.tags ?? []).join(", ");
-		applyKindFromEvent();
-		savedSignature = currentSignature;
+        // Initial setup handled by effect
 	});
 </script>
 
@@ -254,7 +282,7 @@
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 										Cancel
 									</Dialog.Close>
-									<Dialog.Close class={buttonVariants()} onclick={() => {}}>
+									<Dialog.Close class={buttonVariants()} onclick={deleteEvent}>
 										Delete
 									</Dialog.Close>
 								</Dialog.Footer>
@@ -285,7 +313,7 @@
 								{eventDateString}
 							</Popover.Trigger>
 							<Popover.Content class="p-0">
-								<CalendarPicker bind:value={eventDateValue} />
+								<CalendarPicker type="single" bind:value={eventDateValue} />
 							</Popover.Content>
 						</Popover.Root>
 					{/if}
@@ -337,7 +365,7 @@
 					{/each}
 				</div>
 				{#if !isReadOnly}
-					<Select.Root type="single" onSelectedChange={(event) => addLinkedArtifact(event.detail.value)}>
+					<Select.Root type="single" onValueChange={(v) => addLinkedArtifact(v)}>
 						<Select.Trigger class="w-64">
 							{event.linkedArtifacts?.length
 								? event.linkedArtifacts[event.linkedArtifacts.length - 1]
@@ -364,7 +392,7 @@
 				</Avatar.Root>
 				<span>Created by {event.owner}</span>
 				<span>- Created at {event.createdAt}</span>
-				<span>- Last edited {event.lastEdited}</span>
+				<span>- Last edited {event.lastEdited ?? event.createdAt}</span>
 			</div>
 		</section>
 	</div>

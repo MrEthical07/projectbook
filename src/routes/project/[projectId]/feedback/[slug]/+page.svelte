@@ -110,7 +110,6 @@
 
 	const pageStatus = $derived<PageStatus>(isArchived ? "Archived" : outcome);
 	const isReadOnly = $derived(isArchived);
-	const isDirty = $derived(saveReady && currentSignature !== savedSignature);
 
 	const currentSignature = $derived(
 		JSON.stringify({
@@ -127,6 +126,8 @@
 			nextStepsText,
 		})
 	);
+
+	const isDirty = $derived(saveReady && currentSignature !== savedSignature);
 
 	const saveIndicator = $derived.by(() => {
 		if (savePhase === "saving") {

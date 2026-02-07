@@ -7,50 +7,10 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Check, Inbox, Trash2 } from "@lucide/svelte";
+    import { store } from "$lib/stores.svelte";
+    import type { Invite, Project } from "$lib/types";
 
-	type InviteStatus = "Active" | "Archived";
-	type Invite = {
-		id: string;
-		projectName: string;
-		projectDescription: string;
-		projectStatus: InviteStatus;
-		projectId?: string;
-		inviterName: string;
-		inviterRole: "Owner" | "Admin";
-		inviterEmail?: string;
-		assignedRole: "Member" | "Viewer";
-		sentAt: string;
-		expiresAt?: string;
-		expired?: boolean;
-	};
-
-	let invites = $state<Invite[]>([
-		{
-			id: "inv-1",
-			projectName: "Atlas Research",
-			projectDescription: "Prototype new onboarding flows for early-stage cohorts.",
-			projectStatus: "Active",
-			projectId: "atlas-2026",
-			inviterName: "Maya Singh",
-			inviterRole: "Owner",
-			inviterEmail: "maya@league.dev",
-			assignedRole: "Member",
-			sentAt: "Feb 3, 2026",
-			expiresAt: "Feb 10, 2026",
-		},
-		{
-			id: "inv-2",
-			projectName: "Northwind Revamp",
-			projectDescription: "Reframe the testing experience and consolidate insight reports.",
-			projectStatus: "Active",
-			inviterName: "Jordan Lee",
-			inviterRole: "Admin",
-			inviterEmail: "jordan@northwind.io",
-			assignedRole: "Viewer",
-			sentAt: "Jan 28, 2026",
-			expired: true,
-		},
-	]);
+    const invites = $derived(store.invites);
 
 	let acceptOpen = $state(false);
 	let acceptTarget = $state<Invite | null>(null);
@@ -71,14 +31,48 @@
 
 	const acceptInvite = () => {
 		if (!acceptTarget || acceptTarget.expired) return;
-		invites = invites.filter((item) => item.id !== acceptTarget.id);
+
+        const newProject: Project = {
+            id: acceptTarget.projectId || `proj-${crypto.randomUUID()}`,
+            name: acceptTarget.projectName,
+            description: acceptTarget.projectDescription,
+            status: "Active",
+            members: [
+                {
+                    id: store.user.id,
+                    name: store.user.displayName,
+                    email: store.user.email,
+                    role: acceptTarget.assignedRole,
+                    status: "Active",
+                    joinedAt: new Date().toISOString().split('T')[0]
+                }
+            ],
+            features: {
+                whiteboards: true,
+                advancedDatabases: true,
+                calendarManualEvents: true,
+                resourceVersioning: true,
+                feedbackAggregation: true,
+            },
+            notifications: {
+                artifactCreated: true,
+                artifactLocked: true,
+                feedbackAdded: true,
+                resourceUpdated: true,
+                deliveryChannel: "In-app",
+            }
+        };
+
+        store.addProject(newProject);
+        store.removeInvite(acceptTarget.id);
+
 		acceptOpen = false;
 		acceptTarget = null;
 	};
 
 	const declineInvite = () => {
 		if (!declineTarget) return;
-		invites = invites.filter((item) => item.id !== declineTarget.id);
+        store.removeInvite(declineTarget.id);
 		declineOpen = false;
 		declineTarget = null;
 	};
@@ -190,7 +184,7 @@
 								<Button
 									size="sm"
 									disabled={invite.expired}
-									on:click={() => openAcceptDialog(invite)}
+									onclick={() => openAcceptDialog(invite)}
 								>
 									<Check class="mr-2 h-4 w-4" />
 									Accept invitation
@@ -199,7 +193,7 @@
 									size="sm"
 									variant="outline"
 									disabled={invite.expired}
-									on:click={() => openDeclineDialog(invite)}
+									onclick={() => openDeclineDialog(invite)}
 								>
 									Decline invitation
 								</Button>
@@ -225,7 +219,7 @@
 		</div>
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button on:click={acceptInvite}>
+			<Button onclick={acceptInvite}>
 				<Check class="mr-2 h-4 w-4" />
 				Accept invitation
 			</Button>
@@ -246,7 +240,7 @@
 		</div>
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button variant="destructive" on:click={declineInvite}>
+			<Button variant="destructive" onclick={declineInvite}>
 				<Trash2 class="mr-2 h-4 w-4" />
 				Decline invitation
 			</Button>

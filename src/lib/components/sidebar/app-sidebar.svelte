@@ -1,27 +1,31 @@
 <script lang="ts">
 	import SubMenu from "$lib/components/sidebar/subMenu.svelte";
 	import NavUser from "$lib/components/sidebar/nav-user.svelte";
-	import OrganizationSwitcher from "$lib/components/sidebar/organization-switcher.svelte";
-	import * as Collapsible from "$lib/components/ui/collapsible/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import ProjectSwitcher from "./project-switcher.svelte";
 	import type { ComponentProps } from "svelte";
 	import { UserLock, Settings, Users, LayoutDashboard } from "@lucide/svelte"
 
 	import { page } from "$app/state";
+	import { store } from "$lib/stores.svelte";
+	import type { ArtifactKind } from "$lib/types";
 
 	let dummyProjectId = "yeyyy";
-	let projectId = $derived(page.params.projectId ? page.params.projectId : dummyProjectId);
-	let path = $derived((page.url.pathname.split('project/' + projectId + '/'))[1] ?? "/");
+	// Robust path splitting
+	let projectId = $derived(page.params.projectId ?? dummyProjectId);
+	let path = $derived(page.url.pathname);
+	let projectPathPrefix = $derived(`/project/${projectId}`);
+
+	// Helper to check active state more robustly
+	const isActive = (segment: string) => path.includes(`${projectPathPrefix}/${segment}`);
+	const isDashboardActive = $derived(path === projectPathPrefix || path === `${projectPathPrefix}/`);
 
 	import { 
-		BookOpenIcon, 
 		AudioWaveformIcon, 
 		ChartPieIcon, 
 		CommandIcon, 
 		Calendar, 
 		Folder, 
-		ChevronRightIcon,
 		Compass,
 		UserRound,
 		Route,
@@ -35,51 +39,26 @@
 		FrameIcon, 
     	PresentationIcon
 	} from "@lucide/svelte";
+
+	const projectArtifacts = $derived(store.artifacts.filter(a => a.projectId === projectId));
+	const getArtifacts = (kind: ArtifactKind) => projectArtifacts.filter(a => a.kind === kind).map(a => ({ title: a.title, slug: a.slug, id: a.id }));
+
 	const data = $derived({
 		user: {
-			name: "shadcn",
-			email: "m@example.com",
-			avatar: "/avatars/shadcn.jpg",
-		},
-		organization: [
-			{
-				name: "Acme Inc",
-				logo: GalleryVerticalEndIcon,
-				plan: "Enterprise",
-			},
-			{
-				name: "Acme Corp.",
-				logo: AudioWaveformIcon,
-				plan: "Startup",
-			},
-			{
-				name: "Evil Corp.",
-				logo: CommandIcon,
-				plan: "Free",
-			},
-		],
-		projects: [
-			{
-				name: "Design Engineering",
-				url: "/project/design",
-				icon: FrameIcon,
-			},
-			{
-				name: "Sales & Marketing",
-				url: "/project/sales",
-				icon: ChartPieIcon,
-			},
-			{
-				name: "Travel",
-				url: "/project/travel",
-				icon: MapIcon,
-			},
-		],
+            name: store.user.displayName,
+            email: store.user.email,
+            avatar: store.user.avatarUrl || "/avatars/shadcn.jpg"
+        },
+		projects: store.projects.map(p => ({
+			name: p.name,
+			url: `/project/${p.id}`,
+			icon: FrameIcon, // Default icon
+		})),
 		dashboard: {
 			title: "Dashboard",
-			url: "/project/"+ projectId,
+			url: projectPathPrefix,
 			icon: LayoutDashboard,
-			isActive: path === "/",
+			isActive: isDashboardActive,
 		},
 
 		designThinking: {
@@ -89,119 +68,95 @@
 			subMenus: [
 				{
 					name: "Empathize",
-					isActive: path.includes("stories") || path.includes("journeys"),
+					isActive: isActive("stories") || isActive("journeys"),
 					items: [
 						{
 							title: "User Stories",
 							icon: UserRound,
 							prefix: "stories",
-							isActive: path.includes("stories"),
-							items: [
-								{
-									title: "User 1",
-									slug: "user-1"
-								},
-							],
+							isActive: isActive("stories"),
+							items: getArtifacts("story"),
 						},
 						{
 							title: "User Journeys",
 							icon: Route,
 							prefix: "journeys",
-							isActive: path.includes("journeys"),
-							items: [
-								{
-									title: "User 1",
-									slug: "user-1"
-								},
-							]
+							isActive: isActive("journeys"),
+							items: getArtifacts("journey")
 						}
 					]
 				},
 				{
 					name: "Define",
-					isActive: path.includes("problem-statement"),
+					isActive: isActive("problem-statement"),
 					items: [
 						{
 							title: "Problem Statement",
 							icon: Target,
 							prefix: "problem-statement",
-							isActive: path.includes("problem-statement"),
-							items: [
-								{
-									title: "User 1",
-									slug: "user-1"
-								},
-							]
+							isActive: isActive("problem-statement"),
+							items: getArtifacts("problem")
 						}
 					]
 				},
 				{
 					name: "Ideate",
-					isActive: path.includes("ideas") || path.includes("whiteboard"),
+					isActive: isActive("ideas") || isActive("whiteboard"),
 					items: [
 						{
 							title: "Ideas",
 							icon: Lightbulb,
 							prefix: "ideas",
-							isActive: path.includes("ideas"),
-							items: [
-								{
-									title: "Idea 1",
-									slug: "idea-1"
-								},
-							]
+							isActive: isActive("ideas"),
+							items: getArtifacts("idea")
 						},
 						{
 							title: "Whiteboard",
 							icon: PresentationIcon,
 							prefix: "whiteboard",
-							isActive: path.includes("whiteboard"),
-							items: [
-								{
-									title: "Whiteboard 1",
-									slug: "whiteboard-1"
-								},
-							]
+							isActive: isActive("whiteboard"),
+							items: getArtifacts("whiteboard")
 						}
 					]
 				},
 				{
 					name: "Prototype",
-					isActive: path.includes("tasks"),
+					isActive: isActive("tasks"),
 					items: [
 						{
 							title: "Task Board",
 							icon: ClipboardList,
 							prefix: "tasks",
-							isActive: path.includes("tasks"),
+							isActive: isActive("tasks"),
 							items: [
+								// Tasks are a bit different, they have a main board + list of tasks
+								// For now, let's keep the mock structure or list tasks?
+								// The original code had "My Tasks", "Urgent Tasks".
+								// These seem like filters.
+								// For now, let's just keep generic "Task Board" link or specific views if needed.
+								// Since tasks are managed in a specific route, maybe we don't list individual tasks here unless they are distinct boards.
+								// The bug report doesn't explicitly ask for dynamic task lists in sidebar, but generic persistence.
+								// I'll keep the static links for "My Tasks" and "Urgent" as filters for now,
+								// or I can just link to the main board.
+								// Let's link to the main board.
 								{
-									title: "My Tasks",
-									slug: "mytasks"
-								},
-								{
-									title: "Urgent Tasks",
-									slug: "urgent"
-								},
+									title: "All Tasks",
+									slug: "" // Empty slug goes to /tasks/
+								}
 							]
 						}
 					]
 				},
 				{
 					name: "Test",
-					isActive: path.includes("feedback"),
+					isActive: isActive("feedback"),
 					items: [
 						{
 							title: "Feedback",
 							icon: MessageSquareQuote,
 							prefix: "feedback",
-							isActive: path.includes("feedback"),
-							items: [
-								{
-									title: "Feedback 1",
-									slug: "feedback-1"
-								}
-							]
+							isActive: isActive("feedback"),
+							items: getArtifacts("feedback")
 						}
 					]
 				},
@@ -210,31 +165,26 @@
 		
 		projectSupport: {
 			name: "Project Support",
-			isActive: path.includes("calendar") || path.includes("resources") || path.includes("pages"),
+			isActive: isActive("calendar") || isActive("resources") || isActive("pages"),
 			items: {
 				calendar: {
 					title: "Calendar",
-					url: "/project/"+ projectId +"/calendar",
+					url: `${projectPathPrefix}/calendar`,
 					icon: Calendar,
-					isActive: path.includes("calendar"),
+					isActive: isActive("calendar"),
 				},
 				resources: {
 					title: "Resources",
-					url: "/project/"+ projectId +"/resources",
+					url: `${projectPathPrefix}/resources`,
 					icon: Folder,
-					isActive: path.includes("resources"),
+					isActive: isActive("resources"),
 				},
 				pages: {
 					title: "Pages",
 					prefix: "pages",
-					isActive: path.includes("pages"),	
+					isActive: isActive("pages"),
 					icon: NotepadText,
-					items: [
-						{
-							title: "Welcome",
-							slug: "welcome"
-						}
-					]
+					items: getArtifacts("page")
 				}
 			}
 		},
@@ -242,24 +192,24 @@
 		navTeam: [
 			{
 				name: "Members",
-				url: "/project/"+ projectId +"/team/members",
+				url: `${projectPathPrefix}/team/members`,
 				icon: Users,
 				tooltip: "Manage Members",
-				isActive: path.includes("members"),
+				isActive: isActive("team/members"),
 			},
 			{
 				name: "Roles",
-				url: "/project/"+ projectId +"/team/roles",
+				url: `${projectPathPrefix}/team/roles`,
 				icon: UserLock,
 				tooltip: "Manage Roles & Access",
-				isActive: path.includes("roles"),
+				isActive: isActive("team/roles"),
 			},
 			{
 				name: "Project Settings",
-				url: "/project/"+ projectId +"/settings",
+				url: `${projectPathPrefix}/settings`,
 				icon: Settings,
 				tooltip: "Project Settings",
-				isActive: path.includes("settings"),
+				isActive: isActive("settings"),
 			},
 		],
 	});
@@ -295,7 +245,7 @@
 								<Sidebar.GroupLabel class="-mt-1 text-xs">{subMenu.name}</Sidebar.GroupLabel>
 								<Sidebar.GroupContent>
 									{#each subMenu.items as item}
-										<SubMenu item={item} projectId={projectId} path={path}/>
+										<SubMenu item={item} projectId={projectId} path={path} prefix={item.prefix}/>
 									{/each}
 								</Sidebar.GroupContent>
 							</Sidebar.Group>
@@ -324,7 +274,7 @@
 									{/snippet}
 								</Sidebar.MenuButton>
 							</Sidebar.MenuItem>
-						<SubMenu item={data.projectSupport.items.pages} projectId={projectId} path={path}/>
+						<SubMenu item={data.projectSupport.items.pages} projectId={projectId} path={path} prefix={data.projectSupport.items.pages.prefix}/>
 						</Sidebar.GroupContent>
 					</Sidebar.Group>
 			</Sidebar.GroupContent>

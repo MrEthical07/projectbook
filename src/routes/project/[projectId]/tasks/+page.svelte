@@ -13,79 +13,14 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
+    import { store } from "$lib/stores.svelte";
+    import type { TaskRow, TaskStatus, ViewMode } from "$lib/types";
 
-	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
-	type ViewMode = "Table" | "Kanban";
-	type TaskRow = {
-		id: string;
-		title: string;
-		linkedIdea: string;
-		linkedProblemStatement: string;
-		persona: string;
-		owner: string;
-		deadline: string;
-		status: TaskStatus;
-		ideaRejected: boolean;
-		hasFeedback: boolean;
-		isOrphan: boolean;
-	};
-
+	const projectId = $derived(page.params.projectId ?? "");
 	const statusOrder: TaskStatus[] = ["Planned", "In Progress", "Completed", "Abandoned"];
 
-	let rows = $state<TaskRow[]>([
-		{
-			id: "deadline-lane-prototype",
-			title: "Prototype deadline lane interaction",
-			linkedIdea: "Deadline lane view",
-			linkedProblemStatement: "Students need a clear way to track assignment deadlines.",
-			persona: "Avery Patel",
-			owner: "Avery Patel",
-			deadline: "2026-02-09",
-			status: "In Progress",
-			ideaRejected: false,
-			hasFeedback: false,
-			isOrphan: false,
-		},
-		{
-			id: "reminder-card-test",
-			title: "Test reminder card comprehension",
-			linkedIdea: "Smart reminder bundles",
-			linkedProblemStatement: "New creators need confidence during setup.",
-			persona: "Liam Gomez",
-			owner: "Nia Clark",
-			deadline: "2026-02-11",
-			status: "Planned",
-			ideaRejected: true,
-			hasFeedback: false,
-			isOrphan: false,
-		},
-		{
-			id: "handoff-visibility-run",
-			title: "Run handoff visibility experiment",
-			linkedIdea: "Assistant chat coach",
-			linkedProblemStatement: "Team leads need visibility into handoffs.",
-			persona: "Priya Sharma",
-			owner: "Dr. Ramos",
-			deadline: "2026-02-01",
-			status: "Completed",
-			ideaRejected: false,
-			hasFeedback: false,
-			isOrphan: false,
-		},
-		{
-			id: "legacy-flow-audit",
-			title: "Audit legacy flow assumptions",
-			linkedIdea: "Legacy path review",
-			linkedProblemStatement: "",
-			persona: "Unknown",
-			owner: "Avery Patel",
-			deadline: "2026-01-27",
-			status: "Abandoned",
-			ideaRejected: false,
-			hasFeedback: false,
-			isOrphan: true,
-		},
-	]);
+    // Derived from global store
+    const projectTasks = $derived(store.tasks.filter(t => t.projectId === projectId));
 
 	let viewMode = $state<ViewMode>("Table");
 	let statusFilter = $state<TaskStatus | "All">("All");
@@ -100,17 +35,17 @@
 
 	let draggingTaskId = $state("");
 
-	const owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	const owners = $derived(["All", ...new Set(projectTasks.map((row) => row.owner))]);
 	const stats = $derived({
-		total: rows.length,
-		planned: rows.filter((row) => row.status === "Planned").length,
-		inProgress: rows.filter((row) => row.status === "In Progress").length,
-		completed: rows.filter((row) => row.status === "Completed").length,
-		abandoned: rows.filter((row) => row.status === "Abandoned").length,
+		total: projectTasks.length,
+		planned: projectTasks.filter((row) => row.status === "Planned").length,
+		inProgress: projectTasks.filter((row) => row.status === "In Progress").length,
+		completed: projectTasks.filter((row) => row.status === "Completed").length,
+		abandoned: projectTasks.filter((row) => row.status === "Abandoned").length,
 	});
 
 	const filteredRows = $derived.by(() => {
-		return rows.filter((row) => {
+		return projectTasks.filter((row) => {
 			if (statusFilter !== "All" && row.status !== statusFilter) return false;
 			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
 			if (orphanOnly && !row.isOrphan) return false;
@@ -134,11 +69,11 @@
 
 	const setViewMode = (next: ViewMode) => {
 		viewMode = next;
-		localStorage.setItem(`tasks-index-view-${page.params.projectId}`, next);
+		localStorage.setItem(`tasks-index-view-${projectId}`, next);
 	};
 
 	onMount(() => {
-		const stored = localStorage.getItem(`tasks-index-view-${page.params.projectId}`);
+		const stored = localStorage.getItem(`tasks-index-view-${projectId}`);
 		if (stored === "Table" || stored === "Kanban") {
 			viewMode = stored;
 		}
@@ -159,7 +94,7 @@
 
 	const onDrop = (targetStatus: TaskStatus) => {
 		if (!draggingTaskId) return;
-		rows = rows.map((row) => (row.id === draggingTaskId ? { ...row, status: targetStatus } : row));
+        store.updateTask(draggingTaskId, { status: targetStatus });
 		draggingTaskId = "";
 	};
 
@@ -175,26 +110,27 @@
 		const title = createTitle.trim();
 		if (!title) return;
 		const id = slugify(title) || "untitled-task";
-		rows = [
-			{
-				id,
-				title,
-				linkedIdea: "",
-				linkedProblemStatement: "",
-				persona: "Unknown",
-				owner: "Avery Patel",
-				deadline: new Date().toISOString().slice(0, 10),
-				status: "Planned",
-				ideaRejected: false,
-				hasFeedback: false,
-				isOrphan: true,
-			},
-			...rows,
-		];
+        const newTask: TaskRow = {
+            id,
+            projectId,
+            title,
+            linkedIdea: "",
+            linkedProblemStatement: "",
+            persona: "Unknown",
+            owner: "Avery Patel", // Default owner
+            deadline: new Date().toISOString().slice(0, 10),
+            status: "Planned",
+            ideaRejected: false,
+            hasFeedback: false,
+            isOrphan: true,
+            description: createDescription
+        };
+        store.addTask(newTask);
+
 		createTitle = "";
 		createDescription = "";
 		createOpen = false;
-		await goto(`/project/${page.params.projectId}/tasks/${id}`);
+		await goto(`/project/${projectId}/tasks/${id}`);
 	};
 </script>
 
@@ -447,4 +383,3 @@
 		</section>
 	</div>
 </div>
-

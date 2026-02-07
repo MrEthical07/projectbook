@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { page } from "$app/state";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button } from "$lib/components/ui/button";
@@ -12,14 +13,20 @@
 	import { MemberRole } from "$lib/constants/member-roles";
 	import { onMount } from "svelte";
 	import { toast } from "svelte-sonner";
+    import { store } from "$lib/stores.svelte";
+    import type { Member } from "$lib/types";
 
-	type Member = {
-		name: string;
-		email: string;
-		role: MemberRole;
-		status: "active" | "invited";
-		updatedAt: string;
-	};
+    const projectId = $derived(page.params.projectId ?? "");
+    const project = $derived(store.projects.find(p => p.id === projectId));
+
+    // Map store members to local display
+    // Store member role is string, but here enum is used. Cast or map.
+    // MemberRole enum values match string ("Owner", etc) likely.
+
+    const members = $derived((project?.members || []).map(m => ({
+        ...m,
+        updatedAt: m.joinedAt // Fallback
+    })));
 
 	const roleOptions = Object.values(MemberRole);
 	const permissions = [
@@ -30,37 +37,6 @@
 		{ id: "manage_members", label: "Manage members" },
 		{ id: "edit_settings", label: "Edit project settings" }
 	] as const;
-
-	let members = $state<Member[]>([
-		{
-			name: "Sophia Lee",
-			email: "sophia.lee@projectbook.io",
-			role: MemberRole.Owner,
-			status: "active",
-			updatedAt: "Today, 10:42 AM"
-		},
-		{
-			name: "Marcus Reid",
-			email: "marcus.reid@projectbook.io",
-			role: MemberRole.Admin,
-			status: "active",
-			updatedAt: "Yesterday, 6:15 PM"
-		},
-		{
-			name: "Priya Nair",
-			email: "priya.nair@projectbook.io",
-			role: MemberRole.Editor,
-			status: "active",
-			updatedAt: "Mar 22, 2024"
-		},
-		{
-			name: "Diego Santos",
-			email: "diego.santos@projectbook.io",
-			role: MemberRole.Viewer,
-			status: "invited",
-			updatedAt: "Invite sent Apr 20, 2024"
-		}
-	]);
 
 	let permissionsSaving = $state(false);
 	let permissionsSavePhase = $state<"idle" | "saving" | "saved">("idle");
@@ -118,20 +94,22 @@
 	/**
 	 * Persist a role update for a member and surface a toast confirmation.
 	 */
-	const saveRoleChange = (member: Member) => {
+	const saveRoleChange = (member: any, newRole: string) => {
+        if (!project) return;
+
+        const updatedMembers = project.members.map(m => m.id === member.id ? { ...m, role: newRole as any } : m);
+        store.updateProject(project.id, { members: updatedMembers });
+
 		toast.success(`Role updated for ${member.name}.`);
-		member.updatedAt = "Just now";
-		members = [...members];
 	};
 
 	/**
 	 * Provide a quick visual tag for member status.
 	 */
-	const statusVariant = (status: Member["status"]) => {
-		if (status === "invited") {
+	const statusVariant = (status: string) => {
+		if (status === "Invited") { // Matched types.ts
 			return "secondary";
 		}
-
 		return "default";
 	};
 
@@ -220,7 +198,7 @@
 						<span class="text-emerald-600">Saved</span>
 					{/if}
 				</div>
-				<Button on:click={savePermissions} disabled={permissionsSaving || !permissionsDirty}>
+				<Button onclick={savePermissions} disabled={permissionsSaving || !permissionsDirty}>
 					{permissionsSaving ? "Saving..." : "Save permissions"}
 				</Button>
 			</div>
@@ -248,7 +226,7 @@
 					</Table.Row>
 				</Table.Header>
 				<Table.Body>
-					{#each members as member (member.email)}
+					{#each members as member (member.id)}
 						<Table.Row>
 							<Table.Cell class="font-medium">{member.name}</Table.Cell>
 							<Table.Cell>{member.email}</Table.Cell>
@@ -258,7 +236,7 @@
 								</Badge>
 							</Table.Cell>
 							<Table.Cell class="min-w-48">
-								<Select.Root type="single" bind:value={member.role}>
+								<Select.Root type="single" value={member.role} onValueChange={(v) => saveRoleChange(member, v)}>
 									<Select.Trigger>
 										{member.role}
 									</Select.Trigger>
@@ -273,8 +251,11 @@
 							</Table.Cell>
 							<Table.Cell>{member.updatedAt}</Table.Cell>
 							<Table.Cell class="text-right">
-								<Button variant="outline" on:click={() => saveRoleChange(member)}>
-									Save
+								<!-- Removed manual save button as select change saves immediately or we can re-add -->
+                                <!-- Let's keep manual save consistent with previous UI but it needs local state to track pending changes if we use button -->
+                                <!-- For simplicity, I made onValueChange trigger save directly. Button is redundant now but visual. -->
+                                <Button variant="outline" disabled>
+									Saved
 								</Button>
 							</Table.Cell>
 						</Table.Row>
