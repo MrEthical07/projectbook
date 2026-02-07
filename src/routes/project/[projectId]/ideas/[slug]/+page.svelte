@@ -1,0 +1,784 @@
+<script lang="ts">
+import { onDestroy, onMount } from "svelte";
+import * as Alert from "$lib/components/ui/alert";
+	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
+	import { Badge } from "$lib/components/ui/badge";
+	import { Button, buttonVariants } from "$lib/components/ui/button";
+	import * as Dialog from "$lib/components/ui/dialog";
+	import { Input } from "$lib/components/ui/input";
+	import { Label } from "$lib/components/ui/label";
+	import * as Select from "$lib/components/ui/select";
+	import { Separator } from "$lib/components/ui/separator/index.js";
+	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { Textarea } from "$lib/components/ui/textarea";
+	import { ChevronDown, ExternalLink } from "@lucide/svelte";
+
+	type IdeaStatus = "Considered" | "Selected" | "Rejected";
+	type PageStatus = IdeaStatus | "Archived";
+	type OptionalModuleKey =
+		| "approach"
+		| "alternatives"
+		| "tradeoffs"
+		| "risks"
+		| "assumptions";
+
+	type LinkedProblemStatement = {
+		id: string;
+		title: string;
+		phase: "Define";
+		href: string;
+		status: "Draft" | "Locked" | "Archived";
+	};
+
+	type LinkedStory = {
+		id: string;
+		title: string;
+		phase: "Empathize";
+		href: string;
+	};
+
+	const moduleDetails: Record<
+		OptionalModuleKey,
+		{ title: string; placeholder: string }
+	> = {
+		approach: {
+			title: "Approach - How it Works",
+			placeholder: "Explain the approach at a conceptual level.",
+		},
+		alternatives: {
+			title: "Alternatives Considered",
+			placeholder: "List other ideas you considered.",
+		},
+		tradeoffs: {
+			title: "Trade-offs",
+			placeholder: "Describe what this idea sacrifices or deprioritizes.",
+		},
+		risks: {
+			title: "Risks",
+			placeholder: "Call out any risk areas to watch.",
+		},
+		assumptions: {
+			title: "Assumptions",
+			placeholder: "List assumptions that still need validation.",
+		},
+	};
+
+	const optionalModules: OptionalModuleKey[] = [
+		"approach",
+		"alternatives",
+		"tradeoffs",
+		"risks",
+		"assumptions",
+	];
+
+	const problemOptions: LinkedProblemStatement[] = [
+		{
+			id: "problem-41",
+			title: "Students miss assignment requirements",
+			phase: "Define",
+			href: "/project/alpha/problem-statement/missed-requirements",
+			status: "Locked",
+		},
+		{
+			id: "problem-42",
+			title: "Deadline shifts create confusion",
+			phase: "Define",
+			href: "/project/alpha/problem-statement/deadline-shifts",
+			status: "Draft",
+		},
+		{
+			id: "problem-43",
+			title: "Grading criteria is unclear",
+			phase: "Define",
+			href: "/project/alpha/problem-statement/grading-clarity",
+			status: "Archived",
+		},
+	];
+
+	const linkedStories = $state<LinkedStory[]>([
+		{
+			id: "story-7",
+			title: "Avery Patel - First-year student",
+			phase: "Empathize",
+			href: "/project/alpha/stories/avery-patel",
+		},
+	]);
+
+	const derivedPersonas = $state<string[]>(["Avery Patel"]);
+
+	let title = $state("");
+	let description = $state("");
+	let ideaStatus = $state<IdeaStatus>("Considered");
+	let isArchived = $state(false);
+	let summaryTitle = $state("");
+	let summaryDescription = $state("");
+	let notesText = $state("");
+	let selectedProblemId = $state("");
+	let pendingProblemId = $state("");
+	let addSectionOpen = $state(false);
+	let statusDialogOpen = $state(false);
+	let statusConfirmOpen = $state(false);
+	let archiveDialogOpen = $state(false);
+	let unarchiveDialogOpen = $state(false);
+	let linkProblemOpen = $state(false);
+	let derivedOpen = $state(true);
+	let activeModules = $state<OptionalModuleKey[]>([]);
+	let pendingStatus = $state<IdeaStatus | null>(null);
+	let moduleContent = $state<Record<OptionalModuleKey, string>>({
+		approach: "",
+		alternatives: "",
+		tradeoffs: "",
+		risks: "",
+		assumptions: "",
+	});
+	let moduleOpen = $state<Record<OptionalModuleKey, boolean>>({
+		approach: true,
+		alternatives: true,
+		tradeoffs: true,
+		risks: true,
+		assumptions: true,
+	});
+
+	const pageStatus = $derived<PageStatus>(isArchived ? "Archived" : ideaStatus);
+	const linkedProblem = $derived(
+		problemOptions.find((problem) => problem.id === selectedProblemId) ?? null
+	);
+	const pendingProblem = $derived(
+		problemOptions.find((problem) => problem.id === pendingProblemId) ?? null
+	);
+
+	const isReadOnly = $derived(isArchived || ideaStatus === "Rejected");
+	const isSummaryReadOnly = $derived(isArchived || ideaStatus !== "Considered");
+	type SavePhase = "idle" | "saving" | "saved";
+	let savePhase = $state<SavePhase>("idle");
+	let savedSignature = $state("");
+	let saveReady = $state(false);
+	let saveTimer: ReturnType<typeof setTimeout> | null = null;
+	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+	const currentSignature = $derived(
+		JSON.stringify({
+			title,
+			description,
+			ideaStatus,
+			isArchived,
+			summaryTitle,
+			summaryDescription,
+			notesText,
+			selectedProblemId,
+			activeModules,
+			moduleContent,
+		})
+	);
+	const isDirty = $derived(saveReady && currentSignature !== savedSignature);
+	const saveIndicator = $derived.by(() => {
+		if (savePhase === "saving") {
+			return "saving";
+		}
+
+		if (isDirty) {
+			return "edited";
+		}
+
+		if (savePhase === "saved") {
+			return "saved";
+		}
+
+		return "idle";
+	});
+
+	const addModule = (moduleKey: OptionalModuleKey) => {
+		if (!activeModules.includes(moduleKey)) {
+			activeModules = [...activeModules, moduleKey];
+		}
+	};
+
+	const removeModule = (moduleKey: OptionalModuleKey) => {
+		if (activeModules.includes(moduleKey)) {
+			activeModules = activeModules.filter((key) => key !== moduleKey);
+		}
+	};
+
+	const toggleModule = (moduleKey: OptionalModuleKey) => {
+		moduleOpen[moduleKey] = !moduleOpen[moduleKey];
+		moduleOpen = { ...moduleOpen };
+	};
+
+	const confirmLinkProblem = () => {
+		if (!pendingProblemId) {
+			return;
+		}
+
+		selectedProblemId = pendingProblemId;
+		pendingProblemId = "";
+		linkProblemOpen = false;
+	};
+
+	const requestStatusChange = (nextStatus: IdeaStatus) => {
+		pendingStatus = nextStatus;
+		statusConfirmOpen = true;
+	};
+
+	const confirmStatusChange = () => {
+		if (!pendingStatus) {
+			return;
+		}
+
+		ideaStatus = pendingStatus;
+		pendingStatus = null;
+		statusConfirmOpen = false;
+	};
+
+	const statusVariant = (currentStatus: PageStatus) => {
+		if (currentStatus === "Archived") {
+			return "destructive";
+		}
+
+		if (currentStatus === "Selected") {
+			return "default";
+		}
+
+		if (currentStatus === "Rejected") {
+			return "secondary";
+		}
+
+		return "outline";
+	};
+
+	const statusBadgeClass = (currentStatus: PageStatus) => {
+		if (currentStatus === "Selected") {
+			return "bg-emerald-100 text-emerald-700 border-emerald-200";
+		}
+
+		if (currentStatus === "Rejected") {
+			return "bg-rose-100 text-rose-700 border-rose-200";
+		}
+
+		if (currentStatus === "Archived") {
+			return "bg-slate-100 text-slate-600 border-slate-200";
+		}
+
+		return "bg-amber-100 text-amber-700 border-amber-200";
+	};
+
+	const triggerSave = () => {
+		if (savePhase === "saving" || !isDirty) {
+			return;
+		}
+
+		if (saveTimer) {
+			clearTimeout(saveTimer);
+		}
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+
+		savePhase = "saving";
+		saveTimer = setTimeout(() => {
+			savedSignature = currentSignature;
+			savePhase = "saved";
+			savedBadgeTimer = setTimeout(() => {
+				if (!isDirty) {
+					savePhase = "idle";
+				}
+			}, 1400);
+		}, 900);
+	};
+
+	onDestroy(() => {
+		if (saveTimer) {
+			clearTimeout(saveTimer);
+		}
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+	});
+
+	onMount(() => {
+		savedSignature = currentSignature;
+		saveReady = true;
+	});
+</script>
+
+<div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
+	<header
+		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+	>
+		<div class="flex items-center gap-2 px-4 w-full">
+			<Sidebar.Trigger class="-ms-1" />
+			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
+			<Breadcrumb.Root>
+				<Breadcrumb.List>
+					<Breadcrumb.Item class="hidden md:block">
+						<Breadcrumb.Link href="../ideas">Ideas</Breadcrumb.Link>
+					</Breadcrumb.Item>
+					<Breadcrumb.Separator class="hidden md:block" />
+					<Breadcrumb.Item>
+						<Breadcrumb.Page>{title || "New Idea"}</Breadcrumb.Page>
+					</Breadcrumb.Item>
+				</Breadcrumb.List>
+			</Breadcrumb.Root>
+		</div>
+	</header>
+
+	<div class="flex flex-col md:px-20 gap-4 py-2">
+		<div class="flex mt-2 flex-col bg-white rounded-lg gap-2 p-2">
+			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
+				Idea - Ideate
+			</div>
+			<Input
+				type="text"
+				bind:value={title}
+				class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3"
+				placeholder="Idea Title"
+				disabled={isArchived}
+			/>
+			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
+				<div class="flex flex-wrap items-center gap-2">
+					<Badge class={statusBadgeClass(pageStatus)} variant="outline">
+						{pageStatus}
+					</Badge>
+					{#if isArchived}
+						<Dialog.Root bind:open={unarchiveDialogOpen}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+								Unarchive
+							</Dialog.Trigger>
+							<Dialog.Content>
+								<Dialog.Header>
+									<Dialog.Title>Unarchive this idea?</Dialog.Title>
+									<Dialog.Description>
+										This will make the idea editable again.
+									</Dialog.Description>
+								</Dialog.Header>
+								<Dialog.Footer>
+									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+										Cancel
+									</Dialog.Close>
+									<Dialog.Close
+										class={buttonVariants()}
+										onclick={() => {
+											isArchived = false;
+										}}
+									>
+										Unarchive
+									</Dialog.Close>
+								</Dialog.Footer>
+							</Dialog.Content>
+						</Dialog.Root>
+					{:else}
+						<Dialog.Root bind:open={archiveDialogOpen}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+								Archive
+							</Dialog.Trigger>
+							<Dialog.Content>
+								<Dialog.Header>
+									<Dialog.Title>Archive this idea?</Dialog.Title>
+									<Dialog.Description>
+										Archived ideas are read-only and kept for history.
+									</Dialog.Description>
+								</Dialog.Header>
+								<Dialog.Footer>
+									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+										Cancel
+									</Dialog.Close>
+									<Dialog.Close
+										class={buttonVariants()}
+										onclick={() => {
+											isArchived = true;
+										}}
+									>
+										Archive
+									</Dialog.Close>
+								</Dialog.Footer>
+							</Dialog.Content>
+						</Dialog.Root>
+					{/if}
+				</div>
+				<div class="flex items-center gap-3">
+					<div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
+						{#if saveIndicator === "edited"}
+							<span class="text-amber-600">Edited</span>
+						{:else if saveIndicator === "saving"}
+							<span class="text-blue-600">Saving...</span>
+						{:else if saveIndicator === "saved"}
+							<span class="text-emerald-600">Saved</span>
+						{/if}
+					</div>
+					<Button
+						size="sm"
+						onclick={triggerSave}
+						disabled={savePhase === "saving" || !isDirty}
+					>
+						{savePhase === "saving" ? "Saving..." : "Save changes"}
+					</Button>
+				</div>
+			</div>
+</div>
+
+<Dialog.Root bind:open={statusConfirmOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Confirm status change</Dialog.Title>
+			<Dialog.Description>
+				{#if pendingStatus === "Selected"}
+					Selecting this idea enables task creation downstream.
+				{:else if pendingStatus === "Rejected"}
+					Rejected ideas become read-only except Notes.
+				{:else}
+					This will move the idea back to Considered.
+				{/if}
+			</Dialog.Description>
+		</Dialog.Header>
+		<div class="rounded-lg border border-border px-3 py-2 text-sm">
+			New status: {pendingStatus ?? "None"}
+		</div>
+		<Dialog.Footer>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+				Cancel
+			</Dialog.Close>
+			<Dialog.Close class={buttonVariants()} onclick={confirmStatusChange}>
+				Confirm status
+			</Dialog.Close>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+		<Separator class="mt-2 px-2"></Separator>
+
+		<div class="py-2 w-full flex flex-col gap-4">
+			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Linked Problem Statement</span>
+					<Separator></Separator>
+				</div>
+				{#if !linkedProblem}
+					<div class="flex flex-col gap-3 max-w-xl">
+						<Label class="text-muted-foreground" for="linked-problem">
+							Linked problem statement
+						</Label>
+						<Select.Root type="single" bind:value={pendingProblemId}>
+							<Select.Trigger id="linked-problem">
+								{pendingProblemId
+									? problemOptions.find((problem) => problem.id === pendingProblemId)?.title
+									: "Select a problem statement"}
+							</Select.Trigger>
+							<Select.Content>
+								{#each problemOptions as problem (problem.id)}
+									<Select.Item value={problem.id} label={problem.title}>
+										{problem.title}
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+						<div class="flex items-center gap-3">
+							<Dialog.Root bind:open={linkProblemOpen}>
+								<Dialog.Trigger
+									class={buttonVariants({ variant: "outline", size: "sm" })}
+									disabled={!pendingProblemId}
+								>
+									Link problem statement
+								</Dialog.Trigger>
+								<Dialog.Content>
+									<Dialog.Header>
+										<Dialog.Title>Link this problem statement?</Dialog.Title>
+										<Dialog.Description>
+											This cannot be changed later. Make sure this is the right problem.
+										</Dialog.Description>
+									</Dialog.Header>
+									<div class="rounded-lg border border-border px-3 py-2 text-sm">
+										{pendingProblem?.title ?? "No problem selected"}
+									</div>
+									<Dialog.Footer>
+										<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+											Cancel
+										</Dialog.Close>
+										<Dialog.Close
+											class={buttonVariants()}
+											onclick={confirmLinkProblem}
+										>
+											Confirm link
+										</Dialog.Close>
+									</Dialog.Footer>
+								</Dialog.Content>
+							</Dialog.Root>
+							<span class="text-xs text-muted-foreground">
+								Once linked, this problem statement cannot be changed.
+							</span>
+						</div>
+					</div>
+				{:else}
+					{#if linkedProblem.status === "Archived"}
+						<Alert.Root class="border border-orange-200 bg-orange-50 text-orange-700">
+							<Alert.Title>Problem statement archived</Alert.Title>
+							<Alert.Description>
+								This idea remains valid but upstream context is archived.
+							</Alert.Description>
+						</Alert.Root>
+					{:else if linkedProblem.status !== "Locked"}
+						<Alert.Root class="border border-orange-200 bg-orange-50 text-orange-700">
+							<Alert.Title>Problem statement not locked</Alert.Title>
+							<Alert.Description>
+								This idea is linked to a problem statement that is still editable.
+							</Alert.Description>
+						</Alert.Root>
+					{/if}
+					<div class="border border-border rounded-lg p-4 flex flex-col gap-3">
+						<div class="flex items-start justify-between gap-3">
+							<div class="text-sm font-medium">{linkedProblem.title}</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								class="h-8 w-8 p-0"
+								href={linkedProblem.href}
+								aria-label="Open problem statement"
+							>
+								<ExternalLink class="h-4 w-4" />
+							</Button>
+						</div>
+						<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+							<div class="bg-accent px-2 py-1 rounded-lg text-xs font-medium">
+								{linkedProblem.phase}
+							</div>
+							<div class="bg-muted px-2 py-1 rounded-lg text-xs">
+								{linkedProblem.status}
+							</div>
+						</div>
+					</div>
+				{/if}
+			</section>
+
+			{#if linkedProblem}
+				<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+					<div class="flex flex-row gap-2 items-center w-full">
+						<span class="font-medium text-nowrap">Derived Context</span>
+						<Separator></Separator>
+						<Button
+							variant="ghost"
+							size="sm"
+							class="h-7 px-2"
+							onclick={() => {
+								derivedOpen = !derivedOpen;
+							}}
+						>
+							<ChevronDown
+								class={`h-4 w-4 transition-transform ${
+									derivedOpen ? "rotate-180" : ""
+								}`}
+							/>
+						</Button>
+					</div>
+					{#if derivedOpen}
+						<div class="grid gap-4 md:grid-cols-2 text-sm text-muted-foreground">
+							<div class="md:col-span-2">
+								<div class="text-xs font-semibold uppercase text-muted-foreground">
+									Problem statement
+								</div>
+								<div class="mt-2 text-sm text-foreground">
+									Students miss assignment requirements because they lose track of changes.
+								</div>
+							</div>
+							<div>
+								<div class="text-xs font-semibold uppercase text-muted-foreground">Persona</div>
+								<div class="mt-2 text-sm text-foreground">
+									{#each derivedPersonas as persona, index (persona)}
+										<span>{persona}{index < derivedPersonas.length - 1 ? ", " : ""}</span>
+									{/each}
+								</div>
+							</div>
+							<div>
+								<div class="text-xs font-semibold uppercase text-muted-foreground">User story</div>
+								<div class="mt-2 flex flex-col gap-2">
+									{#each linkedStories as story (story.id)}
+										<div class="flex items-center justify-between gap-2 text-sm text-foreground">
+											<span>{story.title}</span>
+											<Button
+												variant="ghost"
+												size="sm"
+												class="h-7 w-7 p-0"
+												href={story.href}
+												aria-label="Open user story"
+											>
+												<ExternalLink class="h-4 w-4" />
+											</Button>
+										</div>
+									{/each}
+								</div>
+							</div>
+						</div>
+					{/if}
+				</section>
+			{/if}
+
+			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Idea Description</span>
+					<Separator></Separator>
+				</div>
+				<Textarea
+					id="idea-description"
+					placeholder="Describe the idea at a conceptual level."
+					bind:value={description}
+					disabled={isReadOnly}
+					class="min-h-28 text-base md:text-lg font-medium"
+				/>
+			</section>
+
+			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Idea Status</span>
+					<Separator></Separator>
+				</div>
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<Badge class={statusBadgeClass(ideaStatus)} variant="outline">
+						{ideaStatus}
+					</Badge>
+					<Dialog.Root bind:open={statusDialogOpen}>
+						<Dialog.Trigger
+							class={buttonVariants({ variant: "outline" })}
+							disabled={isArchived}
+						>
+							Change Status
+						</Dialog.Trigger>
+						<Dialog.Content>
+							<Dialog.Header>
+								<Dialog.Title>Change idea status</Dialog.Title>
+							</Dialog.Header>
+							<div class="grid gap-2">
+								{#each ["Considered", "Selected", "Rejected"] as option (option)}
+									<Button
+										variant={ideaStatus === option ? "default" : "outline"}
+										onclick={() => requestStatusChange(option as IdeaStatus)}
+									>
+										{option}
+									</Button>
+								{/each}
+							</div>
+							<div class="mt-3 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
+								Status changes are manual and do not alter the page structure.
+							</div>
+						</Dialog.Content>
+					</Dialog.Root>
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Final Idea Summary</span>
+					<Separator></Separator>
+				</div>
+				<div class="grid gap-3">
+					<Input
+						id="summary-title"
+						placeholder="Summary title"
+						bind:value={summaryTitle}
+						disabled={isSummaryReadOnly}
+					/>
+					<Textarea
+						id="summary-description"
+						placeholder="Short summary of the idea."
+						bind:value={summaryDescription}
+						disabled={isSummaryReadOnly}
+					/>
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Add Section</span>
+					<Separator></Separator>
+				</div>
+				<Dialog.Root bind:open={addSectionOpen}>
+					<Dialog.Trigger
+						class={buttonVariants({ variant: "outline" })}
+						disabled={isArchived}
+					>
+						+ Add Section
+					</Dialog.Trigger>
+					<Dialog.Content>
+						<Dialog.Header>
+							<Dialog.Title>Add section</Dialog.Title>
+						</Dialog.Header>
+						<div class="grid gap-3">
+							{#each optionalModules as moduleKey (moduleKey)}
+								<div class="border border-border rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+									<div class="text-sm font-medium">
+										{moduleDetails[moduleKey].title}
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										onclick={() => addModule(moduleKey)}
+										disabled={activeModules.includes(moduleKey) || isArchived}
+									>
+										{activeModules.includes(moduleKey) ? "Added" : "Add"}
+									</Button>
+								</div>
+							{/each}
+						</div>
+					</Dialog.Content>
+				</Dialog.Root>
+			</section>
+
+			{#if activeModules.length > 0}
+				<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+					<div class="flex flex-row gap-2 items-center w-full">
+						<span class="font-medium text-nowrap">Optional Modules</span>
+						<Separator></Separator>
+					</div>
+					<div class="grid gap-3">
+						{#each optionalModules as moduleKey (moduleKey)}
+							{#if activeModules.includes(moduleKey)}
+								<div class="flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
+									<div class="flex items-center justify-between gap-3">
+										<button
+											type="button"
+											class="flex items-center gap-2 text-left"
+											onclick={() => toggleModule(moduleKey)}
+										>
+											<ChevronDown
+												class={`h-4 w-4 transition-transform ${
+													moduleOpen[moduleKey] ? "rotate-180" : ""
+												}`}
+											/>
+											<span class="text-sm font-medium">
+												{moduleDetails[moduleKey].title}
+											</span>
+										</button>
+										<Button
+											variant="ghost"
+											size="sm"
+											class="h-7 px-2 text-destructive hover:text-destructive"
+											onclick={() => removeModule(moduleKey)}
+											disabled={isArchived}
+										>
+											Remove
+										</Button>
+									</div>
+									{#if moduleOpen[moduleKey]}
+										<Textarea
+											placeholder={moduleDetails[moduleKey].placeholder}
+											bind:value={moduleContent[moduleKey]}
+											disabled={isArchived}
+										/>
+									{/if}
+								</div>
+							{/if}
+						{/each}
+					</div>
+				</section>
+			{/if}
+
+			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="flex flex-row gap-2 items-center w-full">
+					<span class="font-medium text-nowrap">Notes</span>
+					<Separator></Separator>
+				</div>
+				<Textarea
+					id="idea-notes"
+					placeholder="Additional notes"
+					bind:value={notesText}
+				/>
+			</section>
+		</div>
+	</div>
+</div>

@@ -7,8 +7,8 @@
 <Sidebar.Provider>
 	<AppSidebar />
 	<Sidebar.Inset>
-		<main class="bg-sidebar p-2">
+		<div class="bg-sidebar p-2">
 			{@render children()}
-		</main>
+		</div>
 	</Sidebar.Inset>
 </Sidebar.Provider>

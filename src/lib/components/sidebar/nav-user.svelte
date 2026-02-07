@@ -6,7 +6,7 @@
 	import BadgeCheckIcon from "@lucide/svelte/icons/badge-check";
 	import BellIcon from "@lucide/svelte/icons/bell";
 	import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
-	import CreditCardIcon from "@lucide/svelte/icons/credit-card";
+	import Mail from "@lucide/svelte/icons/credit-card";
 	import LogOutIcon from "@lucide/svelte/icons/log-out";
 	import SparklesIcon from "@lucide/svelte/icons/sparkles";
 
@@ -64,22 +64,30 @@
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
 					<DropdownMenu.Item>
-						<BadgeCheckIcon />
-						Account
+						<a href="/my-account" class="flex flex-row gap-2 items-center">
+							<BadgeCheckIcon />
+							Account
+						</a>
 					</DropdownMenu.Item>
 					<DropdownMenu.Item>
-						<CreditCardIcon />
-						Billing
+						<a href="/invites" class="flex flex-row gap-2 items-center">
+						<Mail />
+						Invites
+						</a>
 					</DropdownMenu.Item>
 					<DropdownMenu.Item>
+						<a href="/notifications" class="flex flex-row gap-2 items-center">
 						<BellIcon />
 						Notifications
+						</a>
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Item>
-					<LogOutIcon />
-					Log out
+						<a href="/logout" class="flex flex-row gap-2 items-center">
+						<LogOutIcon />
+						Log out
+						</a>
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>

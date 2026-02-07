@@ -8,13 +8,24 @@
 		children,
 		...restProps
 	}: WithElementRef<HTMLOlAttributes> = $props();
+
+	const setRef = (node: HTMLOListElement) => {
+		ref = node;
+		return {
+			destroy() {
+				if (ref === node) {
+					ref = null;
+				}
+			},
+		};
+	};
 </script>
 
 <ol
-	bind:this={ref}
+	{@attach setRef}
 	data-slot="breadcrumb-list"
 	class={cn(
-		"text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm break-words sm:gap-2.5",
+		"text-muted-foreground flex min-w-0 max-w-full flex-row items-center gap-1.5 overflow-hidden text-sm sm:gap-2.5",
 		className
 	)}
 	{...restProps}

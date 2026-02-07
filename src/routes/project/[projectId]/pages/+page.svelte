@@ -12,74 +12,73 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
+	import { Check, Pencil, X } from "@lucide/svelte";
 
-	type StoryStatus = "Draft" | "Locked" | "Archived";
-	type StoryRow = {
+	type PageStatus = "Draft" | "Archived";
+	type PageRow = {
 		id: string;
 		title: string;
-		personaName: string;
-		painPointsCount: number;
-		problemHypothesesCount: number;
 		owner: string;
-		lastUpdated: string;
-		status: StoryStatus;
+		lastEdited: string;
+		linkedArtifactsCount: number;
+		status: PageStatus;
 		isOrphan: boolean;
 	};
 
-	let rows = $state<StoryRow[]>([
+	let rows = $state<PageRow[]>([
 		{
-			id: "streamline-checkout",
-			title: "Streamline checkout for first-time users",
-			personaName: "Avery Patel",
-			painPointsCount: 3,
-			problemHypothesesCount: 2,
+			id: "research-notes",
+			title: "Research notes",
 			owner: "Avery Patel",
-			lastUpdated: "2026-02-05",
-			status: "Locked",
-			isOrphan: false,
-		},
-		{
-			id: "creator-onboarding",
-			title: "Improve onboarding for new creators",
-			personaName: "Liam Gomez",
-			painPointsCount: 0,
-			problemHypothesesCount: 1,
-			owner: "Nia Clark",
-			lastUpdated: "2026-02-02",
+			lastEdited: "2026-02-06",
+			linkedArtifactsCount: 2,
 			status: "Draft",
 			isOrphan: false,
 		},
 		{
-			id: "team-milestones",
-			title: "Surface progress milestones for teams",
-			personaName: "Priya Sharma",
-			painPointsCount: 2,
-			problemHypothesesCount: 0,
-			owner: "Dr. Ramos",
-			lastUpdated: "2026-01-27",
+			id: "stakeholder-brief",
+			title: "Stakeholder brief",
+			owner: "Nia Clark",
+			lastEdited: "2026-01-29",
+			linkedArtifactsCount: 0,
 			status: "Archived",
+			isOrphan: true,
+		},
+		{
+			id: "pilot-summary",
+			title: "Pilot summary",
+			owner: "Dr. Ramos",
+			lastEdited: "2026-02-04",
+			linkedArtifactsCount: 1,
+			status: "Draft",
 			isOrphan: false,
 		},
 	]);
 
-	let statusFilter = $state<StoryStatus | "All">("All");
+	let statusFilter = $state<PageStatus | "All">("All");
 	let ownerFilter = $state("All");
 	let orphanOnly = $state(false);
 	let updatedFrom = $state("");
 	let updatedTo = $state("");
-	let qualityFilter = $state<"All" | "WithPainPoints" | "WithHypotheses">("All");
+	let linkedOnly = $state(false);
+	let recentOnly = $state(false);
 
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createDescription = $state("");
 
+	let editingId = $state("");
+	let editingTitle = $state("");
+
 	const owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	const today = new Date().toISOString().slice(0, 10);
+	const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 	const stats = $derived({
 		total: rows.length,
-		withPainPoints: rows.filter((row) => row.painPointsCount > 0).length,
-		withHypotheses: rows.filter((row) => row.problemHypothesesCount > 0).length,
-		archived: rows.filter((row) => row.status === "Archived").length,
+		recentlyUpdated: rows.filter((row) => row.lastEdited >= recentCutoff).length,
+		linkedPages: rows.filter((row) => row.linkedArtifactsCount > 0).length,
+		archivedPages: rows.filter((row) => row.status === "Archived").length,
 	});
 
 	const filteredRows = $derived.by(() => {
@@ -87,33 +86,34 @@
 			if (statusFilter !== "All" && row.status !== statusFilter) return false;
 			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
 			if (orphanOnly && !row.isOrphan) return false;
-			if (qualityFilter === "WithPainPoints" && row.painPointsCount === 0) return false;
-			if (qualityFilter === "WithHypotheses" && row.problemHypothesesCount === 0) return false;
-			if (updatedFrom && row.lastUpdated < updatedFrom) return false;
-			if (updatedTo && row.lastUpdated > updatedTo) return false;
+			if (linkedOnly && row.linkedArtifactsCount === 0) return false;
+			if (recentOnly && row.lastEdited < recentCutoff) return false;
+			if (updatedFrom && row.lastEdited < updatedFrom) return false;
+			if (updatedTo && row.lastEdited > updatedTo) return false;
 			return true;
 		});
 	});
 
-	const statusClass = (status: StoryStatus) => {
-		if (status === "Draft") return "bg-blue-50 text-blue-700 border-blue-200";
-		if (status === "Locked") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-		return "bg-slate-100 text-slate-700 border-slate-300";
-	};
+	const statusClass = (status: PageStatus) =>
+		status === "Draft"
+			? "bg-blue-50 text-blue-700 border-blue-200"
+			: "bg-slate-100 text-slate-700 border-slate-300";
 
-	const applyStatFilter = (target: "Total" | "WithPainPoints" | "WithHypotheses" | "Archived") => {
-		if (target === "Total") {
-			statusFilter = "All";
-			qualityFilter = "All";
-			return;
-		}
-		if (target === "Archived") {
-			statusFilter = "Archived";
-			qualityFilter = "All";
-			return;
-		}
+	const applyStatFilter = (target: "Total" | "RecentlyUpdated" | "LinkedPages" | "ArchivedPages") => {
 		statusFilter = "All";
-		qualityFilter = target;
+		recentOnly = false;
+		linkedOnly = false;
+		if (target === "RecentlyUpdated") {
+			recentOnly = true;
+			return;
+		}
+		if (target === "LinkedPages") {
+			linkedOnly = true;
+			return;
+		}
+		if (target === "ArchivedPages") {
+			statusFilter = "Archived";
+		}
 	};
 
 	const slugify = (value: string) =>
@@ -124,29 +124,46 @@
 			.replace(/\s+/g, "-")
 			.replace(/-+/g, "-");
 
-	const createStory = async () => {
+	const createPage = async () => {
 		const title = createTitle.trim();
 		if (!title) return;
-		const id = slugify(title) || "untitled-story";
-		const projectId = page.params.projectId;
+		const id = slugify(title) || "untitled-page";
 		rows = [
 			{
 				id,
 				title,
-				personaName: "Unassigned Persona",
-				painPointsCount: 0,
-				problemHypothesesCount: 0,
 				owner: "Avery Patel",
-				lastUpdated: new Date().toISOString().slice(0, 10),
+				lastEdited: today,
+				linkedArtifactsCount: 0,
 				status: "Draft",
 				isOrphan: true,
 			},
 			...rows,
 		];
-		createOpen = false;
 		createTitle = "";
 		createDescription = "";
-		await goto(`/project/${projectId}/stories/${id}`);
+		createOpen = false;
+		await goto(`/project/${page.params.projectId}/pages/${id}`);
+	};
+
+	const beginRename = (row: PageRow) => {
+		editingId = row.id;
+		editingTitle = row.title;
+	};
+
+	const cancelRename = () => {
+		editingId = "";
+		editingTitle = "";
+	};
+
+	const saveRename = () => {
+		if (!editingId) return;
+		const nextTitle = editingTitle.trim();
+		if (!nextTitle) return;
+		rows = rows.map((row) =>
+			row.id === editingId ? { ...row, title: nextTitle, lastEdited: today } : row
+		);
+		cancelRename();
 	};
 </script>
 
@@ -160,7 +177,7 @@
 			<Breadcrumb.Root>
 				<Breadcrumb.List>
 					<Breadcrumb.Item>
-						<Breadcrumb.Page>User Stories</Breadcrumb.Page>
+						<Breadcrumb.Page>Pages</Breadcrumb.Page>
 					</Breadcrumb.Item>
 				</Breadcrumb.List>
 			</Breadcrumb.Root>
@@ -169,33 +186,31 @@
 
 	<div class="flex flex-col gap-4 py-2 md:px-20">
 		<section class="rounded-lg bg-white p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Empathize - Stories Index</div>
+			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Pages - Unstructured Documentation</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
-				<div class="space-y-1">
-					<h1 class="text-3xl font-semibold">User Stories</h1>
-				</div>
+				<h1 class="text-3xl font-semibold">Pages</h1>
 				<Dialog.Root bind:open={createOpen}>
 					<Dialog.Trigger>
-						<Button>Add Story</Button>
+						<Button>Add Page</Button>
 					</Dialog.Trigger>
 					<Dialog.Content>
 						<Dialog.Header>
-							<Dialog.Title>Create Story</Dialog.Title>
-							<Dialog.Description>Minimal setup. Advanced fields can be added in the story page.</Dialog.Description>
+							<Dialog.Title>Create Page</Dialog.Title>
+							<Dialog.Description>Minimal setup. Redirects to the page editor immediately.</Dialog.Description>
 						</Dialog.Header>
 						<div class="grid gap-3">
 							<div class="grid gap-2">
-								<Label for="story-title">Title</Label>
-								<Input id="story-title" bind:value={createTitle} placeholder="Story title" />
+								<Label for="page-title">Title</Label>
+								<Input id="page-title" bind:value={createTitle} placeholder="Page title" />
 							</div>
 							<div class="grid gap-2">
-								<Label for="story-description">Short Description</Label>
-								<Input id="story-description" bind:value={createDescription} placeholder="Optional" />
+								<Label for="page-description">Short Description</Label>
+								<Input id="page-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createStory} disabled={!createTitle.trim()}>Create Story</Button>
+							<Button onclick={createPage} disabled={!createTitle.trim()}>Create Page</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 				</Dialog.Root>
@@ -204,20 +219,20 @@
 
 		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-4">
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
-				<div class="text-xs text-muted-foreground">Total Stories</div>
+				<div class="text-xs text-muted-foreground">Total Pages</div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("WithPainPoints")}>
-				<div class="text-xs text-muted-foreground">Stories with Pain Points</div>
-				<div class="text-2xl font-semibold text-blue-700">{stats.withPainPoints}</div>
+			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("RecentlyUpdated")}>
+				<div class="text-xs text-muted-foreground">Recently Updated</div>
+				<div class="text-2xl font-semibold text-blue-700">{stats.recentlyUpdated}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("WithHypotheses")}>
-				<div class="text-xs text-muted-foreground">Stories with Problem Hypotheses</div>
-				<div class="text-2xl font-semibold text-emerald-700">{stats.withHypotheses}</div>
+			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("LinkedPages")}>
+				<div class="text-xs text-muted-foreground">Linked Pages</div>
+				<div class="text-2xl font-semibold text-emerald-700">{stats.linkedPages}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Archived")}>
-				<div class="text-xs text-muted-foreground">Archived Stories</div>
-				<div class="text-2xl font-semibold text-slate-600">{stats.archived}</div>
+			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("ArchivedPages")}>
+				<div class="text-xs text-muted-foreground">Archived Pages</div>
+				<div class="text-2xl font-semibold text-slate-700">{stats.archivedPages}</div>
 			</button>
 		</section>
 
@@ -231,7 +246,6 @@
 						<Select.Content>
 							<Select.Item value="All" label="All">All</Select.Item>
 							<Select.Item value="Draft" label="Draft">Draft</Select.Item>
-							<Select.Item value="Locked" label="Locked">Locked</Select.Item>
 							<Select.Item value="Archived" label="Archived">Archived</Select.Item>
 						</Select.Content>
 					</Select.Root>
@@ -255,35 +269,35 @@
 					<Label>Last Updated To</Label>
 					<Input type="date" bind:value={updatedTo} />
 				</div>
-				<div class="flex items-end gap-2">
-					<input id="story-orphan-only" type="checkbox" bind:checked={orphanOnly} />
-					<Label for="story-orphan-only">Orphan Only</Label>
+				<div class="flex items-end gap-3">
+					<div class="flex items-center gap-2">
+						<input id="page-orphan-only" type="checkbox" bind:checked={orphanOnly} />
+						<Label for="page-orphan-only">Orphan Only</Label>
+					</div>
 				</div>
 			</div>
 		</section>
 
 		<section class="rounded-lg bg-white p-4">
-			<div class="mb-3 text-sm font-medium">Stories</div>
+			<div class="mb-3 text-sm font-medium">Pages</div>
 			{#if filteredRows.length === 0}
 				<div class="rounded-md border border-dashed p-10 text-center">
-					<div class="text-sm font-medium">No stories found</div>
+					<div class="text-sm font-medium">No pages found</div>
 					<div class="mt-1 text-xs text-muted-foreground">
-						Stories capture empathy context and should include pain points and problem hypotheses.
+						Pages are optional unstructured docs for project context and references.
 					</div>
 					<div class="mt-4">
-						<Button onclick={() => (createOpen = true)}>Add Story</Button>
+						<Button onclick={() => (createOpen = true)}>Add Page</Button>
 					</div>
 				</div>
 			{:else}
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
-							<Table.Head>Story Title</Table.Head>
-							<Table.Head>Persona Name</Table.Head>
-							<Table.Head>Pain Points Count</Table.Head>
-							<Table.Head>Problem Hypotheses Count</Table.Head>
+							<Table.Head>Page Title</Table.Head>
 							<Table.Head>Owner</Table.Head>
-							<Table.Head>Last Updated</Table.Head>
+							<Table.Head>Last Edited</Table.Head>
+							<Table.Head>Linked Artifacts Count</Table.Head>
 							<Table.Head>Status</Table.Head>
 						</Table.Row>
 					</Table.Header>
@@ -292,21 +306,25 @@
 							<Table.Row>
 								<Table.Cell>
 									<div class="flex flex-wrap items-center gap-2">
-										<a class="font-medium hover:underline" href={`./stories/${row.id}`}>{row.title}</a>
-										{#if row.painPointsCount === 0}
-											<Badge.Badge class="border-amber-300 bg-amber-50 text-amber-700">Warning: No Pain Points</Badge.Badge>
-										{/if}
-										{#if row.problemHypothesesCount === 0}
-											<Badge.Badge class="border-amber-300 bg-amber-50 text-amber-700">Warning: No Problem Hypotheses</Badge.Badge>
+										{#if editingId === row.id}
+											<Input class="h-8 w-64" bind:value={editingTitle} />
+											<Button size="icon" variant="ghost" onclick={saveRename}>
+												<Check class="h-4 w-4" />
+											</Button>
+											<Button size="icon" variant="ghost" onclick={cancelRename}>
+												<X class="h-4 w-4" />
+											</Button>
+										{:else}
+											<a class="font-medium hover:underline" href={`./pages/${row.id}`}>{row.title}</a>
+											<Button size="icon" variant="ghost" onclick={() => beginRename(row)}>
+												<Pencil class="h-4 w-4" />
+											</Button>
 										{/if}
 										{#if row.isOrphan}
 											<Badge.Badge class="border-red-300 bg-red-50 text-red-700">Warning: Orphan</Badge.Badge>
 										{/if}
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.personaName}</Table.Cell>
-								<Table.Cell>{row.painPointsCount}</Table.Cell>
-								<Table.Cell>{row.problemHypothesesCount}</Table.Cell>
 								<Table.Cell>
 									<div class="flex items-center gap-2">
 										<Avatar.Root class="h-7 w-7">
@@ -321,7 +339,8 @@
 										<span>{row.owner}</span>
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.lastUpdated}</Table.Cell>
+								<Table.Cell>{row.lastEdited}</Table.Cell>
+								<Table.Cell>{row.linkedArtifactsCount}</Table.Cell>
 								<Table.Cell>
 									<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
 								</Table.Cell>

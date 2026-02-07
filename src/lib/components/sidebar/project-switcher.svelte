@@ -59,12 +59,14 @@
 						{/each}
 						<DropdownMenu.Separator />
 						<DropdownMenu.Item class="gap-2 p-2">
-							<div
-								class="flex size-6 items-center justify-center rounded-md border bg-transparent hover:scale-101"
-							>
-								<PlusIcon class="size-4" />
-							</div>
-							<div class="text-muted-foreground font-medium">Add Project</div>
+							<a href="/add-project" class="flex flex-row gap-2">
+								<div
+									class="flex size-6 items-center justify-center rounded-md border bg-transparent hover:scale-101"
+								>
+									<PlusIcon class="size-4" />
+								</div>
+								<div class="text-muted-foreground font-medium">Add Project</div>
+							</a>
 						</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</Sidebar.GroupContent>
