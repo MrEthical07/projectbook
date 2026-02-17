@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
+	import { getContext } from "svelte";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -12,7 +13,15 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
-	import { Check, Pencil, X } from "@lucide/svelte";
+	import { Check, Pencil, X, FileStack, Clock3, Link2, Archive } from "@lucide/svelte";
+	import { createPage as createPageRemote, renamePage as renamePageRemote } from "$lib/remote/page.remote";
+	import { can } from "$lib/utils/permission";
+
+	let { data } = $props();
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canCreatePage = can(permissions, "page", "create");
+	const canEditPage = can(permissions, "page", "edit");
 
 	type PageStatus = "Draft" | "Archived";
 	type PageRow = {
@@ -25,35 +34,7 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $state<PageRow[]>([
-		{
-			id: "research-notes",
-			title: "Research notes",
-			owner: "Avery Patel",
-			lastEdited: "2026-02-06",
-			linkedArtifactsCount: 2,
-			status: "Draft",
-			isOrphan: false,
-		},
-		{
-			id: "stakeholder-brief",
-			title: "Stakeholder brief",
-			owner: "Nia Clark",
-			lastEdited: "2026-01-29",
-			linkedArtifactsCount: 0,
-			status: "Archived",
-			isOrphan: true,
-		},
-		{
-			id: "pilot-summary",
-			title: "Pilot summary",
-			owner: "Dr. Ramos",
-			lastEdited: "2026-02-04",
-			linkedArtifactsCount: 1,
-			status: "Draft",
-			isOrphan: false,
-		},
-	]);
+	let rows = $state<PageRow[]>(structuredClone(data.rows) as PageRow[]);
 
 	let statusFilter = $state<PageStatus | "All">("All");
 	let ownerFilter = $state("All");
@@ -66,22 +47,23 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createDescription = $state("");
+	let mutationError = $state("");
 
 	let editingId = $state("");
 	let editingTitle = $state("");
 
-	const owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
 	const today = new Date().toISOString().slice(0, 10);
 	const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-	const stats = $derived({
+	let stats = $derived({
 		total: rows.length,
 		recentlyUpdated: rows.filter((row) => row.lastEdited >= recentCutoff).length,
 		linkedPages: rows.filter((row) => row.linkedArtifactsCount > 0).length,
 		archivedPages: rows.filter((row) => row.status === "Archived").length,
 	});
 
-	const filteredRows = $derived.by(() => {
+	let filteredRows = $derived.by(() => {
 		return rows.filter((row) => {
 			if (statusFilter !== "All" && row.status !== statusFilter) return false;
 			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
@@ -116,34 +98,37 @@
 		}
 	};
 
-	const slugify = (value: string) =>
-		value
-			.toLowerCase()
-			.trim()
-			.replace(/[^a-z0-9\s-]/g, "")
-			.replace(/\s+/g, "-")
-			.replace(/-+/g, "-");
-
 	const createPage = async () => {
+		mutationError = "";
+		if (!permissions || !canCreatePage) {
+			mutationError = "You do not have permission to create pages.";
+			return;
+		}
+		const actorId = access?.user.id;
+		if (!actorId) {
+			mutationError = "Active user id is missing.";
+			return;
+		}
 		const title = createTitle.trim();
 		if (!title) return;
-		const id = slugify(title) || "untitled-page";
-		rows = [
-			{
-				id,
-				title,
-				owner: "Avery Patel",
-				lastEdited: today,
-				linkedArtifactsCount: 0,
-				status: "Draft",
-				isOrphan: true,
+		const result = await createPageRemote({
+			input: {
+				projectId: page.params.projectId,
+				actorId,
+				title
 			},
-			...rows,
-		];
+			permissions
+		});
+		if (!result.success) {
+			mutationError = result.error;
+			return;
+		}
+		const created = result.data;
+		rows = [created as PageRow, ...rows];
 		createTitle = "";
 		createDescription = "";
 		createOpen = false;
-		await goto(`/project/${page.params.projectId}/pages/${id}`);
+		await goto(`/project/${page.params.projectId}/pages/${created.id}`);
 	};
 
 	const beginRename = (row: PageRow) => {
@@ -156,12 +141,31 @@
 		editingTitle = "";
 	};
 
-	const saveRename = () => {
+	const saveRename = async () => {
+		mutationError = "";
+		if (!permissions || !canEditPage) {
+			mutationError = "You do not have permission to rename pages.";
+			return;
+		}
 		if (!editingId) return;
 		const nextTitle = editingTitle.trim();
 		if (!nextTitle) return;
+		const result = await renamePageRemote({
+			input: {
+				projectId: page.params.projectId,
+				pageId: editingId,
+				title: nextTitle
+			},
+			permissions
+		});
+		if (!result.success) {
+			mutationError = result.error;
+			return;
+		}
 		rows = rows.map((row) =>
-			row.id === editingId ? { ...row, title: nextTitle, lastEdited: today } : row
+			row.id === editingId
+				? { ...row, title: result.data.title, lastEdited: result.data.lastEdited }
+				: row
 		);
 		cancelRename();
 	};
@@ -191,7 +195,7 @@
 				<h1 class="text-3xl font-semibold">Pages</h1>
 				<Dialog.Root bind:open={createOpen}>
 					<Dialog.Trigger>
-						<Button>Add Page</Button>
+						<Button disabled={!canCreatePage}>Add Page</Button>
 					</Dialog.Trigger>
 					<Dialog.Content>
 						<Dialog.Header>
@@ -207,10 +211,13 @@
 								<Label for="page-description">Short Description</Label>
 								<Input id="page-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
+							{#if mutationError}
+								<p class="text-xs text-destructive">{mutationError}</p>
+							{/if}
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createPage} disabled={!createTitle.trim()}>Create Page</Button>
+							<Button onclick={createPage} disabled={!canCreatePage || !createTitle.trim()}>Create Page</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 				</Dialog.Root>
@@ -219,19 +226,19 @@
 
 		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-4">
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
-				<div class="text-xs text-muted-foreground">Total Pages</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Pages</span><FileStack class="size-4" /></div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("RecentlyUpdated")}>
-				<div class="text-xs text-muted-foreground">Recently Updated</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Recently Updated</span><Clock3 class="size-4" /></div>
 				<div class="text-2xl font-semibold text-blue-700">{stats.recentlyUpdated}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("LinkedPages")}>
-				<div class="text-xs text-muted-foreground">Linked Pages</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Linked Pages</span><Link2 class="size-4" /></div>
 				<div class="text-2xl font-semibold text-emerald-700">{stats.linkedPages}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("ArchivedPages")}>
-				<div class="text-xs text-muted-foreground">Archived Pages</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Archived Pages</span><Archive class="size-4" /></div>
 				<div class="text-2xl font-semibold text-slate-700">{stats.archivedPages}</div>
 			</button>
 		</section>
@@ -242,7 +249,7 @@
 				<div class="grid gap-2">
 					<Label>Status</Label>
 					<Select.Root type="single" bind:value={statusFilter}>
-						<Select.Trigger>{statusFilter}</Select.Trigger>
+						<Select.Trigger class="w-full">{statusFilter}</Select.Trigger>
 						<Select.Content>
 							<Select.Item value="All" label="All">All</Select.Item>
 							<Select.Item value="Draft" label="Draft">Draft</Select.Item>
@@ -253,7 +260,7 @@
 				<div class="grid gap-2">
 					<Label>Owner</Label>
 					<Select.Root type="single" bind:value={ownerFilter}>
-						<Select.Trigger>{ownerFilter}</Select.Trigger>
+						<Select.Trigger class="w-full">{ownerFilter}</Select.Trigger>
 						<Select.Content>
 							{#each owners as owner (owner)}
 								<Select.Item value={owner} label={owner}>{owner}</Select.Item>
@@ -287,18 +294,19 @@
 						Pages are optional unstructured docs for project context and references.
 					</div>
 					<div class="mt-4">
-						<Button onclick={() => (createOpen = true)}>Add Page</Button>
+						<Button onclick={() => (createOpen = true)} disabled={!canCreatePage}>Add Page</Button>
 					</div>
 				</div>
 			{:else}
+				<div class="border rounded-md">
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
 							<Table.Head>Page Title</Table.Head>
-							<Table.Head>Owner</Table.Head>
-							<Table.Head>Last Edited</Table.Head>
-							<Table.Head>Linked Artifacts Count</Table.Head>
-							<Table.Head>Status</Table.Head>
+							<Table.Head class="text-center">Owner</Table.Head>
+							<Table.Head class="text-center">Last Edited</Table.Head>
+							<Table.Head class="text-center">Linked Artifacts Count</Table.Head>
+							<Table.Head class="text-center">Status</Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -308,7 +316,7 @@
 									<div class="flex flex-wrap items-center gap-2">
 										{#if editingId === row.id}
 											<Input class="h-8 w-64" bind:value={editingTitle} />
-											<Button size="icon" variant="ghost" onclick={saveRename}>
+											<Button size="icon" variant="ghost" onclick={saveRename} disabled={!canEditPage}>
 												<Check class="h-4 w-4" />
 											</Button>
 											<Button size="icon" variant="ghost" onclick={cancelRename}>
@@ -316,7 +324,7 @@
 											</Button>
 										{:else}
 											<a class="font-medium hover:underline" href={`./pages/${row.id}`}>{row.title}</a>
-											<Button size="icon" variant="ghost" onclick={() => beginRename(row)}>
+											<Button size="icon" variant="ghost" onclick={() => beginRename(row)} disabled={!canEditPage}>
 												<Pencil class="h-4 w-4" />
 											</Button>
 										{/if}
@@ -339,15 +347,16 @@
 										<span>{row.owner}</span>
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.lastEdited}</Table.Cell>
-								<Table.Cell>{row.linkedArtifactsCount}</Table.Cell>
-								<Table.Cell>
+								<Table.Cell class="text-center">{row.lastEdited}</Table.Cell>
+								<Table.Cell class="text-center">{row.linkedArtifactsCount}</Table.Cell>
+								<Table.Cell class="text-center">
 									<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
 								</Table.Cell>
 							</Table.Row>
 						{/each}
 					</Table.Body>
 				</Table.Root>
+				</div>
 			{/if}
 		</section>
 	</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, onMount } from "svelte";
+	import { page } from "$app/state";
 	import * as Alert from "$lib/components/ui/alert";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -11,7 +12,9 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { ChevronDown, ExternalLink } from "@lucide/svelte";
+	import { ChevronDown, ExternalLink, Info, X } from "@lucide/svelte";
+	import { updateFeedback } from "$lib/remote/feedback.remote";
+	import { can } from "$lib/utils/permission";
 
 	type OutcomeStatus = "Validated" | "Invalidated" | "Needs Iteration";
 	type PageStatus = OutcomeStatus | "Archived";
@@ -28,47 +31,32 @@
 
 	type OptionalModuleKey = "evidence" | "nextSteps";
 
-	const taskOptions: LinkedArtifact[] = [
-		{
-			id: "task-21",
-			title: "Prototype timeline for assignment deadlines",
-			type: "Task",
-			phase: "Prototype",
-			href: "/project/alpha/tasks/deadline-timeline",
-			status: "Active",
-		},
-	];
+	let { data } = $props();
+	const required = <T>(value: T | null | undefined, field: string): T => {
+		if (value === undefined || value === null) {
+			throw new Error(`Feedback payload is missing '${field}'.`);
+		}
+		return value;
+	};
+	const projectId = page.params.projectId;
+	const feedbackId = page.params.slug;
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canEditFeedback = can(permissions, "feedback", "edit");
+	const taskOptions: LinkedArtifact[] = structuredClone(data.taskOptions) as LinkedArtifact[];
 
-	const ideaOptions: LinkedArtifact[] = [
-		{
-			id: "idea-31",
-			title: "Visual deadline timeline for assignments",
-			type: "Idea",
-			phase: "Ideate",
-			href: "/project/alpha/ideas/deadline-timeline",
-			status: "Active",
-		},
-	];
+	const ideaOptions: LinkedArtifact[] = structuredClone(data.ideaOptions) as LinkedArtifact[];
 
-	const problemOptions: LinkedArtifact[] = [
-		{
-			id: "problem-7",
-			title: "Students miss assignment requirements",
-			type: "Problem Statement",
-			phase: "Define",
-			href: "/project/alpha/problem-statement/missed-requirements",
-			status: "Archived",
-		},
-	];
+	const problemOptions: LinkedArtifact[] = structuredClone(data.problemOptions) as LinkedArtifact[];
 
 	const optionalModules: OptionalModuleKey[] = ["evidence", "nextSteps"];
 
-	let title = $state("");
-	let outcome = $state<OutcomeStatus>("Needs Iteration");
-	let isArchived = $state(false);
-	let observation = $state("");
-	let interpretation = $state("");
-	let notesText = $state("");
+	let title = $state(required(data.feedback.title, "feedback.title"));
+	let outcome = $state<OutcomeStatus>(required(data.feedback.outcome as OutcomeStatus, "feedback.outcome"));
+	let isArchived = $state(Boolean(required(data.isArchived, "isArchived")));
+	let observation = $state(required(data.observation, "observation"));
+	let interpretation = $state(required(data.interpretation, "interpretation"));
+	let notesText = $state(required(data.notesText, "notesText"));
 
 	let addSectionOpen = $state(false);
 	let statusDialogOpen = $state(false);
@@ -76,30 +64,30 @@
 	let pendingOutcome = $state<OutcomeStatus | null>(null);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
+let metadataOpen = $state(false);
 
-	let activeModules = $state<OptionalModuleKey[]>([]);
+	let activeModules = $state<OptionalModuleKey[]>(
+		(Array.isArray(data.activeModules)
+			? structuredClone(data.activeModules)
+			: []) as OptionalModuleKey[]
+	);
 	let moduleOpen = $state<Record<OptionalModuleKey, boolean>>({
 		evidence: true,
 		nextSteps: true,
 	});
-	let evidenceText = $state("");
-	let evidenceLocked = $state(true);
-	let nextStepsText = $state("");
+	let evidenceText = $state(required(data.evidenceText, "evidenceText"));
+	let evidenceLocked = $state(Boolean(required(data.evidenceLocked, "evidenceLocked")));
+	let nextStepsText = $state(required(data.nextStepsText, "nextStepsText"));
 
 	let selectedTaskId = $state("");
 	let selectedIdeaId = $state("");
 	let selectedProblemId = $state("");
 
-	let linkedArtifacts = $state<LinkedArtifact[]>([
-		{
-			id: "task-21",
-			title: "Prototype timeline for assignment deadlines",
-			type: "Task",
-			phase: "Prototype",
-			href: "/project/alpha/tasks/deadline-timeline",
-			status: "Active",
-		},
-	]);
+	let linkedArtifacts = $state<LinkedArtifact[]>(
+		(Array.isArray(data.linkedArtifacts)
+			? structuredClone(data.linkedArtifacts)
+			: []) as LinkedArtifact[]
+	);
 
 	type SavePhase = "idle" | "saving" | "saved";
 	let savePhase = $state<SavePhase>("idle");
@@ -108,11 +96,8 @@
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const pageStatus = $derived<PageStatus>(isArchived ? "Archived" : outcome);
-	const isReadOnly = $derived(isArchived);
-	const isDirty = $derived(saveReady && currentSignature !== savedSignature);
-
-	const currentSignature = $derived(
+		
+	let currentSignature = $derived(
 		JSON.stringify({
 			title,
 			outcome,
@@ -127,8 +112,12 @@
 			nextStepsText,
 		})
 	);
+	let pageStatus = $derived<PageStatus>(isArchived ? "Archived" : outcome);
+	let isReadOnly = $derived(isArchived || !canEditFeedback);
+	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 
-	const saveIndicator = $derived.by(() => {
+
+	let saveIndicator = $derived.by(() => {
 		if (savePhase === "saving") {
 			return "saving";
 		}
@@ -236,7 +225,8 @@
 		statusConfirmOpen = false;
 	};
 
-	const triggerSave = () => {
+	const triggerSave = async () => {
+		if (!permissions || !canEditFeedback) return;
 		if (savePhase === "saving" || !isDirty) {
 			return;
 		}
@@ -250,15 +240,37 @@
 		}
 
 		savePhase = "saving";
-		saveTimer = setTimeout(() => {
-			savedSignature = currentSignature;
-			savePhase = "saved";
-			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) {
-					savePhase = "idle";
+		const result = await updateFeedback({
+			input: {
+				projectId,
+				feedbackId,
+				state: {
+					title,
+					outcome,
+					isArchived,
+					observation,
+					interpretation,
+					notesText,
+					linkedArtifacts,
+					activeModules,
+					evidenceText,
+					evidenceLocked,
+					nextStepsText
 				}
-			}, 1400);
-		}, 900);
+			},
+			permissions
+		});
+		if (!result.success) {
+			savePhase = "idle";
+			return;
+		}
+		savedSignature = currentSignature;
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) {
+				savePhase = "idle";
+			}
+		}, 1400);
 	};
 
 	onDestroy(() => {
@@ -312,6 +324,9 @@
 			/>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="flex flex-wrap items-center gap-2">
+					<Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open feedback metadata">
+						<Info class="h-4 w-4" />
+					</Button>
 					<Badge class={statusBadgeClass(pageStatus)} variant="outline">
 						{pageStatus}
 					</Badge>
@@ -381,7 +396,7 @@
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
-					<Button size="sm" onclick={triggerSave} disabled={savePhase === "saving" || !isDirty}>
+					<Button size="sm" onclick={triggerSave} disabled={!canEditFeedback || savePhase === "saving" || !isDirty}>
 						{savePhase === "saving" ? "Saving..." : "Save changes"}
 					</Button>
 				</div>
@@ -402,7 +417,7 @@
 							<Label class="text-muted-foreground" for="link-task">Link Task</Label>
 							<div class="flex items-center gap-2">
 								<Select.Root type="single" bind:value={selectedTaskId}>
-									<Select.Trigger id="link-task">
+									<Select.Trigger class="w-full" id="link-task">
 										{selectedTaskId
 											? taskOptions.find((item) => item.id === selectedTaskId)?.title
 											: "Select task"}
@@ -424,7 +439,7 @@
 							<Label class="text-muted-foreground" for="link-idea">Link Idea</Label>
 							<div class="flex items-center gap-2">
 								<Select.Root type="single" bind:value={selectedIdeaId}>
-									<Select.Trigger id="link-idea">
+									<Select.Trigger  class="w-full" id="link-idea">
 										{selectedIdeaId
 											? ideaOptions.find((item) => item.id === selectedIdeaId)?.title
 											: "Select idea"}
@@ -446,7 +461,7 @@
 							<Label class="text-muted-foreground" for="link-problem">Link Problem</Label>
 							<div class="flex items-center gap-2">
 								<Select.Root type="single" bind:value={selectedProblemId}>
-									<Select.Trigger id="link-problem">
+									<Select.Trigger  class="w-full" id="link-problem">
 										{selectedProblemId
 											? problemOptions.find((item) => item.id === selectedProblemId)?.title
 											: "Select problem"}
@@ -643,7 +658,7 @@
 					</div>
 					<div class="grid gap-3">
 						{#if activeModules.includes("evidence")}
-							<div class="flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
+							<div class="group flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
 								<div class="flex items-center justify-between gap-3">
 									<button
 										type="button"
@@ -670,12 +685,12 @@
 										</Button>
 										<Button
 											variant="ghost"
-											size="sm"
-											class="h-7 px-2 text-destructive hover:text-destructive"
+											size="icon"
+											class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 											onclick={() => removeModule("evidence")}
 											disabled={isReadOnly}
 										>
-											Remove
+											<X class="h-4 w-4" />
 										</Button>
 									</div>
 								</div>
@@ -695,7 +710,7 @@
 						{/if}
 
 						{#if activeModules.includes("nextSteps")}
-							<div class="flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
+							<div class="group flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
 								<div class="flex items-center justify-between gap-3">
 									<button
 										type="button"
@@ -711,12 +726,12 @@
 									</button>
 									<Button
 										variant="ghost"
-										size="sm"
-										class="h-7 px-2 text-destructive hover:text-destructive"
+										size="icon"
+										class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 										onclick={() => removeModule("nextSteps")}
 										disabled={isReadOnly}
 									>
-										Remove
+										<X class="h-4 w-4" />
 									</Button>
 								</div>
 								{#if moduleOpen.nextSteps}
@@ -747,6 +762,26 @@
 		</div>
 	</div>
 </div>
+
+
+<Dialog.Root bind:open={metadataOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Artifact Metadata</Dialog.Title>
+			<Dialog.Description>Read-only metadata for this feedback artifact.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-2 text-sm">
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Rae Chen</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-07 14:20</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Alex Morgan</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 13:05</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{pageStatus}</span></div>
+		</div>
+		<Dialog.Footer>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
 
 <Dialog.Root bind:open={statusConfirmOpen}>
 	<Dialog.Content>

@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { getContext } from "svelte";
+	import { goto } from "$app/navigation";
+	import { page } from "$app/state";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -13,6 +16,18 @@
 	import { Textarea } from "$lib/components/ui/textarea";
 	import * as Tooltip from "$lib/components/ui/tooltip";
 	import { Archive, Download, ExternalLink, Plus, ChevronDown } from "@lucide/svelte";
+	import {
+		createResource as createResourceRemote,
+		updateResourceStatus as updateResourceStatusRemote
+	} from "$lib/remote/resource.remote";
+	import { can } from "$lib/utils/permission";
+
+	let { data } = $props();
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canCreateResource = can(permissions, "resource", "create");
+	const canEditResource = can(permissions, "resource", "edit");
+	let projectId = $derived(page.params.projectId);
 
 	type DocType = "Pitch Deck" | "Research Paper" | "Specification" | "Design File" | "Other";
 	type FileType = string;
@@ -30,17 +45,10 @@
 		status: "Active" | "Archived";
 	};
 
-	const docTypes: DocType[] = [
-		"Pitch Deck",
-		"Research Paper",
-		"Specification",
-		"Design File",
-		"Other",
-	];
-
-	const fileTypes: FileType[] = ["PDF", "PPTX", "DOCX"];
-	const owners = ["Avery Patel", "Nia Clark", "Dr. Ramos"];
-	const sortOptions: SortOption[] = ["Last Updated", "Name", "Upload Date"];
+	const docTypes: DocType[] = structuredClone(data.reference.docTypes) as DocType[];
+	const fileTypes: FileType[] = structuredClone(data.reference.fileTypes) as FileType[];
+	const owners = structuredClone(data.reference.owners) as string[];
+	const sortOptions: SortOption[] = structuredClone(data.reference.sortOptions) as SortOption[];
 
 	let uploadOpen = $state(false);
 	let addSectionOpen = $state(false);
@@ -64,33 +72,14 @@
 	let relatedOpen = $state(false);
 	let pendingArchiveId = $state("");
 	let archiveDialogOpen = $state(false);
+	let uploadError = $state("");
+	let archiveError = $state("");
+	let isUploading = $state(false);
+	let isArchiving = $state(false);
 
-	let resources = $state<ResourceRow[]>([
-		{
-			id: "res-1",
-			name: "Student survey synthesis",
-			fileType: "PDF",
-			docType: "Research Paper",
-			owner: "Avery Patel",
-			version: "v3",
-			lastUpdated: "Jan 12, 2026",
-			linkedCount: 3,
-			status: "Active",
-		},
-		{
-			id: "res-2",
-			name: "Prototype narrative deck",
-			fileType: "PPTX",
-			docType: "Pitch Deck",
-			owner: "Nia Clark",
-			version: "v1",
-			lastUpdated: "Jan 8, 2026",
-			linkedCount: 1,
-			status: "Archived",
-		},
-	]);
+	let resources = $state<ResourceRow[]>(structuredClone(data.resources) as ResourceRow[]);
 
-	const filteredResources = $derived.by(() => {
+	let filteredResources = $derived.by(() => {
 		return resources.filter((row) => {
 			const matchesSearch = row.name.toLowerCase().includes(search.toLowerCase());
 			const matchesDoc =
@@ -102,41 +91,115 @@
 		});
 	});
 
-	const dynamicDocTypes = $derived.by(() => {
+	let dynamicDocTypes = $derived.by(() => {
 		const fromResources = resources.map((row) => row.docType);
 		const all = [...docTypes, ...fromResources];
 		return Array.from(new Set(all));
 	});
 
-	const dynamicFileTypes = $derived.by(() => {
+	let dynamicFileTypes = $derived.by(() => {
 		const fromResources = resources.map((row) => row.fileType);
 		const all = [...fileTypes, ...fromResources];
 		return Array.from(new Set(all));
 	});
 
-	const storyOptions = [
-		"Avery Patel - First-year student",
-		"Nia Clark - Working parent",
-	];
-	const problemOptions = [
-		"Students miss assignment requirements",
-		"Deadline shifts create confusion",
-	];
-	const ideaOptions = [
-		"Visual deadline timeline for assignments",
-		"Assignment checklist reminders",
-	];
-	const taskOptions = [
-		"Prototype timeline for assignment deadlines",
-		"Test reminder notification flow",
-	];
+	const storyOptions = structuredClone(data.reference.storyOptions) as string[];
+	const problemOptions = structuredClone(data.reference.problemOptions) as string[];
+	const ideaOptions = structuredClone(data.reference.ideaOptions) as string[];
+	const taskOptions = structuredClone(data.reference.taskOptions) as string[];
 
 	const requestArchive = (resourceId: string) => {
+		if (!canEditResource) return;
+		archiveError = "";
 		pendingArchiveId = resourceId;
 		archiveDialogOpen = true;
 	};
 
-	const confirmArchive = () => {
+	const resetUploadForm = () => {
+		resourceName = "";
+		resourceDocType = "";
+		resourceDescription = "";
+		resourceDocTypeCustom = "";
+		uploadFileName = "";
+		relatedStory = "";
+		relatedProblem = "";
+		relatedIdea = "";
+		relatedTask = "";
+		relatedOpen = false;
+		uploadDragActive = false;
+		uploadError = "";
+	};
+
+	const createResource = async () => {
+		if (!permissions || !canCreateResource || isUploading) return;
+		const actorId = access?.user.id;
+		if (!actorId) {
+			uploadError = "Active user id is missing.";
+			return;
+		}
+		const trimmedName = resourceName.trim();
+		const selectedDocType =
+			resourceDocType === "Other"
+				? resourceDocTypeCustom.trim()
+				: resourceDocType;
+		if (!trimmedName || !selectedDocType) {
+			uploadError = "Resource name and document type are required.";
+			return;
+		}
+
+		uploadError = "";
+		isUploading = true;
+		const result = await createResourceRemote({
+			input: {
+				projectId,
+				actorId,
+				name: trimmedName,
+				docType: selectedDocType
+			},
+			permissions
+		});
+		isUploading = false;
+
+		if (!result.success) {
+			uploadError = result.error;
+			return;
+		}
+
+		const created = result.data as ResourceRow;
+		resources = [created, ...resources];
+		resetUploadForm();
+		uploadOpen = false;
+		await goto(`/project/${projectId}/resources/${created.id}`);
+	};
+
+	const confirmArchive = async () => {
+		if (!permissions || !canEditResource || !pendingArchiveId || isArchiving) return;
+		archiveError = "";
+		isArchiving = true;
+		const result = await updateResourceStatusRemote({
+			input: {
+				projectId,
+				resourceId: pendingArchiveId,
+				status: "Archived"
+			},
+			permissions
+		});
+		isArchiving = false;
+		if (!result.success) {
+			archiveError = result.error;
+			return;
+		}
+
+		const updated = result.data as ResourceRow;
+		resources = resources.map((item) =>
+			item.id === pendingArchiveId
+				? {
+						...item,
+						status: updated.status,
+						lastUpdated: updated.lastUpdated
+					}
+				: item
+		);
 		archiveDialogOpen = false;
 		pendingArchiveId = "";
 	};
@@ -186,7 +249,7 @@
 					</div>
 				</div>
 				<Dialog.Root bind:open={uploadOpen}>
-					<Dialog.Trigger class={buttonVariants()}>
+					<Dialog.Trigger class={buttonVariants()} disabled={!canCreateResource}>
 						<Plus class="mr-2 h-4 w-4" />
 						Upload Resource
 					</Dialog.Trigger>
@@ -371,9 +434,18 @@
 								<Input value="Project-wide" disabled />
 							</div>
 						</div>
+						{#if uploadError}
+							<p class="text-sm text-destructive">{uploadError}</p>
+						{/if}
 						<Dialog.Footer>
 							<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-							<Button class={buttonVariants()}>Upload</Button>
+							<Button
+								class={buttonVariants()}
+								onclick={createResource}
+								disabled={!canCreateResource || isUploading || !resourceName.trim()}
+							>
+								{isUploading ? "Uploading..." : "Upload"}
+							</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 				</Dialog.Root>
@@ -448,7 +520,7 @@
 					<div class="text-sm text-muted-foreground">
 						Resources are the centralized registry of project files and references.
 					</div>
-					<Button class={buttonVariants()} onclick={() => (uploadOpen = true)}>
+					<Button class={buttonVariants()} onclick={() => (uploadOpen = true)} disabled={!canCreateResource}>
 						Upload your first resource
 					</Button>
 				</div>
@@ -519,6 +591,7 @@
 											size="sm"
 											class="h-8 w-8 p-0"
 											onclick={() => requestArchive(row.id)}
+											disabled={!canEditResource || row.status === "Archived"}
 										>
 											<Archive class="h-4 w-4" />
 										</Button>
@@ -562,11 +635,14 @@
 		<div class="rounded-lg border border-border px-3 py-2 text-sm">
 			Resource ID: {pendingArchiveId || "None"}
 		</div>
+		{#if archiveError}
+			<p class="text-sm text-destructive">{archiveError}</p>
+		{/if}
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Dialog.Close class={buttonVariants()} onclick={confirmArchive}>
-				Confirm archive
-			</Dialog.Close>
+			<Button class={buttonVariants()} onclick={confirmArchive} disabled={!canEditResource || isArchiving}>
+				{isArchiving ? "Archiving..." : "Confirm archive"}
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

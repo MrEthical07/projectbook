@@ -6,9 +6,13 @@
     import { Textarea } from "$lib/components/ui/textarea";
     import * as Dialog from "$lib/components/ui/dialog";
     import * as Select from "$lib/components/ui/select";
-    import { ChevronDown, ChevronRight, Plus, Trash2, X } from "@lucide/svelte"
+    import { ChevronDown, ChevronRight, Info, Plus, Trash2, X } from "@lucide/svelte"
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { page } from "$app/state";
+	import { updateStory } from "$lib/remote/story.remote";
+	import { can } from "$lib/utils/permission";
+	import { getContext } from "svelte";
 
     type AddOnType =
         | "goals_success"
@@ -28,84 +32,29 @@
         content: Record<string, unknown>;
     };
 
-    const addOnCatalog = [
-        {
-            type: "goals_success" as const,
-            name: "Goals & Success Criteria",
-            description: "Define what success looks like from the user’s perspective.",
-            tag: "Recommended"
-        },
-        {
-            type: "jtbd" as const,
-            name: "Jobs To Be Done (JTBD)",
-            description: "Capture functional, supporting, and emotional jobs.",
-            tag: "Recommended"
-        },
-        {
-            type: "assumptions" as const,
-            name: "Assumptions",
-            description: "Make hidden assumptions explicit.",
-            tag: "Optional"
-        },
-        {
-            type: "constraints" as const,
-            name: "Constraints",
-            description: "Capture environmental, technical, or behavioral limits.",
-            tag: "Optional"
-        },
-        {
-            type: "risks_unknowns" as const,
-            name: "Risks & Unknowns",
-            description: "Identify uncertainty early.",
-            tag: "Recommended"
-        },
-        {
-            type: "evidence" as const,
-            name: "Evidence / Research References",
-            description: "Ground the story in data and references.",
-            tag: "Optional"
-        },
-        {
-            type: "scenarios" as const,
-            name: "Scenarios / Edge Cases",
-            description: "Capture non-happy paths and expectations.",
-            tag: "Optional"
-        }
-    ];
+    let { data } = $props();
+    const projectId = page.params.projectId;
+    const storyId = page.params.slug;
+    const access = getContext<ProjectAccess | undefined>("access");
+    const permissions = access?.permissions;
+    const canEditStory = can(permissions, "story", "edit");
+    const addOnCatalog = structuredClone(data.addOnCatalog) as Array<{
+        type: AddOnType;
+        name: string;
+        description: string;
+        tag: string;
+    }>;
 
-    let story = $state({
-        title: "",
-        description: "",
-        status: "draft",
-        persona: {
-            name: "",
-            bio: "",
-            role: "",
-            age: 0,
-            job: "",
-            edu: "",
-        },
-        context: "",
-        empathyMap: {
-            says: "",
-            thinks: "",
-            does: "",
-            feels: "",
-        },
-        painPoints: [
-            "Point 1",
-        ],
-        hypothesis: [
-            "hypothesis 1",
-            "hypothesis 2"
-        ],
-        notes: ""
-    })
-
-    let addOnSections = $state<AddOnSection[]>([]);
+    let story = $state(structuredClone(data.story));
+    let addOnSections = $state<AddOnSection[]>(
+        structuredClone(data.addOnSections) as AddOnSection[]
+    );
     let addSectionOpen = $state(false);
     let removeSectionOpen = $state(false);
     let removeTarget = $state<AddOnSection | null>(null);
+    let metadataOpen = $state(false);
+    let savePhase = $state<"idle" | "saving" | "saved">("idle");
+    let saveBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const isSectionAdded = (type: AddOnType) =>
         addOnSections.some((section) => section.section_type === type);
@@ -208,6 +157,32 @@
         story.hypothesis = [...story.hypothesis];
     }
 
+    const triggerSave = async () => {
+        if (!permissions || !canEditStory) return;
+        if (savePhase === "saving") return;
+        if (saveBadgeTimer) clearTimeout(saveBadgeTimer);
+        savePhase = "saving";
+        const result = await updateStory({
+            input: {
+                projectId,
+                storyId,
+                story: {
+                    ...story,
+                    addOnSections
+                }
+            },
+            permissions
+        });
+        if (!result.success) {
+            savePhase = "idle";
+            return;
+        }
+        savePhase = "saved";
+        saveBadgeTimer = setTimeout(() => {
+            savePhase = "idle";
+        }, 1400);
+    };
+
 </script>
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
     <header
@@ -236,7 +211,12 @@
             <div class="flex w-full flex-row justify-between items-center mt-2 px-2">
                 <div class="bg-accent px-2 py-1 w-fit rounded-lg text-sm font-medium">{story.status.toUpperCase()}</div>
                 <div class="flex flex-row gap-2">
-                    <Button>Save Changes</Button>
+                    <Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open story metadata">
+                        <Info class="h-4 w-4" />
+                    </Button>
+                    <Button onclick={triggerSave} disabled={!canEditStory || savePhase === "saving"}>
+                        {savePhase === "saving" ? "Saving..." : "Save Changes"}
+                    </Button>
                     <Button variant="outline">Change Status</Button>
                 </div>
             </div>
@@ -885,6 +865,25 @@
         </div>
     </div>
 </div>
+
+<Dialog.Root bind:open={metadataOpen}>
+    <Dialog.Content>
+        <Dialog.Header>
+            <Dialog.Title>Artifact Metadata</Dialog.Title>
+            <Dialog.Description>Read-only metadata for this story.</Dialog.Description>
+        </Dialog.Header>
+        <div class="grid gap-2 text-sm">
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Avery Patel</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-01 10:30</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Nia Clark</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 09:10</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{story.status.toUpperCase()}</span></div>
+        </div>
+        <Dialog.Footer>
+            <Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+        </Dialog.Footer>
+    </Dialog.Content>
+</Dialog.Root>
 
 <Dialog.Root bind:open={addSectionOpen}>
     <Dialog.Content>

@@ -1,5 +1,9 @@
 <script lang="ts">
-import { onDestroy, onMount } from "svelte";
+	import { invalidateAll } from "$app/navigation";
+	import { page } from "$app/state";
+	import { lockProblem, updateProblem, updateProblemStatus } from "$lib/remote/problem.remote";
+	import { can } from "$lib/utils/permission";
+	import { getContext, onDestroy, onMount } from "svelte";
 	import * as Alert from "$lib/components/ui/alert";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -12,7 +16,7 @@ import { onDestroy, onMount } from "svelte";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { ExternalLink } from "@lucide/svelte";
+	import { ExternalLink, Info, X } from "@lucide/svelte";
 
 	type ProblemStatus = "Draft" | "Locked" | "Archived";
 
@@ -39,72 +43,42 @@ import { onDestroy, onMount } from "svelte";
 
 	type OptionalModuleKey = "why" | "constraints" | "success" | "assumptions";
 
+	let { data } = $props();
+	const required = <T>(value: T | null | undefined, field: string): T => {
+		if (value === undefined || value === null) {
+			throw new Error(`Problem payload is missing '${field}'.`);
+		}
+		return value;
+	};
+	const projectId = page.params.projectId;
+	const problemId = page.params.slug;
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canEditProblem = can(permissions, "problem", "edit");
+	const canChangeProblemStatus = can(permissions, "problem", "statusChange");
 	const statusOptions: ProblemStatus[] = ["Draft", "Locked", "Archived"];
 
-	const storyOptions: SourceOption[] = [
-		{
-			id: "story-1",
-			title: "Streamline the checkout experience",
-			phase: "Empathize",
-			href: "/project/alpha/stories/streamline-checkout",
-		},
-		{
-			id: "story-2",
-			title: "Reduce cart abandonment",
-			phase: "Empathize",
-			href: "/project/alpha/stories/reduce-cart-abandonment",
-		},
-	];
-
-	const journeyOptions: SourceOption[] = [
-		{
-			id: "journey-1",
-			title: "Checkout journey map",
-			phase: "Empathize",
-			href: "/project/alpha/journeys/checkout-journey",
-		},
-		{
-			id: "journey-2",
-			title: "Subscription renewal journey",
-			phase: "Empathize",
-			href: "/project/alpha/journeys/renewal-journey",
-		},
-	];
-
-	let linkedSources = $state<LinkedSource[]>([
-		{
-			id: "story-1",
-			title: "Streamline the checkout experience",
-			type: "User Story",
-			phase: "Empathize",
-			href: "/project/alpha/stories/streamline-checkout",
-		},
-		{
-			id: "journey-1",
-			title: "Checkout journey map",
-			type: "User Journey",
-			phase: "Empathize",
-			href: "/project/alpha/journeys/checkout-journey",
-		},
-	]);
-
-	const sourcePainPoints: SourcePainPoint[] = [
-		{
-			id: "pain-1",
-			text: "Users abandon checkout when the form asks for repeated information.",
-			sourceLabel: "User Story - Avery Patel",
-		},
-		{
-			id: "pain-2",
-			text: "Payment errors leave customers unsure if the order went through.",
-			sourceLabel: "User Journey - Payment stage",
-		},
-		{
-			id: "pain-3",
-			text: "Shipping options are buried and hard to compare quickly.",
-			sourceLabel: "User Story - Avery Patel",
-		},
-	];
+	const storyOptions: SourceOption[] = structuredClone(data.storyOptions) as SourceOption[];
+	const journeyOptions: SourceOption[] = structuredClone(data.journeyOptions) as SourceOption[];
+	let linkedSources = $state<LinkedSource[]>(
+		(Array.isArray(data.linkedSources) && data.linkedSources.length > 0
+			? (structuredClone(data.linkedSources) as LinkedSource[])
+			: [
+					storyOptions[0]
+						? {
+								...storyOptions[0],
+								type: "User Story" as const
+							}
+						: null,
+					journeyOptions[0]
+						? {
+								...journeyOptions[0],
+								type: "User Journey" as const
+							}
+						: null
+				].filter(Boolean)) as LinkedSource[]
+	);
+	const sourcePainPoints: SourcePainPoint[] = structuredClone(data.sourcePainPoints) as SourcePainPoint[];
 
 	const optionalModules: {
 		key: OptionalModuleKey;
@@ -138,11 +112,13 @@ import { onDestroy, onMount } from "svelte";
 		},
 	];
 
-	let status = $state<ProblemStatus>("Draft");
-	let title = $state("");
-	let finalStatement = $state("");
+	let status = $state<ProblemStatus>(data.problem.status as ProblemStatus);
+	let title = $state(required(data.problem.title, "problem.title"));
+	let finalStatement = $state(required(data.problem.title, "problem.title"));
 	let orphanAcknowledged = $state(false);
-	let selectedPainPoints = $state<string[]>([]);
+	let selectedPainPoints = $state<string[]>(
+		Array.isArray(data.selectedPainPoints) ? (structuredClone(data.selectedPainPoints) as string[]) : []
+	);
 	let addSectionOpen = $state(false);
 	let linkStoryOpen = $state(false);
 	let linkJourneyOpen = $state(false);
@@ -154,14 +130,23 @@ import { onDestroy, onMount } from "svelte";
 	let sourceToRemove = $state<LinkedSource | null>(null);
 	let selectedStoryId = $state("");
 	let selectedJourneyId = $state("");
-	let activeModules = $state<OptionalModuleKey[]>(["why"]);
+	let activeModules = $state<OptionalModuleKey[]>(
+		Array.isArray(data.activeModules) && data.activeModules.length > 0
+			? (structuredClone(data.activeModules) as OptionalModuleKey[])
+			: ["why"]
+	);
+	const moduleContentPayload = required(
+		data.moduleContent as Record<OptionalModuleKey, string> | undefined,
+		"moduleContent"
+	);
 	let moduleContent = $state<Record<OptionalModuleKey, string>>({
-		why: "",
-		constraints: "",
-		success: "",
-		assumptions: "",
+		why: moduleContentPayload.why,
+		constraints: moduleContentPayload.constraints,
+		success: moduleContentPayload.success,
+		assumptions: moduleContentPayload.assumptions
 	});
-	let notesText = $state("");
+	let notesText = $state(required(data.notesText, "notesText"));
+let metadataOpen = $state(false);
 type SavePhase = "idle" | "saving" | "saved";
 let savePhase = $state<SavePhase>("idle");
 let savedSignature = $state("");
@@ -171,10 +156,10 @@ let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const isDraft = (currentStatus: ProblemStatus) => currentStatus === "Draft";
 
-	const suggestedTitle = $derived(
+	let suggestedTitle = $derived(
 		isDraft(status) && !title ? finalStatement : title
 	);
-	const currentSignature = $derived(
+	let currentSignature = $derived(
 		JSON.stringify({
 			title,
 			finalStatement,
@@ -189,8 +174,8 @@ let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 			notesText,
 		})
 	);
-const isDirty = $derived(saveReady && currentSignature !== savedSignature);
-const saveIndicator = $derived.by(() => {
+let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+let saveIndicator = $derived.by(() => {
 	if (savePhase === "saving") {
 		return "saving";
 	}
@@ -236,25 +221,60 @@ const saveIndicator = $derived.by(() => {
 		return hasPainPoints && hasStatement && hasOrphanApproval;
 	};
 
-	const confirmLock = () => {
+	const confirmLock = async () => {
+		if (!permissions || !canChangeProblemStatus) return;
+		const result = await lockProblem({
+			input: {
+				projectId,
+				problemId
+			},
+			permissions
+		});
+		if (!result.success) return;
 		status = "Locked";
+		await invalidateAll();
 	};
 
+let availableStoryOptions = $derived.by(() =>
+	storyOptions.filter((story) => !linkedSources.some((source) => source.id === story.id))
+);
+let availableJourneyOptions = $derived.by(() =>
+	journeyOptions.filter((journey) => !linkedSources.some((source) => source.id === journey.id))
+);
+
 	const requestStatusChange = (nextStatus: ProblemStatus) => {
+		if (nextStatus === status) return;
 		pendingStatus = nextStatus;
 		statusConfirmOpen = true;
 	};
 
-	const confirmStatusChange = () => {
+	const confirmStatusChange = async () => {
 		if (!pendingStatus) {
+			return;
+		}
+		if (!permissions || !canChangeProblemStatus) {
 			return;
 		}
 
 		if (pendingStatus === "Locked" && !canLock()) {
 			return;
 		}
+		if (pendingStatus === "Locked") {
+			await confirmLock();
+		} else {
+			const result = await updateProblemStatus({
+				input: {
+					projectId,
+					problemId,
+					status: pendingStatus
+				},
+				permissions
+			});
+			if (!result.success) return;
+			status = pendingStatus;
+			await invalidateAll();
+		}
 
-		status = pendingStatus;
 		pendingStatus = null;
 		statusConfirmOpen = false;
 	};
@@ -320,7 +340,8 @@ const saveIndicator = $derived.by(() => {
 		linkJourneyOpen = false;
 	};
 
-	const triggerSave = () => {
+	const triggerSave = async () => {
+		if (!permissions || !canEditProblem) return;
 		if (savePhase === "saving" || !isDirty) {
 			return;
 		}
@@ -334,15 +355,35 @@ const saveIndicator = $derived.by(() => {
 		}
 
 		savePhase = "saving";
-		saveTimer = setTimeout(() => {
-			savedSignature = currentSignature;
-			savePhase = "saved";
-			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) {
-					savePhase = "idle";
+		const result = await updateProblem({
+			input: {
+				projectId,
+				problemId,
+				state: {
+					status,
+					title,
+					finalStatement,
+					orphanAcknowledged,
+					selectedPainPoints,
+					linkedSources,
+					activeModules,
+					moduleContent,
+					notesText
 				}
-			}, 1400);
-		}, 900);
+			},
+			permissions
+		});
+		if (!result.success) {
+			savePhase = "idle";
+			return;
+		}
+		savedSignature = currentSignature;
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) {
+				savePhase = "idle";
+			}
+		}, 1400);
 	};
 
 onDestroy(() => {
@@ -399,6 +440,9 @@ onMount(() => {
 			/>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="flex flex-wrap items-center gap-2">
+					<Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open problem metadata">
+						<Info class="h-4 w-4" />
+					</Button>
 					<Badge variant={statusVariant(status)}>{status}</Badge>
 					{#if linkedSources.length === 0}
 						<Badge variant="destructive">Orphan</Badge>
@@ -473,7 +517,7 @@ onMount(() => {
 					<Button
 						size="sm"
 						onclick={triggerSave}
-						disabled={savePhase === "saving" || !isDirty}
+						disabled={!canEditProblem || savePhase === "saving" || !isDirty}
 					>
 						{savePhase === "saving" ? "Saving..." : "Save changes"}
 					</Button>
@@ -505,11 +549,11 @@ onMount(() => {
 									<Select.Root type="single" bind:value={selectedStoryId}>
 										<Select.Trigger id="link-story">
 											{selectedStoryId
-												? storyOptions.find((story) => story.id === selectedStoryId)?.title
+												? availableStoryOptions.find((story) => story.id === selectedStoryId)?.title ?? storyOptions.find((story) => story.id === selectedStoryId)?.title
 												: "Select a story"}
 										</Select.Trigger>
 										<Select.Content>
-											{#each storyOptions as story (story.id)}
+											{#each availableStoryOptions as story (story.id)}
 												<Select.Item value={story.id} label={story.title}>
 													{story.title}
 												</Select.Item>
@@ -543,11 +587,11 @@ onMount(() => {
 									<Select.Root type="single" bind:value={selectedJourneyId}>
 										<Select.Trigger id="link-journey">
 											{selectedJourneyId
-												? journeyOptions.find((journey) => journey.id === selectedJourneyId)?.title
+												? availableJourneyOptions.find((journey) => journey.id === selectedJourneyId)?.title ?? journeyOptions.find((journey) => journey.id === selectedJourneyId)?.title
 												: "Select a journey"}
 										</Select.Trigger>
 										<Select.Content>
-											{#each journeyOptions as journey (journey.id)}
+											{#each availableJourneyOptions as journey (journey.id)}
 												<Select.Item value={journey.id} label={journey.title}>
 													{journey.title}
 												</Select.Item>
@@ -700,7 +744,7 @@ onMount(() => {
 							<Button
 								variant={status === option ? "default" : "outline"}
 								onclick={() => requestStatusChange(option)}
-								disabled={status === "Locked" && option === "Draft"}
+								disabled={!canChangeProblemStatus || (status === "Locked" && option === "Draft")}
 							>
 								{option}
 							</Button>
@@ -719,12 +763,12 @@ onMount(() => {
 						</div>
 					{/if}
 					<Dialog.Root>
-						<Dialog.Trigger
-							class={buttonVariants()}
-							disabled={!isDraft(status)}
-						>
-							Lock Problem Statement
-						</Dialog.Trigger>
+					<Dialog.Trigger
+						class={buttonVariants()}
+						disabled={!isDraft(status) || !canChangeProblemStatus}
+					>
+						Lock Problem Statement
+					</Dialog.Trigger>
 						<Dialog.Content>
 							<Dialog.Header>
 								<Dialog.Title>Lock this problem statement?</Dialog.Title>
@@ -823,8 +867,8 @@ onMount(() => {
 					<div class="grid gap-3">
 						{#each optionalModules as module (module.key)}
 							{#if activeModules.includes(module.key)}
-								<div class="flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
-									<div class="flex items-start justify-between gap-3">
+								<div class="group flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
+									<div class="group flex items-start justify-between gap-3">
 										<div class="flex flex-col gap-1">
 											<span class="text-sm font-medium">{module.title}</span>
 											<span class="text-xs text-muted-foreground">
@@ -833,11 +877,11 @@ onMount(() => {
 										</div>
 										<Button
 											variant="ghost"
-											size="sm"
-											class="h-7 px-2 text-destructive hover:text-destructive"
+											size="icon"
+											class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 											onclick={() => removeModule(module.key)}
 										>
-											Remove
+											<X class="h-4 w-4" />
 										</Button>
 									</div>
 									<Textarea
@@ -865,6 +909,26 @@ onMount(() => {
 	</div>
 </div>
 
+
+<Dialog.Root bind:open={metadataOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Artifact Metadata</Dialog.Title>
+			<Dialog.Description>Read-only metadata for this problem statement.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-2 text-sm">
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Alex Morgan</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-03 09:20</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Priya Shah</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 11:10</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{status}</span></div>
+		</div>
+		<Dialog.Footer>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
 <Dialog.Root bind:open={removeSourceOpen}>
 	<Dialog.Content>
 		<Dialog.Header>
@@ -884,7 +948,7 @@ onMount(() => {
 	</Dialog.Content>
 </Dialog.Root>
 
-<Dialog.Root bind:open={statusConfirmOpen}>
+<Dialog.Root bind:open={statusConfirmOpen} onOpenChange={(open) => { statusConfirmOpen = open; if (!open) pendingStatus = null; }}>
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Confirm status change</Dialog.Title>
@@ -906,7 +970,7 @@ onMount(() => {
 			</Dialog.Close>
 			<Dialog.Close
 				class={buttonVariants()}
-				disabled={pendingStatus === "Locked" && !canLock()}
+				disabled={!canChangeProblemStatus || (pendingStatus === "Locked" && !canLock())}
 				onclick={confirmStatusChange}
 			>
 				Confirm

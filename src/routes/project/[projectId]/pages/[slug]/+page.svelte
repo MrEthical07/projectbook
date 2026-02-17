@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, onMount } from "svelte";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -26,6 +26,9 @@
 		Plus,
 		Trash2,
 	} from "@lucide/svelte";
+	import { page } from "$app/state";
+	import { updatePageEditor } from "$lib/remote/page.remote";
+	import { can } from "$lib/utils/permission";
 
 	type PageStatus = "Draft" | "Archived";
 	type PageContentType = "Document" | "Table" | "Board" | "List" | "Calendar" | "Gallery" | "Timeline";
@@ -104,24 +107,35 @@
 		{ type: "Link Preview", label: "Link preview" },
 	];
 
-	const tagOptions = ["Research", "Alignment", "Notes", "Strategy"];
-	const linkedArtifactOptions = [
-		"User Story - Streamline checkout",
-		"Problem Statement - Reduce abandonment",
-		"Idea - Timeline reminders",
-		"Task - Prototype timeline",
-		"Feedback - Reminder test",
-		"Resource - Survey synthesis",
-	];
+	let { data } = $props();
+	const required = <T>(value: T | null | undefined, field: string): T => {
+		if (value === undefined || value === null) {
+			throw new Error(`Page payload is missing '${field}'.`);
+		}
+		return value;
+	};
+	const projectId = page.params.projectId;
+	const pageId = page.params.slug;
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canEditPage = can(permissions, "page", "edit");
+	const tagOptions = structuredClone(data.editor.tagOptions) as string[];
+	const linkedArtifactOptions = structuredClone(data.editor.linkedArtifactOptions) as string[];
 
-	let status = $state<PageStatus>("Draft");
-	let title = $state("Untitled Page");
-	let owner = $state("Avery Patel");
-	let createdAt = $state("Jan 10, 2026");
-	let lastEdited = $state("Jan 12, 2026");
-	let description = $state("");
-	let tags = $state<string[]>(["Research"]);
-	let linkedArtifacts = $state<string[]>([]);
+	let status = $state<PageStatus>(data.editor.defaultValues.status as PageStatus);
+	let title = $state(required(data.editor.defaultValues.title, "editor.defaultValues.title"));
+	let owner = $state(required(data.editor.defaultValues.owner, "editor.defaultValues.owner"));
+	let createdAt = $state(required(data.editor.defaultValues.createdAt, "editor.defaultValues.createdAt"));
+	let lastEdited = $state(required(data.editor.defaultValues.lastEdited, "editor.defaultValues.lastEdited"));
+	let description = $state(required(data.editor.defaultValues.description, "editor.defaultValues.description"));
+	if (!Array.isArray(data.editor.tags)) {
+		throw new Error("Page payload is missing 'editor.tags'.");
+	}
+	let tags = $state<string[]>(structuredClone(data.editor.tags) as string[]);
+	if (!Array.isArray(data.editor.linkedArtifacts)) {
+		throw new Error("Page payload is missing 'editor.linkedArtifacts'.");
+	}
+	let linkedArtifacts = $state<string[]>(structuredClone(data.editor.linkedArtifacts) as string[]);
 	let blockDialogOpen = $state(false);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
@@ -129,16 +143,11 @@
 	let readOnlyView = $state(false);
 	let fullWidth = $state(false);
 	let dragId = $state("");
-	let views = $state<View[]>([
-		{ id: "view-doc", name: "Document", type: "Document" },
-		{ id: "view-table", name: "Table", type: "Table" },
-		{ id: "view-board", name: "Board", type: "Board" },
-		{ id: "view-list", name: "List", type: "List" },
-		{ id: "view-calendar", name: "Calendar", type: "Calendar" },
-		{ id: "view-gallery", name: "Gallery", type: "Gallery" },
-		{ id: "view-timeline", name: "Timeline", type: "Timeline" },
-	]);
-	let activeViewId = $state("view-doc");
+	if (!Array.isArray(data.editor.defaultViews)) {
+		throw new Error("Page payload is missing 'editor.defaultViews'.");
+	}
+	let views = $state<View[]>(structuredClone(data.editor.defaultViews) as View[]);
+	let activeViewId = $state(required(data.editor.activeViewId, "editor.activeViewId"));
 	let addViewOpen = $state(false);
 	let newViewName = $state("");
 	let newViewType = $state<PageContentType>("Table");
@@ -148,57 +157,23 @@
 	let renameColumnId = $state("");
 	let renameColumnValue = $state("");
 
-	let docHeading = $state("Context");
-	let docBody = $state("Summarize the intent of this page and the key takeaways.");
+	let docHeading = $state(required(data.editor.docHeading, "editor.docHeading"));
+	let docBody = $state(required(data.editor.docBody, "editor.docBody"));
 	let blocks = $state<PageBlock[]>([]);
 
-	let tableColumns = $state<TableColumn[]>([
-		{ id: "col-1", name: "Item" },
-		{ id: "col-2", name: "Notes" },
-	]);
+	if (!Array.isArray(data.editor.tableColumns)) {
+		throw new Error("Page payload is missing 'editor.tableColumns'.");
+	}
+	let tableColumns = $state<TableColumn[]>(structuredClone(data.editor.tableColumns) as TableColumn[]);
 
-	let tableRows = $state<TableRow[]>([
-		{
-			id: "row-1",
-			cells: {
-				"col-1": "First entry",
-				"col-2": "Add your notes here.",
-			},
-		},
-	]);
+	if (!Array.isArray(data.editor.tableRows)) {
+		throw new Error("Page payload is missing 'editor.tableRows'.");
+	}
+	let tableRows = $state<TableRow[]>(structuredClone(data.editor.tableRows) as TableRow[]);
 
-	let databaseItems = $state<DatabaseItem[]>([
-		{
-			id: "item-1",
-			title: "Capture key observations",
-			status: "Backlog",
-			date: "2026-01-12",
-			owner: "Avery Patel",
-			tag: "Research",
-			docHeading: "Notes",
-			docBody: "Capture the key observations from the session.",
-		},
-		{
-			id: "item-2",
-			title: "Draft summary insights",
-			status: "In progress",
-			date: "2026-01-14",
-			owner: "Nia Clark",
-			tag: "Notes",
-			docHeading: "Summary",
-			docBody: "Draft the summary of findings and insights.",
-		},
-		{
-			id: "item-3",
-			title: "Align on next steps",
-			status: "Done",
-			date: "2026-01-16",
-			owner: "Dr. Ramos",
-			tag: "Alignment",
-			docHeading: "Next steps",
-			docBody: "Confirm the next actions with stakeholders.",
-		},
-	]);
+	let databaseItems = $state<DatabaseItem[]>(
+		structuredClone(data.editor.databaseItems) as DatabaseItem[]
+	);
 
 	type SavePhase = "idle" | "saving" | "saved";
 	let savePhase = $state<SavePhase>("idle");
@@ -207,7 +182,7 @@
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const currentSignature = $derived(
+	let currentSignature = $derived(
 		JSON.stringify({
 			status,
 			title,
@@ -225,11 +200,17 @@
 		})
 	);
 
-	const isDirty = $derived(saveReady && currentSignature !== savedSignature);
-	const isReadOnly = $derived(status === "Archived" || readOnlyView);
-	const activeView = $derived(views.find((view) => view.id === activeViewId) ?? views[0]);
-	const isDatabaseView = $derived(activeView?.type !== "Document");
-	const saveIndicator = $derived.by(() => {
+	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+	let isReadOnly = $derived(status === "Archived" || readOnlyView || !canEditPage);
+	let activeView = $derived.by(() => {
+		const resolvedView = views.find((view) => view.id === activeViewId);
+		if (!resolvedView) {
+			throw new Error(`Active page view '${activeViewId}' was not found.`);
+		}
+		return resolvedView;
+	});
+	let isDatabaseView = $derived(activeView?.type !== "Document");
+	let saveIndicator = $derived.by(() => {
 		if (savePhase === "saving") {
 			return "saving";
 		}
@@ -326,7 +307,10 @@
 		if (!renameColumnId) {
 			return;
 		}
-		const nextValue = renameColumnValue.trim() || "Untitled";
+		const nextValue = renameColumnValue.trim();
+		if (!nextValue) {
+			return;
+		}
 		updateColumnName(renameColumnId, nextValue);
 		renameColumnOpen = false;
 	};
@@ -447,7 +431,7 @@
 		galleryOpen = true;
 	};
 
-	const activeGalleryItem = $derived(
+	let activeGalleryItem = $derived(
 		databaseItems.find((item) => item.id === galleryItemId) ?? null
 	);
 
@@ -529,7 +513,8 @@
 		linkedArtifacts = linkedArtifacts.filter((item) => item !== value);
 	};
 
-	const triggerSave = () => {
+	const triggerSave = async () => {
+		if (!permissions || !canEditPage) return;
 		if (savePhase === "saving" || !isDirty) {
 			return;
 		}
@@ -543,15 +528,40 @@
 		}
 
 		savePhase = "saving";
-		saveTimer = setTimeout(() => {
-			savedSignature = currentSignature;
-			savePhase = "saved";
-			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) {
-					savePhase = "idle";
+		const result = await updatePageEditor({
+			input: {
+				projectId,
+				pageId,
+				state: {
+					status,
+					title,
+					owner,
+					description,
+					tags,
+					linkedArtifacts,
+					docHeading,
+					docBody,
+					views,
+					activeViewId,
+					tableColumns,
+					tableRows,
+					databaseItems
 				}
-			}, 1400);
-		}, 900);
+			},
+			permissions
+		});
+		if (!result.success) {
+			savePhase = "idle";
+			return;
+		}
+		lastEdited = new Date().toISOString().slice(0, 10);
+		savedSignature = currentSignature;
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) {
+				savePhase = "idle";
+			}
+		}, 1400);
 	};
 
 	onDestroy(() => {
@@ -817,7 +827,7 @@
 					<Button
 						size="sm"
 						onclick={triggerSave}
-						disabled={savePhase === "saving" || !isDirty}
+						disabled={!canEditPage || savePhase === "saving" || !isDirty}
 					>
 						{savePhase === "saving" ? "Saving..." : "Save changes"}
 					</Button>
@@ -1008,10 +1018,14 @@
 								<div class="text-sm font-medium">{lane}</div>
 								<div class="mt-3 flex flex-col gap-2">
 									{#each databaseItems.filter((item) => item.status === lane) as item (item.id)}
-										<div class="rounded-md border border-border px-3 py-2">
+										<button
+											type="button"
+											class="rounded-md border border-border px-3 py-2 text-left hover:bg-muted/40"
+											onclick={() => openGalleryItem(item.id)}
+										>
 											<div class="text-sm font-medium">{item.title}</div>
 											<div class="text-xs text-muted-foreground">{item.tag}</div>
-										</div>
+										</button>
 									{/each}
 								</div>
 							</div>
@@ -1020,23 +1034,31 @@
 				{:else if activeView?.type === "List"}
 					<div class="flex flex-col gap-2">
 						{#each databaseItems as item (item.id)}
-							<div class="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+							<button
+								type="button"
+								class="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left hover:bg-muted/40"
+								onclick={() => openGalleryItem(item.id)}
+							>
 								<div>
 									<div class="text-sm font-medium">{item.title}</div>
 									<div class="text-xs text-muted-foreground">{item.tag}</div>
 								</div>
 								<Badge variant="secondary">{item.status}</Badge>
-							</div>
+							</button>
 						{/each}
 					</div>
 				{:else if activeView?.type === "Calendar"}
 					<div class="grid gap-2 md:grid-cols-3">
 						{#each databaseItems as item (item.id)}
-							<div class="rounded-lg border border-border p-3">
+							<button
+								type="button"
+								class="rounded-lg border border-border p-3 text-left hover:bg-muted/40"
+								onclick={() => openGalleryItem(item.id)}
+							>
 								<div class="text-xs text-muted-foreground">{item.date}</div>
 								<div class="mt-2 text-sm font-medium">{item.title}</div>
 								<div class="text-xs text-muted-foreground">{item.status}</div>
-							</div>
+							</button>
 						{/each}
 					</div>
 				{:else if activeView?.type === "Gallery"}
@@ -1073,10 +1095,14 @@
 						{#each databaseItems as item (item.id)}
 							<div class="flex items-start gap-3">
 								<div class="text-xs text-muted-foreground w-24">{item.date}</div>
-								<div class="flex-1 rounded-lg border border-border px-3 py-2">
+								<button
+									type="button"
+									class="flex-1 rounded-lg border border-border px-3 py-2 text-left hover:bg-muted/40"
+									onclick={() => openGalleryItem(item.id)}
+								>
 									<div class="text-sm font-medium">{item.title}</div>
 									<div class="text-xs text-muted-foreground">{item.status}</div>
-								</div>
+								</button>
 							</div>
 						{/each}
 					</div>
@@ -1205,6 +1231,42 @@
 		</Dialog.Header>
 		{#if activeGalleryItem}
 			<div class="grid gap-3">
+				<div class="grid gap-2">
+					<Label for="edit-item-title">Title</Label>
+					<Input
+						id="edit-item-title"
+						bind:value={activeGalleryItem.title}
+						disabled={isReadOnly}
+						oninput={(event) => updateDatabaseItem(activeGalleryItem.id, { title: event.currentTarget.value })}
+					/>
+				</div>
+				<div class="grid gap-2 md:grid-cols-2">
+					<div class="grid gap-2">
+						<Label for="edit-item-status">Status</Label>
+						<Select.Root type="single" value={activeGalleryItem.status} onValueChange={(value) => updateDatabaseItem(activeGalleryItem.id, { status: value as DatabaseItem["status"] })}>
+							<Select.Trigger id="edit-item-status">{activeGalleryItem.status}</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="Backlog" label="Backlog">Backlog</Select.Item>
+								<Select.Item value="In progress" label="In progress">In progress</Select.Item>
+								<Select.Item value="Done" label="Done">Done</Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="grid gap-2">
+						<Label for="edit-item-date">Date</Label>
+						<Input id="edit-item-date" type="date" value={activeGalleryItem.date} disabled={isReadOnly} oninput={(event) => updateDatabaseItem(activeGalleryItem.id, { date: event.currentTarget.value })} />
+					</div>
+				</div>
+				<div class="grid gap-2 md:grid-cols-2">
+					<div class="grid gap-2">
+						<Label for="edit-item-owner">Owner</Label>
+						<Input id="edit-item-owner" value={activeGalleryItem.owner} disabled={isReadOnly} oninput={(event) => updateDatabaseItem(activeGalleryItem.id, { owner: event.currentTarget.value })} />
+					</div>
+					<div class="grid gap-2">
+						<Label for="edit-item-tag">Tag</Label>
+						<Input id="edit-item-tag" value={activeGalleryItem.tag} disabled={isReadOnly} oninput={(event) => updateDatabaseItem(activeGalleryItem.id, { tag: event.currentTarget.value })} />
+					</div>
+				</div>
 				<Input
 					bind:value={activeGalleryItem.docHeading}
 					disabled={isReadOnly}

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
+	import { getContext } from "svelte";
+	import { createIdea as createIdeaRemote } from "$lib/remote/idea.remote";
+	import { can } from "$lib/utils/permission";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -12,6 +15,9 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
+	import { Lightbulb, CircleCheckBig, CircleX, Archive } from "@lucide/svelte";
+
+	let { data } = $props();
 
 	type IdeaStatus = "Considered" | "Selected" | "Rejected" | "Archived";
 	type IdeaRow = {
@@ -27,44 +33,10 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $state<IdeaRow[]>([
-		{
-			id: "deadline-lane-view",
-			title: "Deadline lane view",
-			linkedProblemStatement: "Students need a clear way to track assignment deadlines.",
-			persona: "Avery Patel",
-			status: "Selected",
-			tasksCount: 2,
-			owner: "Avery Patel",
-			lastUpdated: "2026-02-06",
-			linkedProblemLocked: true,
-			isOrphan: false,
-		},
-		{
-			id: "smart-reminder-bundles",
-			title: "Smart reminder bundles",
-			linkedProblemStatement: "New creators need confidence during setup.",
-			persona: "Liam Gomez",
-			status: "Considered",
-			tasksCount: 0,
-			owner: "Nia Clark",
-			lastUpdated: "2026-02-02",
-			linkedProblemLocked: false,
-			isOrphan: false,
-		},
-		{
-			id: "assistant-chat-coach",
-			title: "Assistant chat coach",
-			linkedProblemStatement: "",
-			persona: "Priya Sharma",
-			status: "Rejected",
-			tasksCount: 0,
-			owner: "Dr. Ramos",
-			lastUpdated: "2026-01-28",
-			linkedProblemLocked: false,
-			isOrphan: true,
-		},
-	]);
+	let rows = $state<IdeaRow[]>(structuredClone(data.rows) as IdeaRow[]);
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canCreateIdea = can(permissions, "idea", "create");
 
 	let statusFilter = $state<IdeaStatus | "All">("All");
 	let ownerFilter = $state("All");
@@ -75,16 +47,17 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createDescription = $state("");
+	let createError = $state("");
 
-	const owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
-	const stats = $derived({
+	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	let stats = $derived({
 		total: rows.length,
 		considered: rows.filter((row) => row.status === "Considered").length,
 		selected: rows.filter((row) => row.status === "Selected").length,
 		rejected: rows.filter((row) => row.status === "Rejected").length,
 	});
 
-	const filteredRows = $derived.by(() => {
+	let filteredRows = $derived.by(() => {
 		return rows.filter((row) => {
 			if (statusFilter !== "All" && row.status !== statusFilter) return false;
 			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
@@ -107,37 +80,37 @@
 		orphanOnly = false;
 	};
 
-	const slugify = (value: string) =>
-		value
-			.toLowerCase()
-			.trim()
-			.replace(/[^a-z0-9\s-]/g, "")
-			.replace(/\s+/g, "-")
-			.replace(/-+/g, "-");
-
 	const createIdea = async () => {
+		createError = "";
+		if (!canCreateIdea) return;
+		if (!permissions) {
+			createError = "Permissions data is unavailable.";
+			return;
+		}
+		const actorId = access?.user.id;
+		if (!actorId) {
+			createError = "Active user id is missing.";
+			return;
+		}
 		const title = createTitle.trim();
 		if (!title) return;
-		const id = slugify(title) || "untitled-idea";
-		rows = [
-			{
-				id,
-				title,
-				linkedProblemStatement: "",
-				persona: "Unknown",
-				status: "Considered",
-				tasksCount: 0,
-				owner: "Avery Patel",
-				lastUpdated: new Date().toISOString().slice(0, 10),
-				linkedProblemLocked: false,
-				isOrphan: true,
+		const result = await createIdeaRemote({
+			input: {
+				projectId: page.params.projectId,
+				actorId,
+				title
 			},
-			...rows,
-		];
+			permissions
+		});
+		if (!result.success) {
+			createError = result.error;
+			return;
+		}
+		const created = result.data as { id: string };
 		createTitle = "";
 		createDescription = "";
 		createOpen = false;
-		await goto(`/project/${page.params.projectId}/ideas/${id}`);
+		await goto(`/project/${page.params.projectId}/ideas/${created.id}`);
 	};
 </script>
 
@@ -163,10 +136,11 @@
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Ideate - Ideas Index</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<h1 class="text-3xl font-semibold">Ideas</h1>
-				<Dialog.Root bind:open={createOpen}>
-					<Dialog.Trigger>
-						<Button>Add Idea</Button>
-					</Dialog.Trigger>
+				{#if canCreateIdea}
+					<Dialog.Root bind:open={createOpen}>
+						<Dialog.Trigger>
+							<Button>Add Idea</Button>
+						</Dialog.Trigger>
 					<Dialog.Content>
 						<Dialog.Header>
 							<Dialog.Title>Create Idea</Dialog.Title>
@@ -181,31 +155,35 @@
 								<Label for="idea-description">Short Description</Label>
 								<Input id="idea-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
+							{#if createError}
+								<p class="text-xs text-destructive">{createError}</p>
+							{/if}
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
 							<Button onclick={createIdea} disabled={!createTitle.trim()}>Create Idea</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
-				</Dialog.Root>
+					</Dialog.Root>
+				{/if}
 			</div>
 		</section>
 
 		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-4">
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
-				<div class="text-xs text-muted-foreground">Total Ideas</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Ideas</span><Lightbulb class="size-4" /></div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Considered")}>
-				<div class="text-xs text-muted-foreground">Considered</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Considered</span><Archive class="size-4" /></div>
 				<div class="text-2xl font-semibold text-blue-700">{stats.considered}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Selected")}>
-				<div class="text-xs text-muted-foreground">Selected</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Selected</span><CircleCheckBig class="size-4" /></div>
 				<div class="text-2xl font-semibold text-emerald-700">{stats.selected}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Rejected")}>
-				<div class="text-xs text-muted-foreground">Rejected</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Rejected</span><CircleX class="size-4" /></div>
 				<div class="text-2xl font-semibold text-slate-700">{stats.rejected}</div>
 			</button>
 		</section>
@@ -216,7 +194,7 @@
 				<div class="grid gap-2">
 					<Label>Status</Label>
 					<Select.Root type="single" bind:value={statusFilter}>
-						<Select.Trigger>{statusFilter}</Select.Trigger>
+						<Select.Trigger class="w-full">{statusFilter}</Select.Trigger>
 						<Select.Content>
 							<Select.Item value="All" label="All">All</Select.Item>
 							<Select.Item value="Considered" label="Considered">Considered</Select.Item>
@@ -229,7 +207,7 @@
 				<div class="grid gap-2">
 					<Label>Owner</Label>
 					<Select.Root type="single" bind:value={ownerFilter}>
-						<Select.Trigger>{ownerFilter}</Select.Trigger>
+						<Select.Trigger class="w-full">{ownerFilter}</Select.Trigger>
 						<Select.Content>
 							{#each owners as owner (owner)}
 								<Select.Item value={owner} label={owner}>{owner}</Select.Item>
@@ -260,21 +238,24 @@
 					<div class="mt-1 text-xs text-muted-foreground">
 						Ideas represent candidate solutions linked to defined problems.
 					</div>
-					<div class="mt-4">
-						<Button onclick={() => (createOpen = true)}>Add Idea</Button>
-					</div>
+					{#if canCreateIdea}
+						<div class="mt-4">
+							<Button onclick={() => (createOpen = true)}>Add Idea</Button>
+						</div>
+					{/if}
 				</div>
 			{:else}
+				<div class="border rounded-md">
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
 							<Table.Head>Idea Title</Table.Head>
-							<Table.Head>Linked Problem Statement</Table.Head>
-							<Table.Head>Persona</Table.Head>
-							<Table.Head>Status</Table.Head>
-							<Table.Head>Tasks Count</Table.Head>
-							<Table.Head>Owner</Table.Head>
-							<Table.Head>Last Updated</Table.Head>
+							<Table.Head class="text-center">Linked Problem Statement</Table.Head>
+							<Table.Head class="text-center">Persona</Table.Head>
+							<Table.Head class="text-center">Status</Table.Head>
+							<Table.Head class="text-center">Tasks Count</Table.Head>
+							<Table.Head class="text-center">Owner</Table.Head>
+							<Table.Head class="text-center">Last Updated</Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -294,12 +275,12 @@
 										{/if}
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.linkedProblemStatement || "None"}</Table.Cell>
-								<Table.Cell>{row.persona}</Table.Cell>
-								<Table.Cell>
+								<Table.Cell class="text-center">{row.linkedProblemStatement || "None"}</Table.Cell>
+								<Table.Cell class="text-center">{row.persona}</Table.Cell>
+								<Table.Cell class="text-center">
 									<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
 								</Table.Cell>
-								<Table.Cell>{row.tasksCount}</Table.Cell>
+								<Table.Cell class="text-center">{row.tasksCount}</Table.Cell>
 								<Table.Cell>
 									<div class="flex items-center gap-2">
 										<Avatar.Root class="h-7 w-7">
@@ -314,11 +295,12 @@
 										<span>{row.owner}</span>
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.lastUpdated}</Table.Cell>
+								<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
 							</Table.Row>
 						{/each}
 					</Table.Body>
 				</Table.Root>
+				</div>
 			{/if}
 		</section>
 	</div>

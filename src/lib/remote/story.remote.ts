@@ -1,0 +1,293 @@
+import { command, query } from "$app/server";
+import { error } from "@sveltejs/kit";
+import { z } from "zod";
+import { datastore } from "$lib/server/data/datastore";
+import {
+	storyAddOnCatalogData,
+	storyDraftTemplateData
+} from "$lib/server/data/stories.data";
+
+type StoryPageInput = {
+	projectId: string;
+	slug: string;
+};
+
+type MutationResult<T> =
+	| {
+			success: true;
+			data: T;
+	  }
+	| {
+			success: false;
+			error: string;
+	  };
+
+const createStorySchema = z.object({
+	projectId: z.string().min(1),
+	actorId: z.string().min(1),
+	title: z.string().trim().min(1)
+});
+
+const updateStorySchema = z.object({
+	projectId: z.string().min(1),
+	storyId: z.string().min(1),
+	story: z.unknown()
+});
+
+const inProjectScope = (projectId: string, itemProjectId?: string) =>
+	itemProjectId === projectId;
+
+const projectExists = (projectId: string) =>
+	datastore.projects.some((item) => item.id === projectId) ||
+	datastore.workspace.projects.some((item) => item.id === projectId);
+
+const requireProjectId = (projectId: string): string => {
+	const scopedProjectId = projectId.trim();
+	if (!scopedProjectId) {
+		error(400, "Project id is required.");
+	}
+	if (!projectExists(scopedProjectId)) {
+		error(404, "Project not found.");
+	}
+	return scopedProjectId;
+};
+
+const slugify = (value: string) =>
+	value
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9\s-]/g, "")
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-");
+
+const uniqueId = (title: string, existing: string[]): string | null => {
+	const base = slugify(title);
+	if (!base) return null;
+	if (!existing.includes(base)) return base;
+	let suffix = 2;
+	while (existing.includes(`${base}-${suffix}`)) {
+		suffix += 1;
+	}
+	return `${base}-${suffix}`;
+};
+
+const actorNameFor = (actorId: string): string | null => {
+	if (datastore.workspace.user.id === actorId) {
+		return datastore.workspace.user.name;
+	}
+	const member = datastore.team.members.find((item) => item.id === actorId);
+	return member?.name ?? null;
+};
+
+const initialsFor = (name: string) =>
+	name
+		.split(" ")
+		.map((part) => part[0] ?? "")
+		.join("")
+		.slice(0, 2)
+		.toUpperCase();
+
+const logProjectActivity = (
+	projectId: string,
+	userName: string,
+	action: string,
+	artifact: string,
+	href: string
+) => {
+	const at = new Date().toISOString();
+	const item = {
+		id: `activity-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+		projectId,
+		user: userName,
+		initials: initialsFor(userName),
+		action,
+		artifact,
+		href,
+		at
+	};
+	datastore.projectDashboard.activity.unshift(item);
+	datastore.activity.unshift(item);
+};
+
+const canCreateStory = (permissions: EffectivePermissions) =>
+	permissions?.story?.create === true;
+const canEditStory = (permissions: EffectivePermissions) =>
+	permissions?.story?.edit === true;
+
+const storyDetailsByKey = new Map<string, typeof storyDraftTemplateData>();
+const detailKey = (projectId: string, storyId: string) =>
+	`${projectId}:${storyId}`;
+
+export const getStories = query("unchecked", (projectId: string) => {
+	const scopedProjectId = requireProjectId(projectId);
+	return datastore.stories.filter((item) => inProjectScope(scopedProjectId, item.projectId));
+});
+
+export const getStoryPageData = query("unchecked", (input: StoryPageInput) => {
+	const scopedProjectId = requireProjectId(input.projectId);
+	const key = detailKey(scopedProjectId, input.slug);
+	const cached = storyDetailsByKey.get(key);
+	const row = datastore.stories.find(
+		(item) => item.id === input.slug && inProjectScope(scopedProjectId, item.projectId)
+	);
+	if (!row) {
+		error(404, "Story not found.");
+	}
+	const baseStory = {
+		...storyDraftTemplateData,
+		title: row.title,
+		status: row.status.toLowerCase(),
+		persona: {
+			...storyDraftTemplateData.persona,
+			name: row.personaName
+		}
+	};
+	const story = structuredClone(cached ?? baseStory);
+	story.title = row.title;
+	story.status = String(row.status).toLowerCase();
+	story.persona = {
+		...story.persona,
+		name: row.personaName
+	};
+	return {
+		story,
+		addOnCatalog: storyAddOnCatalogData,
+		addOnSections:
+			cached && Array.isArray((cached as Record<string, unknown>).addOnSections)
+				? structuredClone(
+						(cached as Record<string, unknown>).addOnSections as unknown[]
+					)
+				: []
+	};
+});
+
+export const createStory = command(
+	"unchecked",
+	({
+		input,
+		permissions
+	}: {
+		input: unknown;
+		permissions: EffectivePermissions;
+	}): MutationResult<StoryRow> => {
+		if (!canCreateStory(permissions)) {
+			return { success: false, error: "Permission denied" };
+		}
+
+		const parsed = createStorySchema.safeParse(input);
+		if (!parsed.success) {
+			return { success: false, error: "Invalid input" };
+		}
+
+		const actorName = actorNameFor(parsed.data.actorId);
+		if (!actorName) {
+			return { success: false, error: "Invalid actor" };
+		}
+
+		const projectId = requireProjectId(parsed.data.projectId);
+		const existingIds = datastore.stories
+			.filter((item) => inProjectScope(projectId, item.projectId))
+			.map((item) => item.id);
+		const id = uniqueId(parsed.data.title, existingIds);
+		if (!id) {
+			return {
+				success: false,
+				error: "Title must include letters or numbers."
+			};
+		}
+		const created: StoryRow = {
+			id,
+			projectId,
+			title: parsed.data.title.trim(),
+			personaName: "",
+			painPointsCount: 0,
+			problemHypothesesCount: 0,
+			owner: actorName,
+			lastUpdated: new Date().toISOString().slice(0, 10),
+			status: "Draft",
+			isOrphan: true
+		};
+
+		datastore.stories.unshift(created);
+		logProjectActivity(
+			projectId,
+			actorName,
+			"created Story",
+			created.title,
+			`/project/${projectId}/stories/${id}`
+		);
+		return { success: true, data: created };
+	}
+);
+
+export const updateStory = command(
+	"unchecked",
+	({
+		input,
+		permissions
+	}: {
+		input: unknown;
+		permissions: EffectivePermissions;
+	}): MutationResult<StoryRow> => {
+		if (!canEditStory(permissions)) {
+			return { success: false, error: "Permission denied" };
+		}
+
+		const parsed = updateStorySchema.safeParse(input);
+		if (!parsed.success) {
+			return { success: false, error: "Invalid input" };
+		}
+
+		const projectId = requireProjectId(parsed.data.projectId);
+		const row = datastore.stories.find(
+			(item) => item.id === parsed.data.storyId && inProjectScope(projectId, item.projectId)
+		);
+		if (!row) {
+			return { success: false, error: "Story not found" };
+		}
+
+		const candidate =
+			parsed.data.story && typeof parsed.data.story === "object"
+				? (parsed.data.story as Record<string, unknown>)
+				: null;
+		if (!candidate) {
+			return { success: false, error: "Invalid input" };
+		}
+
+		const persona =
+			candidate.persona && typeof candidate.persona === "object"
+				? (candidate.persona as Record<string, unknown>)
+				: null;
+		const painPoints = Array.isArray(candidate.painPoints) ? candidate.painPoints : [];
+		const hypothesis = Array.isArray(candidate.hypothesis) ? candidate.hypothesis : [];
+		if ("title" in candidate) {
+			const normalizedTitle = String(candidate.title).trim();
+			if (!normalizedTitle) {
+				return { success: false, error: "Title is required." };
+			}
+			row.title = normalizedTitle;
+		}
+		row.personaName = String(persona?.name ?? row.personaName).trim();
+		row.painPointsCount = painPoints.filter((item) => String(item ?? "").trim().length > 0).length;
+		row.problemHypothesesCount = hypothesis.filter((item) => String(item ?? "").trim().length > 0).length;
+		if ("status" in candidate) {
+			const rawStatus = String(candidate.status).trim().toLowerCase();
+			if (rawStatus !== "draft" && rawStatus !== "locked" && rawStatus !== "archived") {
+				return { success: false, error: "Invalid story status." };
+			}
+			row.status =
+				rawStatus === "locked" ? "Locked" : rawStatus === "archived" ? "Archived" : "Draft";
+		}
+		row.lastUpdated = new Date().toISOString().slice(0, 10);
+
+		const normalizedStory: typeof storyDraftTemplateData = {
+			...storyDraftTemplateData,
+			...(candidate as Partial<typeof storyDraftTemplateData>),
+			title: row.title,
+			status: row.status.toLowerCase()
+		};
+		storyDetailsByKey.set(detailKey(projectId, parsed.data.storyId), structuredClone(normalizedStory));
+
+		return { success: true, data: row };
+	}
+);

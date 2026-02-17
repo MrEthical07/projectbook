@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { invalidateAll } from "$app/navigation";
+	import { page } from "$app/state";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -11,9 +13,15 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Toaster } from "$lib/components/ui/sonner";
 	import * as Table from "$lib/components/ui/table";
+	import {
+		cancelProjectInvite,
+		createProjectInvite
+	} from "$lib/remote/project.remote";
+	import { getContext } from "svelte";
+	import { can } from "$lib/utils/permission";
 	import { toast } from "svelte-sonner";
 
-	type MemberRole = "Owner" | "Admin" | "Editor" | "Viewer";
+	type MemberRole = "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access";
 	type InviteStatus = "pending" | "accepted";
 
 	type Member = {
@@ -32,62 +40,102 @@
 		status: InviteStatus;
 	};
 
-	const members: Member[] = [
-		{
-			name: "Sophia Lee",
-			email: "sophia.lee@projectbook.io",
-			role: "Owner",
-			joinedDate: "Jan 12, 2024",
-			team: "Product",
-			location: "San Francisco, CA"
-		},
-		{
-			name: "Marcus Reid",
-			email: "marcus.reid@projectbook.io",
-			role: "Admin",
-			joinedDate: "Feb 3, 2024",
-			team: "Design",
-			location: "New York, NY"
-		},
-		{
-			name: "Priya Nair",
-			email: "priya.nair@projectbook.io",
-			role: "Editor",
-			joinedDate: "Mar 22, 2024",
-			team: "Research",
-			location: "Toronto, CA"
-		},
-		{
-			name: "Diego Santos",
-			email: "diego.santos@projectbook.io",
-			role: "Viewer",
-			joinedDate: "Apr 10, 2024",
-			team: "Operations",
-			location: "Lisbon, PT"
-		}
-	];
+	const roleValues: MemberRole[] = ["Owner", "Admin", "Editor", "Viewer", "Limited Access"];
+	const inviteStatusValues: InviteStatus[] = ["pending", "accepted"];
 
-	const invites: Invite[] = [
-		{
-			email: "melissa.chen@projectbook.io",
-			role: "Editor",
-			sentDate: "Apr 18, 2024",
-			status: "pending"
-		},
-		{
-			email: "ashton.clark@projectbook.io",
-			role: "Viewer",
-			sentDate: "Apr 20, 2024",
-			status: "pending"
+	const requiredString = (value: unknown, path: string): string => {
+		if (typeof value !== "string" || value.trim().length === 0) {
+			throw new Error(`Invalid or missing '${path}'.`);
 		}
-	];
+		return value.trim();
+	};
+
+	const requiredRole = (value: unknown, path: string): MemberRole => {
+		if (!roleValues.includes(value as MemberRole)) {
+			throw new Error(`Invalid '${path}'.`);
+		}
+		return value as MemberRole;
+	};
+
+	const requiredInviteStatus = (value: unknown, path: string): InviteStatus => {
+		if (!inviteStatusValues.includes(value as InviteStatus)) {
+			throw new Error(`Invalid '${path}'.`);
+		}
+		return value as InviteStatus;
+	};
+
+	const requiredDateLike = (value: unknown, fallback: unknown, path: string): string => {
+		const primary = typeof value === "string" ? value.trim() : "";
+		if (primary.length > 0) {
+			return primary;
+		}
+		const secondary = typeof fallback === "string" ? fallback.trim() : "";
+		if (secondary.length > 0) {
+			return secondary;
+		}
+		throw new Error(`Invalid or missing '${path}'.`);
+	};
+
+	const parseInvites = (source: unknown, path: string): Invite[] => {
+		if (!Array.isArray(source)) {
+			throw new Error(`Invalid '${path}'. Expected an array.`);
+		}
+		return source.map((item, index) => {
+			if (!item || typeof item !== "object") {
+				throw new Error(`Invalid '${path}[${index}]'.`);
+			}
+			const row = item as Record<string, unknown>;
+			return {
+				email: requiredString(row.email, `${path}[${index}].email`),
+				role: requiredRole(row.role, `${path}[${index}].role`),
+				sentDate: requiredString(row.sentDate, `${path}[${index}].sentDate`),
+				status: requiredInviteStatus(row.status, `${path}[${index}].status`)
+			};
+		});
+	};
+
+	let { data } = $props();
+	const projectId = page.params.projectId;
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canInviteMember = can(permissions, "member", "create");
+	const canEditMember = can(permissions, "member", "edit");
+	const canCancelInvite = can(permissions, "member", "delete");
+	let members = $derived.by<Member[]>(() => {
+		const rawMembers = structuredClone(data.members);
+		if (!Array.isArray(rawMembers)) {
+			throw new Error("Invalid 'members' payload. Expected an array.");
+		}
+		return rawMembers.map((item, index) => {
+			if (!item || typeof item !== "object") {
+				throw new Error(`Invalid 'members[${index}]'.`);
+			}
+			const row = item as unknown as Record<string, unknown>;
+			return {
+				name: requiredString(row.name, `members[${index}].name`),
+				email: requiredString(row.email, `members[${index}].email`),
+				role: requiredRole(row.role, `members[${index}].role`),
+				joinedDate: requiredDateLike(
+					row.joinedDate,
+					row.joinedAt,
+					`members[${index}].joinedDate`
+				),
+				team: requiredString(row.team, `members[${index}].team`),
+				location: requiredString(row.location, `members[${index}].location`)
+			};
+		});
+	});
+
+	let invites = $derived.by<Invite[]>(() => {
+		return parseInvites(structuredClone(data.invites), "invites");
+	});
 
 	let searchQuery = $state("");
 	let isInviteOpen = $state(false);
 	let inviteForm = $state({
 		name: "",
 		email: "",
-		role: "Viewer" as MemberRole,
+		role: "Limited Access" as MemberRole,
 		team: "",
 		location: "",
 		joinedDate: ""
@@ -135,7 +183,7 @@
 		inviteForm = {
 			name: "",
 			email: "",
-			role: "Viewer",
+			role: "Limited Access",
 			team: "",
 			location: "",
 			joinedDate: ""
@@ -145,13 +193,57 @@
 	/**
 	 * Send an invite and surface a toast confirmation for the status update.
 	 */
-	const handleInviteSubmit = () => {
-		toast.success(`Invite sent to ${inviteForm.email || "new member"}.`);
+	const handleInviteSubmit = async () => {
+		const email = inviteForm.email.trim();
+		if (!email) {
+			toast.error("Invite email is required.");
+			return;
+		}
+		if (!permissions) {
+			toast.error("Permission denied.");
+			return;
+		}
+
+		const result = await createProjectInvite({
+			input: {
+				projectId,
+				email,
+				role: canEditMember ? inviteForm.role : "Limited Access"
+			},
+			permissions
+		});
+		if (!result.success) {
+			toast.error(result.error);
+			return;
+		}
+
+		toast.success(`Invite sent to ${email}.`);
 		isInviteOpen = false;
 		resetInviteForm();
+		await invalidateAll();
 	};
 
-	const filteredMembers = $derived(filterMembers(searchQuery));
+	const cancelInvite = async (email: string) => {
+		if (!permissions) {
+			toast.error("Permissions context is unavailable.");
+			return;
+		}
+		const result = await cancelProjectInvite({
+			input: {
+				projectId,
+				email
+			},
+			permissions
+		});
+		if (!result.success) {
+			toast.error(result.error);
+			return;
+		}
+		toast.info(`Invite to ${email} cancelled.`);
+		await invalidateAll();
+	};
+
+	let filteredMembers = $derived(filterMembers(searchQuery));
 </script>
 
 <div class="flex flex-col gap-4 rounded-lg bg-background p-4">
@@ -191,76 +283,79 @@
 						bind:value={searchQuery}
 						class="sm:w-72"
 					/>
-				<Popover.Root bind:open={isInviteOpen}>
-					<Popover.Trigger class={buttonVariants()}>Add member</Popover.Trigger>
-					<Popover.Content class="w-96">
-						<div class="flex flex-col gap-4">
-							<div>
-								<h3 class="text-sm font-semibold">Invite a new member</h3>
-								<p class="text-xs text-muted-foreground">
-									Add details below to send an invite and assign access.
-								</p>
+				{#if canInviteMember}
+					<Popover.Root bind:open={isInviteOpen}>
+						<Popover.Trigger class={buttonVariants()}>Add member</Popover.Trigger>
+						<Popover.Content class="w-96">
+							<div class="flex flex-col gap-4">
+								<div>
+									<h3 class="text-sm font-semibold">Invite a new member</h3>
+									<p class="text-xs text-muted-foreground">
+										Add details below to send an invite and assign access.
+									</p>
+								</div>
+								<div class="grid gap-3">
+									<div class="grid gap-2">
+										<Label for="invite-name">Name</Label>
+										<Input id="invite-name" placeholder="Full name" bind:value={inviteForm.name} />
+									</div>
+									<div class="grid gap-2">
+										<Label for="invite-email">Email</Label>
+										<Input
+											id="invite-email"
+											type="email"
+											placeholder="name@company.com"
+											bind:value={inviteForm.email}
+										/>
+									</div>
+									<div class="grid gap-2">
+										<Label for="invite-role">Role</Label>
+										<Select.Root type="single" bind:value={inviteForm.role} disabled={!canEditMember}>
+											<Select.Trigger id="invite-role">
+												{inviteForm.role}
+											</Select.Trigger>
+											<Select.Content>
+												<Select.Item value="Owner" label="Owner">Owner</Select.Item>
+												<Select.Item value="Admin" label="Admin">Admin</Select.Item>
+												<Select.Item value="Editor" label="Editor">Editor</Select.Item>
+												<Select.Item value="Viewer" label="Viewer">Viewer</Select.Item>
+												<Select.Item value="Limited Access" label="Limited Access">Limited Access</Select.Item>
+											</Select.Content>
+										</Select.Root>
+									</div>
+									<div class="grid gap-2">
+										<Label for="invite-team">Team</Label>
+										<Input id="invite-team" placeholder="Team or squad" bind:value={inviteForm.team} />
+									</div>
+									<div class="grid gap-2">
+										<Label for="invite-location">Location</Label>
+										<Input
+											id="invite-location"
+											placeholder="City, Country"
+											bind:value={inviteForm.location}
+										/>
+									</div>
+									<div class="grid gap-2">
+										<Label for="invite-date">Joined date</Label>
+										<Input id="invite-date" type="date" bind:value={inviteForm.joinedDate} />
+									</div>
+								</div>
+								<div class="flex justify-end gap-2">
+									<Button
+										variant="outline"
+										onclick={() => {
+											isInviteOpen = false;
+											resetInviteForm();
+										}}
+									>
+										Cancel
+									</Button>
+									<Button onclick={handleInviteSubmit}>Send invite</Button>
+								</div>
 							</div>
-							<div class="grid gap-3">
-								<div class="grid gap-2">
-									<Label for="invite-name">Name</Label>
-									<Input id="invite-name" placeholder="Full name" bind:value={inviteForm.name} />
-								</div>
-								<div class="grid gap-2">
-									<Label for="invite-email">Email</Label>
-									<Input
-										id="invite-email"
-										type="email"
-										placeholder="name@company.com"
-										bind:value={inviteForm.email}
-									/>
-								</div>
-								<div class="grid gap-2">
-									<Label for="invite-role">Role</Label>
-									<Select.Root type="single" bind:value={inviteForm.role}>
-										<Select.Trigger id="invite-role">
-											{inviteForm.role || "Select a role"}
-										</Select.Trigger>
-										<Select.Content>
-											<Select.Item value="Owner" label="Owner">Owner</Select.Item>
-											<Select.Item value="Admin" label="Admin">Admin</Select.Item>
-											<Select.Item value="Editor" label="Editor">Editor</Select.Item>
-											<Select.Item value="Viewer" label="Viewer">Viewer</Select.Item>
-										</Select.Content>
-									</Select.Root>
-								</div>
-								<div class="grid gap-2">
-									<Label for="invite-team">Team</Label>
-									<Input id="invite-team" placeholder="Team or squad" bind:value={inviteForm.team} />
-								</div>
-								<div class="grid gap-2">
-									<Label for="invite-location">Location</Label>
-									<Input
-										id="invite-location"
-										placeholder="City, Country"
-										bind:value={inviteForm.location}
-									/>
-								</div>
-								<div class="grid gap-2">
-									<Label for="invite-date">Joined date</Label>
-									<Input id="invite-date" type="date" bind:value={inviteForm.joinedDate} />
-								</div>
-							</div>
-							<div class="flex justify-end gap-2">
-								<Button
-									variant="outline"
-									onclick={() => {
-										isInviteOpen = false;
-										resetInviteForm();
-									}}
-								>
-									Cancel
-								</Button>
-								<Button onclick={handleInviteSubmit}>Send invite</Button>
-							</div>
-						</div>
-					</Popover.Content>
-				</Popover.Root>
+						</Popover.Content>
+					</Popover.Root>
+				{/if}
 			</div>
 		</Card.Header>
 			<Card.Content>
@@ -277,7 +372,7 @@
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each filteredMembers as member}
+						{#each filteredMembers as member (member.email)}
 							<Table.Row>
 								<Table.Cell class="font-medium">{member.name}</Table.Cell>
 								<Table.Cell>{member.email}</Table.Cell>
@@ -316,10 +411,11 @@
 							<Table.Head>Role</Table.Head>
 							<Table.Head>Status</Table.Head>
 							<Table.Head class="text-right">Sent</Table.Head>
+							<Table.Head class="text-right">Action</Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each invites as invite}
+						{#each invites as invite (invite.email)}
 							<Table.Row>
 								<Table.Cell class="font-medium">{invite.email}</Table.Cell>
 								<Table.Cell>{invite.role}</Table.Cell>
@@ -329,10 +425,15 @@
 									</Badge>
 								</Table.Cell>
 								<Table.Cell class="text-right">{invite.sentDate}</Table.Cell>
+								<Table.Cell class="text-right">
+									{#if canCancelInvite}
+										<Button variant="outline" size="sm" onclick={() => cancelInvite(invite.email)}>Cancel</Button>
+									{/if}
+								</Table.Cell>
 							</Table.Row>
 						{:else}
 							<Table.Row>
-								<Table.Cell class="text-center text-muted-foreground" colspan={4}>
+								<Table.Cell class="text-center text-muted-foreground" colspan={5}>
 									No pending invites right now.
 								</Table.Cell>
 							</Table.Row>

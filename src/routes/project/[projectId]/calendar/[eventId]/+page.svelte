@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, onMount } from "svelte";
 	import { Calendar as CalendarPicker } from "$lib/components/ui/calendar";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -15,6 +15,10 @@
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { parseDate, type DateValue } from "@internationalized/date";
 	import { ArrowUpRight, Calendar, Trash2 } from "@lucide/svelte";
+	import { page } from "$app/state";
+	import { goto } from "$app/navigation";
+	import { updateCalendarEvent, deleteCalendarEvent } from "$lib/remote/calendar.remote";
+	import { can } from "$lib/utils/permission";
 
 	type EventSourceType = "Derived" | "Manual";
 	type ManualEventKind = "Workshop" | "Review" | "Testing Session" | "Meeting" | "Other";
@@ -36,41 +40,37 @@
 		sourceTitle?: string;
 	};
 
-	const manualKinds: ManualEventKind[] = [
-		"Workshop",
-		"Review",
-		"Testing Session",
-		"Meeting",
-		"Other",
-	];
-	const linkedArtifactOptions = [
-		"User Story - Streamline checkout",
-		"Problem Statement - Reduce abandonment",
-		"Idea - Timeline reminders",
-		"Task - Prototype timeline",
-		"Feedback - Reminder test",
-		"Resource - Survey synthesis",
-		"Page - Opportunity notes",
-	];
+	let { data } = $props();
+	const required = <T>(value: T | null | undefined, field: string): T => {
+		if (value === undefined || value === null) {
+			throw new Error(`Calendar event payload is missing '${field}'.`);
+		}
+		return value;
+	};
+	const projectId = page.params.projectId;
+	const eventId = page.params.eventId;
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canEditCalendar = can(permissions, "calendar", "edit");
+	const canDeleteCalendar = can(permissions, "calendar", "delete");
+	const manualKinds: ManualEventKind[] = structuredClone(
+		data.eventData.reference.manualKinds
+	) as ManualEventKind[];
+	const linkedArtifactOptions = structuredClone(data.eventData.reference.linkedArtifactOptions) as string[];
 
 	const today = new Date().toISOString().split("T")[0];
-	let event = $state<CalendarEvent>({
-		id: "evt-3",
-		title: "Weekly prototype review",
-		type: "Manual",
-		date: today,
-		allDay: false,
-		owner: "Jordan Lee",
-		eventKind: "Review",
-		description: "Share progress and align on next steps.",
-		location: "Project room",
-		linkedArtifacts: ["Task - Prototype timeline"],
-		createdAt: today,
-		lastEdited: today,
-	});
+	const incomingEvent = required(data.eventData.event as CalendarEvent | undefined, "eventData.event");
+	let event = $state<CalendarEvent>(
+		{
+			...structuredClone(incomingEvent),
+			date: required(incomingEvent.date, "event.date"),
+			createdAt: required(incomingEvent.createdAt, "event.createdAt"),
+			lastEdited: required(incomingEvent.lastEdited, "event.lastEdited")
+		} as CalendarEvent
+	);
 
 	let deleteOpen = $state(false);
-	let eventDateValue = $state<DateValue>(parseDate(today));
+	let eventDateValue = $state<DateValue>(parseDate(event.date));
 	let tagsInput = $state("");
 	let eventKindSelection = $state<ManualEventKind>("Meeting");
 	let customEventKind = $state("");
@@ -81,12 +81,12 @@
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const eventDateString = $derived.by(() => eventDateValue.toString());
-	const parsedTags = $derived.by(() => parseTags(tagsInput));
-	const currentEventKind = $derived.by(() =>
-		eventKindSelection === "Other" ? customEventKind.trim() || "Other" : eventKindSelection
+	let eventDateString = $derived.by(() => eventDateValue.toString());
+	let parsedTags = $derived.by(() => parseTags(tagsInput));
+	let currentEventKind = $derived.by(() =>
+		eventKindSelection === "Other" ? customEventKind.trim() : eventKindSelection
 	);
-	const currentSignature = $derived(
+	let currentSignature = $derived(
 		JSON.stringify({
 			...event,
 			date: eventDateString,
@@ -94,9 +94,9 @@
 			tags: parsedTags,
 		})
 	);
-	const isDirty = $derived(currentSignature !== savedSignature);
-	const isReadOnly = $derived(event.type === "Derived");
-	const saveIndicator = $derived.by(() => {
+	let isDirty = $derived(currentSignature !== savedSignature);
+	let isReadOnly = $derived(event.type === "Derived" || !canEditCalendar);
+	let saveIndicator = $derived.by(() => {
 		if (savePhase === "saving") {
 			return "saving";
 		}
@@ -132,7 +132,8 @@
 		};
 	};
 
-	const triggerSave = () => {
+	const triggerSave = async () => {
+		if (!permissions || !canEditCalendar) return;
 		if (savePhase === "saving" || !isDirty) {
 			return;
 		}
@@ -149,15 +150,38 @@
 			clearTimeout(savedBadgeTimer);
 		}
 		savePhase = "saving";
-		saveTimer = setTimeout(() => {
-			savedSignature = currentSignature;
-			savePhase = "saved";
-			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) {
-					savePhase = "idle";
-				}
-			}, 1400);
-		}, 900);
+		const result = await updateCalendarEvent({
+			input: {
+				projectId,
+				eventId,
+				state: event
+			},
+			permissions
+		});
+		if (!result.success) {
+			savePhase = "idle";
+			return;
+		}
+		savedSignature = currentSignature;
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) {
+				savePhase = "idle";
+			}
+		}, 1400);
+	};
+
+	const deleteEvent = async () => {
+		if (!permissions || !canDeleteCalendar) return;
+		const result = await deleteCalendarEvent({
+			input: {
+				projectId,
+				eventId
+			},
+			permissions
+		});
+		if (!result.success) return;
+		await goto(`/project/${projectId}/calendar`);
 	};
 
 	onDestroy(() => {
@@ -170,7 +194,7 @@
 	});
 
 	const applyKindFromEvent = () => {
-		const current = event.eventKind ?? "Meeting";
+		const current = event.eventKind?.trim() ?? "";
 		if (manualKinds.includes(current as ManualEventKind)) {
 			eventKindSelection = current as ManualEventKind;
 			customEventKind = "";
@@ -229,7 +253,7 @@
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
-					<Button size="sm" onclick={triggerSave} disabled={savePhase === "saving" || !isDirty}>
+					<Button size="sm" onclick={triggerSave} disabled={!canEditCalendar || savePhase === "saving" || !isDirty}>
 						{savePhase === "saving" ? "Saving..." : "Save changes"}
 					</Button>
 					{#if event.type === "Derived"}
@@ -239,7 +263,7 @@
 						</Button>
 					{:else}
 						<Dialog.Root bind:open={deleteOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canDeleteCalendar}>
 								<Trash2 class="mr-2 h-4 w-4" />
 								Delete
 							</Dialog.Trigger>
@@ -254,7 +278,7 @@
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 										Cancel
 									</Dialog.Close>
-									<Dialog.Close class={buttonVariants()} onclick={() => {}}>
+									<Dialog.Close class={buttonVariants()} onclick={deleteEvent}>
 										Delete
 									</Dialog.Close>
 								</Dialog.Footer>
@@ -285,7 +309,7 @@
 								{eventDateString}
 							</Popover.Trigger>
 							<Popover.Content class="p-0">
-								<CalendarPicker bind:value={eventDateValue} />
+								<CalendarPicker type="single" bind:value={eventDateValue} />
 							</Popover.Content>
 						</Popover.Root>
 					{/if}
@@ -337,7 +361,7 @@
 					{/each}
 				</div>
 				{#if !isReadOnly}
-					<Select.Root type="single" onSelectedChange={(event) => addLinkedArtifact(event.detail.value)}>
+					<Select.Root type="single" onValueChange={(value) => addLinkedArtifact(value)}>
 						<Select.Trigger class="w-64">
 							{event.linkedArtifacts?.length
 								? event.linkedArtifacts[event.linkedArtifacts.length - 1]
