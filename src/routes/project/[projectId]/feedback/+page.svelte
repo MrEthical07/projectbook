@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
+	import { getContext } from "svelte";
+	import { createFeedback as createFeedbackRemote } from "$lib/remote/feedback.remote";
+	import { can } from "$lib/utils/permission";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -12,6 +15,9 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
+	import { MessageSquareQuote, CircleCheckBig, CircleX, AlertTriangle } from "@lucide/svelte";
+
+	let { data } = $props();
 
 	type Outcome = "Validated" | "Invalidated" | "Needs Iteration";
 	type FeedbackRow = {
@@ -26,41 +32,10 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $state<FeedbackRow[]>([
-		{
-			id: "deadline-lane-session-1",
-			title: "Deadline lane usability session",
-			linkedArtifacts: ["Task: Deadline lane view", "Idea: Deadline lane view"],
-			outcome: "Validated",
-			linkedTaskOrIdea: "Task: Deadline lane view",
-			owner: "Avery Patel",
-			createdDate: "2026-02-06",
-			hasTaskLink: true,
-			isOrphan: false,
-		},
-		{
-			id: "creator-flow-feedback",
-			title: "Creator setup walkthrough findings",
-			linkedArtifacts: ["Idea: Smart reminder bundles"],
-			outcome: "Needs Iteration",
-			linkedTaskOrIdea: "Idea: Smart reminder bundles",
-			owner: "Nia Clark",
-			createdDate: "2026-02-03",
-			hasTaskLink: false,
-			isOrphan: false,
-		},
-		{
-			id: "pilot-alpha-notes",
-			title: "Pilot alpha notes",
-			linkedArtifacts: [],
-			outcome: "Invalidated",
-			linkedTaskOrIdea: "",
-			owner: "Dr. Ramos",
-			createdDate: "2026-01-26",
-			hasTaskLink: false,
-			isOrphan: true,
-		},
-	]);
+	let rows = $state<FeedbackRow[]>(structuredClone(data.rows) as FeedbackRow[]);
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canCreateFeedback = can(permissions, "feedback", "create");
 
 	let statusFilter = $state<Outcome | "All">("All");
 	let ownerFilter = $state("All");
@@ -71,16 +46,17 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createDescription = $state("");
+	let createError = $state("");
 
-	const owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
-	const stats = $derived({
+	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	let stats = $derived({
 		total: rows.length,
 		validated: rows.filter((row) => row.outcome === "Validated").length,
 		invalidated: rows.filter((row) => row.outcome === "Invalidated").length,
 		needsIteration: rows.filter((row) => row.outcome === "Needs Iteration").length,
 	});
 
-	const filteredRows = $derived.by(() => {
+	let filteredRows = $derived.by(() => {
 		return rows.filter((row) => {
 			if (statusFilter !== "All" && row.outcome !== statusFilter) return false;
 			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
@@ -102,36 +78,37 @@
 		orphanOnly = false;
 	};
 
-	const slugify = (value: string) =>
-		value
-			.toLowerCase()
-			.trim()
-			.replace(/[^a-z0-9\s-]/g, "")
-			.replace(/\s+/g, "-")
-			.replace(/-+/g, "-");
-
 	const createFeedback = async () => {
+		createError = "";
+		if (!canCreateFeedback) return;
+		if (!permissions) {
+			createError = "Permissions data is unavailable.";
+			return;
+		}
+		const actorId = access?.user.id;
+		if (!actorId) {
+			createError = "Active user id is missing.";
+			return;
+		}
 		const title = createTitle.trim();
 		if (!title) return;
-		const id = slugify(title) || "untitled-feedback";
-		rows = [
-			{
-				id,
-				title,
-				linkedArtifacts: [],
-				outcome: "Needs Iteration",
-				linkedTaskOrIdea: "",
-				owner: "Avery Patel",
-				createdDate: new Date().toISOString().slice(0, 10),
-				hasTaskLink: false,
-				isOrphan: true,
+		const result = await createFeedbackRemote({
+			input: {
+				projectId: page.params.projectId,
+				actorId,
+				title
 			},
-			...rows,
-		];
+			permissions
+		});
+		if (!result.success) {
+			createError = result.error;
+			return;
+		}
+		const created = result.data as { id: string };
 		createTitle = "";
 		createDescription = "";
 		createOpen = false;
-		await goto(`/project/${page.params.projectId}/feedback/${id}`);
+		await goto(`/project/${page.params.projectId}/feedback/${created.id}`);
 	};
 </script>
 
@@ -157,10 +134,11 @@
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Test - Feedback Index</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<h1 class="text-3xl font-semibold">Feedback</h1>
-				<Dialog.Root bind:open={createOpen}>
-					<Dialog.Trigger>
-						<Button>Add Feedback</Button>
-					</Dialog.Trigger>
+				{#if canCreateFeedback}
+					<Dialog.Root bind:open={createOpen}>
+						<Dialog.Trigger>
+							<Button>Add Feedback</Button>
+						</Dialog.Trigger>
 					<Dialog.Content>
 						<Dialog.Header>
 							<Dialog.Title>Create Feedback</Dialog.Title>
@@ -175,31 +153,35 @@
 								<Label for="feedback-description">Short Description</Label>
 								<Input id="feedback-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
+							{#if createError}
+								<p class="text-xs text-destructive">{createError}</p>
+							{/if}
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
 							<Button onclick={createFeedback} disabled={!createTitle.trim()}>Create Feedback</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
-				</Dialog.Root>
+					</Dialog.Root>
+				{/if}
 			</div>
 		</section>
 
 		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-4">
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
-				<div class="text-xs text-muted-foreground">Total Feedback</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Feedback</span><MessageSquareQuote class="size-4" /></div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Validated")}>
-				<div class="text-xs text-muted-foreground">Validated</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Validated</span><CircleCheckBig class="size-4" /></div>
 				<div class="text-2xl font-semibold text-emerald-700">{stats.validated}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Invalidated")}>
-				<div class="text-xs text-muted-foreground">Invalidated</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Invalidated</span><CircleX class="size-4" /></div>
 				<div class="text-2xl font-semibold text-slate-700">{stats.invalidated}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Needs Iteration")}>
-				<div class="text-xs text-muted-foreground">Needs Iteration</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Needs Iteration</span><AlertTriangle class="size-4" /></div>
 				<div class="text-2xl font-semibold text-amber-700">{stats.needsIteration}</div>
 			</button>
 		</section>
@@ -210,7 +192,7 @@
 				<div class="grid gap-2">
 					<Label>Status</Label>
 					<Select.Root type="single" bind:value={statusFilter}>
-						<Select.Trigger>{statusFilter}</Select.Trigger>
+						<Select.Trigger class="w-full">{statusFilter}</Select.Trigger>
 						<Select.Content>
 							<Select.Item value="All" label="All">All</Select.Item>
 							<Select.Item value="Validated" label="Validated">Validated</Select.Item>
@@ -222,7 +204,7 @@
 				<div class="grid gap-2">
 					<Label>Owner</Label>
 					<Select.Root type="single" bind:value={ownerFilter}>
-						<Select.Trigger>{ownerFilter}</Select.Trigger>
+						<Select.Trigger class="w-full">{ownerFilter}</Select.Trigger>
 						<Select.Content>
 							{#each owners as owner (owner)}
 								<Select.Item value={owner} label={owner}>{owner}</Select.Item>
@@ -253,20 +235,23 @@
 					<div class="mt-1 text-xs text-muted-foreground">
 						Feedback captures observations and interpretation from tests.
 					</div>
-					<div class="mt-4">
-						<Button onclick={() => (createOpen = true)}>Add Feedback</Button>
-					</div>
+					{#if canCreateFeedback}
+						<div class="mt-4">
+							<Button onclick={() => (createOpen = true)}>Add Feedback</Button>
+						</div>
+					{/if}
 				</div>
 			{:else}
+				<div class="border rounded-md">
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
 							<Table.Head>Feedback Title</Table.Head>
-							<Table.Head>Linked Artifact(s)</Table.Head>
-							<Table.Head>Outcome</Table.Head>
-							<Table.Head>Linked Task / Idea</Table.Head>
-							<Table.Head>Owner</Table.Head>
-							<Table.Head>Created Date</Table.Head>
+							<Table.Head class="text-center">Linked Artifact(s)</Table.Head>
+							<Table.Head class="text-center">Outcome</Table.Head>
+							<Table.Head class="text-center">Linked Task / Idea</Table.Head>
+							<Table.Head class="text-center">Owner</Table.Head>
+							<Table.Head class="text-center">Created Date</Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -283,11 +268,11 @@
 										{/if}
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.linkedArtifacts.length > 0 ? row.linkedArtifacts.join(", ") : "None"}</Table.Cell>
-								<Table.Cell>
+								<Table.Cell class="text-center">{row.linkedArtifacts.length > 0 ? row.linkedArtifacts.join(", ") : "None"}</Table.Cell>
+								<Table.Cell class="text-center">
 									<Badge.Badge class={outcomeClass(row.outcome)}>{row.outcome}</Badge.Badge>
 								</Table.Cell>
-								<Table.Cell>{row.linkedTaskOrIdea || "None"}</Table.Cell>
+								<Table.Cell class="text-center">{row.linkedTaskOrIdea || "None"}</Table.Cell>
 								<Table.Cell>
 									<div class="flex items-center gap-2">
 										<Avatar.Root class="h-7 w-7">
@@ -302,11 +287,12 @@
 										<span>{row.owner}</span>
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.createdDate}</Table.Cell>
+								<Table.Cell class="text-center">{row.createdDate}</Table.Cell>
 							</Table.Row>
 						{/each}
 					</Table.Body>
 				</Table.Root>
+				</div>
 			{/if}
 		</section>
 	</div>

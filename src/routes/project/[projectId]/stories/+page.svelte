@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
+	import { getContext } from "svelte";
+	import { createStory as createStoryRemote } from "$lib/remote/story.remote";
+	import { can } from "$lib/utils/permission";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -12,6 +15,9 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
+	import { BookOpen, Archive, CircleHelp, TriangleAlert } from "@lucide/svelte";
+
+	let { data } = $props();
 
 	type StoryStatus = "Draft" | "Locked" | "Archived";
 	type StoryRow = {
@@ -26,41 +32,10 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $state<StoryRow[]>([
-		{
-			id: "streamline-checkout",
-			title: "Streamline checkout for first-time users",
-			personaName: "Avery Patel",
-			painPointsCount: 3,
-			problemHypothesesCount: 2,
-			owner: "Avery Patel",
-			lastUpdated: "2026-02-05",
-			status: "Locked",
-			isOrphan: false,
-		},
-		{
-			id: "creator-onboarding",
-			title: "Improve onboarding for new creators",
-			personaName: "Liam Gomez",
-			painPointsCount: 0,
-			problemHypothesesCount: 1,
-			owner: "Nia Clark",
-			lastUpdated: "2026-02-02",
-			status: "Draft",
-			isOrphan: false,
-		},
-		{
-			id: "team-milestones",
-			title: "Surface progress milestones for teams",
-			personaName: "Priya Sharma",
-			painPointsCount: 2,
-			problemHypothesesCount: 0,
-			owner: "Dr. Ramos",
-			lastUpdated: "2026-01-27",
-			status: "Archived",
-			isOrphan: false,
-		},
-	]);
+	let rows = $state<StoryRow[]>(structuredClone(data.rows) as StoryRow[]);
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canCreateStory = can(permissions, "story", "create");
 
 	let statusFilter = $state<StoryStatus | "All">("All");
 	let ownerFilter = $state("All");
@@ -72,17 +47,18 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createDescription = $state("");
+	let createError = $state("");
 
-	const owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
 
-	const stats = $derived({
+	let stats = $derived({
 		total: rows.length,
 		withPainPoints: rows.filter((row) => row.painPointsCount > 0).length,
 		withHypotheses: rows.filter((row) => row.problemHypothesesCount > 0).length,
 		archived: rows.filter((row) => row.status === "Archived").length,
 	});
 
-	const filteredRows = $derived.by(() => {
+	let filteredRows = $derived.by(() => {
 		return rows.filter((row) => {
 			if (statusFilter !== "All" && row.status !== statusFilter) return false;
 			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
@@ -116,41 +92,42 @@
 		qualityFilter = target;
 	};
 
-	const slugify = (value: string) =>
-		value
-			.toLowerCase()
-			.trim()
-			.replace(/[^a-z0-9\s-]/g, "")
-			.replace(/\s+/g, "-")
-			.replace(/-+/g, "-");
-
 	const createStory = async () => {
+		createError = "";
+		if (!canCreateStory) return;
+		if (!permissions) {
+			createError = "Permissions data is unavailable.";
+			return;
+		}
+		const actorId = access?.user.id;
+		if (!actorId) {
+			createError = "Active user id is missing.";
+			return;
+		}
 		const title = createTitle.trim();
 		if (!title) return;
-		const id = slugify(title) || "untitled-story";
 		const projectId = page.params.projectId;
-		rows = [
-			{
-				id,
-				title,
-				personaName: "Unassigned Persona",
-				painPointsCount: 0,
-				problemHypothesesCount: 0,
-				owner: "Avery Patel",
-				lastUpdated: new Date().toISOString().slice(0, 10),
-				status: "Draft",
-				isOrphan: true,
+		const result = await createStoryRemote({
+			input: {
+				projectId,
+				actorId,
+				title
 			},
-			...rows,
-		];
+			permissions
+		});
+		if (!result.success) {
+			createError = result.error;
+			return;
+		}
+		const created = result.data as { id: string };
 		createOpen = false;
 		createTitle = "";
 		createDescription = "";
-		await goto(`/project/${projectId}/stories/${id}`);
+		await goto(`/project/${projectId}/stories/${created.id}`);
 	};
 </script>
 
-<div class="flex flex-col gap-2 rounded-lg border bg-white p-2">
+<div class="flex flex-col gap-2 rounded-lg border bg-white min-h-full p-2">
 	<header
 		class="flex h-12 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -174,10 +151,11 @@
 				<div class="space-y-1">
 					<h1 class="text-3xl font-semibold">User Stories</h1>
 				</div>
-				<Dialog.Root bind:open={createOpen}>
-					<Dialog.Trigger>
-						<Button>Add Story</Button>
-					</Dialog.Trigger>
+				{#if canCreateStory}
+					<Dialog.Root bind:open={createOpen}>
+						<Dialog.Trigger>
+							<Button>Add Story</Button>
+						</Dialog.Trigger>
 					<Dialog.Content>
 						<Dialog.Header>
 							<Dialog.Title>Create Story</Dialog.Title>
@@ -192,31 +170,35 @@
 								<Label for="story-description">Short Description</Label>
 								<Input id="story-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
+							{#if createError}
+								<p class="text-xs text-destructive">{createError}</p>
+							{/if}
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
 							<Button onclick={createStory} disabled={!createTitle.trim()}>Create Story</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
-				</Dialog.Root>
+					</Dialog.Root>
+				{/if}
 			</div>
 		</section>
 
 		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-4">
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
-				<div class="text-xs text-muted-foreground">Total Stories</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Stories</span><BookOpen class="size-4" /></div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("WithPainPoints")}>
-				<div class="text-xs text-muted-foreground">Stories with Pain Points</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Stories with Pain Points</span><TriangleAlert class="size-4" /></div>
 				<div class="text-2xl font-semibold text-blue-700">{stats.withPainPoints}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("WithHypotheses")}>
-				<div class="text-xs text-muted-foreground">Stories with Problem Hypotheses</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Stories with Problem Hypotheses</span><CircleHelp class="size-4" /></div>
 				<div class="text-2xl font-semibold text-emerald-700">{stats.withHypotheses}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Archived")}>
-				<div class="text-xs text-muted-foreground">Archived Stories</div>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Archived Stories</span><Archive class="size-4" /></div>
 				<div class="text-2xl font-semibold text-slate-600">{stats.archived}</div>
 			</button>
 		</section>
@@ -227,7 +209,7 @@
 				<div class="grid gap-2">
 					<Label>Status</Label>
 					<Select.Root type="single" bind:value={statusFilter}>
-						<Select.Trigger>{statusFilter}</Select.Trigger>
+						<Select.Trigger class="w-full">{statusFilter}</Select.Trigger>
 						<Select.Content>
 							<Select.Item value="All" label="All">All</Select.Item>
 							<Select.Item value="Draft" label="Draft">Draft</Select.Item>
@@ -239,7 +221,7 @@
 				<div class="grid gap-2">
 					<Label>Owner</Label>
 					<Select.Root type="single" bind:value={ownerFilter}>
-						<Select.Trigger>{ownerFilter}</Select.Trigger>
+						<Select.Trigger class="w-full">{ownerFilter}</Select.Trigger>
 						<Select.Content>
 							{#each owners as owner (owner)}
 								<Select.Item value={owner} label={owner}>{owner}</Select.Item>
@@ -255,7 +237,7 @@
 					<Label>Last Updated To</Label>
 					<Input type="date" bind:value={updatedTo} />
 				</div>
-				<div class="flex items-end gap-2">
+				<div class="flex items-center gap-2">
 					<input id="story-orphan-only" type="checkbox" bind:checked={orphanOnly} />
 					<Label for="story-orphan-only">Orphan Only</Label>
 				</div>
@@ -270,21 +252,24 @@
 					<div class="mt-1 text-xs text-muted-foreground">
 						Stories capture empathy context and should include pain points and problem hypotheses.
 					</div>
-					<div class="mt-4">
-						<Button onclick={() => (createOpen = true)}>Add Story</Button>
-					</div>
+					{#if canCreateStory}
+						<div class="mt-4">
+							<Button onclick={() => (createOpen = true)}>Add Story</Button>
+						</div>
+					{/if}
 				</div>
 			{:else}
+			<div class="border rounded-md">
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
 							<Table.Head>Story Title</Table.Head>
-							<Table.Head>Persona Name</Table.Head>
-							<Table.Head>Pain Points Count</Table.Head>
-							<Table.Head>Problem Hypotheses Count</Table.Head>
-							<Table.Head>Owner</Table.Head>
-							<Table.Head>Last Updated</Table.Head>
-							<Table.Head>Status</Table.Head>
+							<Table.Head class="text-center">Persona Name</Table.Head>
+							<Table.Head class="text-center">Pain Points Count</Table.Head>
+							<Table.Head class="text-center">Problem Hypotheses Count</Table.Head>
+							<Table.Head class="text-center">Owner</Table.Head>
+							<Table.Head class="text-center">Last Updated</Table.Head>
+							<Table.Head class="text-center">Status</Table.Head>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -304,9 +289,9 @@
 										{/if}
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.personaName}</Table.Cell>
-								<Table.Cell>{row.painPointsCount}</Table.Cell>
-								<Table.Cell>{row.problemHypothesesCount}</Table.Cell>
+								<Table.Cell class="text-center">{row.personaName}</Table.Cell>
+								<Table.Cell class="text-center">{row.painPointsCount}</Table.Cell>
+								<Table.Cell class="text-center">{row.problemHypothesesCount}</Table.Cell>
 								<Table.Cell>
 									<div class="flex items-center gap-2">
 										<Avatar.Root class="h-7 w-7">
@@ -321,7 +306,7 @@
 										<span>{row.owner}</span>
 									</div>
 								</Table.Cell>
-								<Table.Cell>{row.lastUpdated}</Table.Cell>
+								<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
 								<Table.Cell>
 									<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
 								</Table.Cell>
@@ -329,6 +314,7 @@
 						{/each}
 					</Table.Body>
 				</Table.Root>
+			</div>
 			{/if}
 		</section>
 	</div>

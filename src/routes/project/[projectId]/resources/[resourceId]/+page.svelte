@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, onMount } from "svelte";
 	import * as Alert from "$lib/components/ui/alert";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -13,6 +13,8 @@
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { ExternalLink } from "@lucide/svelte";
 	import { page } from "$app/state";
+	import { updateResource } from "$lib/remote/resource.remote";
+	import { can } from "$lib/utils/permission";
 
 	const projectId = page.params.projectId;
 
@@ -34,17 +36,27 @@
 		description: string;
 	};
 
-	let name = $state("Student survey synthesis");
-	let fileType = $state("PDF");
-	let docType = $state("Research Paper");
-	let status = $state<ResourceStatus>("Active");
-	let description = $state("Survey synthesis across 24 student interviews.");
-	let owner = $state("Avery Patel");
-	let createdAt = $state("Jan 2, 2026");
-	let updatedAt = $state("Jan 12, 2026");
-	let fileSize = $state("4.2 MB");
+	let { data } = $props();
+	const required = <T>(value: T | null | undefined, field: string): T => {
+		if (value === undefined || value === null) {
+			throw new Error(`Resource payload is missing '${field}'.`);
+		}
+		return value;
+	};
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canEditResource = can(permissions, "resource", "edit");
+	let name = $state(required(data.resource.name, "resource.name"));
+	let fileType = $state(required(data.resource.fileType, "resource.fileType"));
+	let docType = $state(required(data.resource.docType, "resource.docType"));
+	let status = $state<ResourceStatus>(data.resource.status as ResourceStatus);
+	let description = $state(required(data.resource.description, "resource.description"));
+	let owner = $state(required(data.resource.owner, "resource.owner"));
+	let createdAt = $state(required(data.resource.createdAt, "resource.createdAt"));
+	let updatedAt = $state(required(data.resource.updatedAt, "resource.updatedAt"));
+	let fileSize = $state(required(data.resource.fileSize, "resource.fileSize"));
 
-	let notesText = $state("");
+	let notesText = $state(required(data.resource.notesText, "resource.notesText"));
 	let versionDialogOpen = $state(false);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
@@ -55,43 +67,11 @@
 	let newVersionLabel = $state("v4");
 	let addSectionOpen = $state(false);
 
-	let linkedArtifacts = $state<LinkedArtifact[]>([
-		{
-			id: "story-7",
-			title: "Avery Patel - First-year student",
-			type: "User Story",
-			phase: "Empathize",
-			href: "/project/alpha/stories/avery-patel",
-		},
-		{
-			id: "idea-31",
-			title: "Visual deadline timeline for assignments",
-			type: "Idea",
-			phase: "Ideate",
-			href: "/project/alpha/ideas/deadline-timeline",
-		},
-	]);
+	let linkedArtifacts = $state<LinkedArtifact[]>(
+		structuredClone(data.resource.linkedArtifacts) as LinkedArtifact[]
+	);
 
-	let versions = $state<VersionRow[]>([
-		{
-			version: "v3",
-			uploadedBy: "Avery Patel",
-			uploadDate: "Jan 12, 2026",
-			description: "Added follow-up insights",
-		},
-		{
-			version: "v2",
-			uploadedBy: "Avery Patel",
-			uploadDate: "Jan 5, 2026",
-			description: "Updated summary charts",
-		},
-		{
-			version: "v1",
-			uploadedBy: "Avery Patel",
-			uploadDate: "Jan 2, 2026",
-			description: "Initial upload",
-		},
-	]);
+	let versions = $state<VersionRow[]>(structuredClone(data.resource.versions) as VersionRow[]);
 
 	type SavePhase = "idle" | "saving" | "saved";
 	let savePhase = $state<SavePhase>("idle");
@@ -100,18 +80,20 @@
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const isReadOnly = $derived(status === "Archived");
-	const currentSignature = $derived(
+	let isReadOnly = $derived(status === "Archived" || !canEditResource);
+	let currentSignature = $derived(
 		JSON.stringify({
 			name,
 			docType,
+			status,
 			description,
 			notesText,
 			linkedArtifacts,
+			versions
 		})
 	);
-	const isDirty = $derived(saveReady && currentSignature !== savedSignature);
-	const saveIndicator = $derived.by(() => {
+	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+	let saveIndicator = $derived.by(() => {
 		if (savePhase === "saving") {
 			return "saving";
 		}
@@ -154,7 +136,8 @@
 		linkedArtifacts = linkedArtifacts.filter((item) => item.id !== id);
 	};
 
-	const triggerSave = () => {
+	const triggerSave = async () => {
+		if (!permissions || !canEditResource) return;
 		if (savePhase === "saving" || !isDirty) {
 			return;
 		}
@@ -168,15 +151,34 @@
 		}
 
 		savePhase = "saving";
-		saveTimer = setTimeout(() => {
-			savedSignature = currentSignature;
-			savePhase = "saved";
-			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) {
-					savePhase = "idle";
+		const result = await updateResource({
+			input: {
+				projectId,
+				resourceId: page.params.resourceId,
+				state: {
+					name,
+					docType,
+					status,
+					description,
+					notesText,
+					linkedArtifacts,
+					versions
 				}
-			}, 1400);
-		}, 900);
+			},
+			permissions
+		});
+		if (!result.success) {
+			savePhase = "idle";
+			return;
+		}
+		updatedAt = new Date().toISOString().slice(0, 10);
+		savedSignature = currentSignature;
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) {
+				savePhase = "idle";
+			}
+		}, 1400);
 	};
 
 	onDestroy(() => {
@@ -299,7 +301,7 @@
 					<Button
 						size="sm"
 						onclick={triggerSave}
-						disabled={savePhase === "saving" || !isDirty}
+						disabled={!canEditResource || savePhase === "saving" || !isDirty}
 					>
 						{savePhase === "saving" ? "Saving..." : "Save changes"}
 					</Button>

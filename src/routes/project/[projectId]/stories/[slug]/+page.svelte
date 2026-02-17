@@ -6,9 +6,13 @@
     import { Textarea } from "$lib/components/ui/textarea";
     import * as Dialog from "$lib/components/ui/dialog";
     import * as Select from "$lib/components/ui/select";
-    import { ChevronDown, ChevronRight, Plus, Trash2, X } from "@lucide/svelte"
+    import { ChevronDown, ChevronRight, Info, Plus, Trash2, X } from "@lucide/svelte"
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { page } from "$app/state";
+	import { updateStory } from "$lib/remote/story.remote";
+	import { can } from "$lib/utils/permission";
+	import { getContext } from "svelte";
 
     type AddOnType =
         | "goals_success"
@@ -28,79 +32,106 @@
         content: Record<string, unknown>;
     };
 
-    const addOnCatalog = [
-        {
-            type: "goals_success" as const,
-            name: "Goals & Success Criteria",
-            description: "Define what success looks like from the user’s perspective.",
-            tag: "Recommended"
-        },
-        {
-            type: "jtbd" as const,
-            name: "Jobs To Be Done (JTBD)",
-            description: "Capture functional, supporting, and emotional jobs.",
-            tag: "Recommended"
-        },
-        {
-            type: "assumptions" as const,
-            name: "Assumptions",
-            description: "Make hidden assumptions explicit.",
-            tag: "Optional"
-        },
-        {
-            type: "constraints" as const,
-            name: "Constraints",
-            description: "Capture environmental, technical, or behavioral limits.",
-            tag: "Optional"
-        },
-        {
-            type: "risks_unknowns" as const,
-            name: "Risks & Unknowns",
-            description: "Identify uncertainty early.",
-            tag: "Recommended"
-        },
-        {
-            type: "evidence" as const,
-            name: "Evidence / Research References",
-            description: "Ground the story in data and references.",
-            tag: "Optional"
-        },
-        {
-            type: "scenarios" as const,
-            name: "Scenarios / Edge Cases",
-            description: "Capture non-happy paths and expectations.",
-            tag: "Optional"
-        }
-    ];
+    let { data } = $props();
+    const projectId = page.params.projectId;
+    const storyId = page.params.slug;
+    const access = getContext<ProjectAccess | undefined>("access");
+    const permissions = access?.permissions;
+    const canEditStory = can(permissions, "story", "edit");
+    const addOnCatalog = structuredClone(data.addOnCatalog) as Array<{
+        type: AddOnType;
+        name: string;
+        description: string;
+        tag: string;
+    }>;
 
-    let story = $state({
-        title: "",
-        description: "",
-        status: "draft",
-        persona: {
-            name: "",
-            bio: "",
-            role: "",
-            age: 0,
-            job: "",
-            edu: "",
-        },
-        context: "",
-        empathyMap: {
-            says: "",
-            thinks: "",
-            does: "",
-            feels: "",
-        },
-        painPoints: [
-            "Point 1",
-        ],
-        hypothesis: [
-            "hypothesis 1",
-            "hypothesis 2"
-        ],
-        notes: ""
-    })
+    let story = $state(structuredClone(data.story));
+    let addOnSections = $state<AddOnSection[]>(
+        structuredClone(data.addOnSections) as AddOnSection[]
+    );
+    let addSectionOpen = $state(false);
+    let removeSectionOpen = $state(false);
+    let removeTarget = $state<AddOnSection | null>(null);
+    let metadataOpen = $state(false);
+    let savePhase = $state<"idle" | "saving" | "saved">("idle");
+    let saveBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const isSectionAdded = (type: AddOnType) =>
+        addOnSections.some((section) => section.section_type === type);
+
+    const createSectionContent = (type: AddOnType) => {
+        switch (type) {
+            case "goals_success":
+                return { goal: "", successCriteria: [""] };
+            case "jtbd":
+                return { primaryJob: "", supportingJobs: [""], emotionalJobs: [""] };
+            case "assumptions":
+                return { assumptions: [{ text: "", confidence: "Medium" }] };
+            case "constraints":
+                return { constraints: [{ description: "", type: "Time" }] };
+            case "risks_unknowns":
+                return { risks: [{ text: "", impact: "Medium" }] };
+            case "evidence":
+                return { evidence: [{ source: "", summary: "", link: "" }] };
+            case "scenarios":
+                return { scenarios: [{ scenario: "", expected: "" }] };
+        }
+    };
+
+    const addSection = (type: AddOnType) => {
+        if (isSectionAdded(type)) return;
+        const id = `${type}-${Math.random().toString(36).slice(2, 8)}`;
+        const position = addOnSections.length + 1;
+        const created_at = new Date().toISOString();
+        const section: AddOnSection = {
+            section_type: type,
+            section_id: id,
+            position,
+            created_at,
+            collapsed: false,
+            content: createSectionContent(type)
+        };
+        addOnSections = [...addOnSections, section];
+        addSectionOpen = false;
+        setTimeout(() => {
+            const el = document.getElementById(`section-${id}-primary`);
+            if (el) (el as HTMLInputElement | HTMLTextAreaElement).focus();
+        }, 0);
+    };
+
+    const toggleSection = (sectionId: string) => {
+        addOnSections = addOnSections.map((section) =>
+            section.section_id === sectionId
+                ? { ...section, collapsed: !section.collapsed }
+                : section
+        );
+    };
+
+    const openRemoveSection = (section: AddOnSection) => {
+        removeTarget = section;
+        removeSectionOpen = true;
+    };
+
+    const removeSection = () => {
+        if (!removeTarget) return;
+        addOnSections = addOnSections.filter(
+            (section) => section.section_id !== removeTarget!.section_id
+        );
+        removeTarget = null;
+        removeSectionOpen = false;
+    };
+
+    const updateSectionContent = <T extends keyof AddOnSection["content"]>(
+        sectionId: string,
+        key: T,
+        value: AddOnSection["content"][T]
+    ) => {
+        addOnSections = addOnSections.map((section) =>
+            section.section_id === sectionId
+                ? { ...section, content: { ...section.content, [key]: value } }
+                : section
+        );
+    };
 
     let addOnSections = $state<AddOnSection[]>([]);
     let addSectionOpen = $state(false);
@@ -208,6 +239,32 @@
         story.hypothesis = [...story.hypothesis];
     }
 
+    const triggerSave = async () => {
+        if (!permissions || !canEditStory) return;
+        if (savePhase === "saving") return;
+        if (saveBadgeTimer) clearTimeout(saveBadgeTimer);
+        savePhase = "saving";
+        const result = await updateStory({
+            input: {
+                projectId,
+                storyId,
+                story: {
+                    ...story,
+                    addOnSections
+                }
+            },
+            permissions
+        });
+        if (!result.success) {
+            savePhase = "idle";
+            return;
+        }
+        savePhase = "saved";
+        saveBadgeTimer = setTimeout(() => {
+            savePhase = "idle";
+        }, 1400);
+    };
+
 </script>
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
     <header
@@ -236,7 +293,12 @@
             <div class="flex w-full flex-row justify-between items-center mt-2 px-2">
                 <div class="bg-accent px-2 py-1 w-fit rounded-lg text-sm font-medium">{story.status.toUpperCase()}</div>
                 <div class="flex flex-row gap-2">
-                    <Button>Save Changes</Button>
+                    <Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open story metadata">
+                        <Info class="h-4 w-4" />
+                    </Button>
+                    <Button onclick={triggerSave} disabled={!canEditStory || savePhase === "saving"}>
+                        {savePhase === "saving" ? "Saving..." : "Save Changes"}
+                    </Button>
                     <Button variant="outline">Change Status</Button>
                 </div>
             </div>
@@ -885,6 +947,25 @@
         </div>
     </div>
 </div>
+
+<Dialog.Root bind:open={metadataOpen}>
+    <Dialog.Content>
+        <Dialog.Header>
+            <Dialog.Title>Artifact Metadata</Dialog.Title>
+            <Dialog.Description>Read-only metadata for this story.</Dialog.Description>
+        </Dialog.Header>
+        <div class="grid gap-2 text-sm">
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Avery Patel</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-01 10:30</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Nia Clark</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 09:10</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{story.status.toUpperCase()}</span></div>
+        </div>
+        <Dialog.Footer>
+            <Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+        </Dialog.Footer>
+    </Dialog.Content>
+</Dialog.Root>
 
 <Dialog.Root bind:open={addSectionOpen}>
     <Dialog.Content>

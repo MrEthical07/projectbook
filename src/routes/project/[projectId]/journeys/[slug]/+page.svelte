@@ -4,63 +4,30 @@
     import { Button } from "$lib/components/ui/button";
     import { Label } from "$lib/components/ui/label/index.js";
     import { Textarea } from "$lib/components/ui/textarea";
-    import { X, Plus } from "@lucide/svelte"
+    import { Info, Plus, X } from "@lucide/svelte"
     import { buttonVariants } from "$lib/components/ui/button/index.js";
     import * as Dialog from "$lib/components/ui/dialog/index.js";
     import * as Select from "$lib/components/ui/select";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { page } from "$app/state";
+	import { updateJourney } from "$lib/remote/journey.remote";
+	import { can } from "$lib/utils/permission";
+	import { getContext } from "svelte";
 
-    let journey = $state({
-        title: "",
-        description: "",
-        status: "draft",
-        persona: {
-            name: "",
-            bio: "",
-            role: "",
-            age: 0,
-            job: "",
-            edu: "",
-        },
-        context: "",
-        stages: [
-            {
-                name: 'Discovery',
-                actions: ['Sees coffee shop', 'Checks line'],
-                emotion: 'Neutral',
-                painPoints: [],
-            },
-            {
-                name: 'Ordering',
-                actions: ['Waits in line', 'Orders drink'],
-                emotion: 'Frustrated',
-                painPoints: ['Line is slow'],
-            },
-            {
-                name: 'Payment',
-                actions: ['Taps card', 'Waits for receipt'],
-                emotion: 'Anxious',
-                painPoints: ['Reader slow'],
-            },
-            {
-                name: 'Pickup',
-                actions: ['Waits for name', 'Grabs drink'],
-                emotion: 'Relieved',
-                painPoints: [],
-            },
-        ],
-        notes: ""
-    })
-
-    let emotions: string[] = [
-        'Neutral',
-        'Frustrated',
-        'Anxious',
-        'Relieved',
-    ]
+    let { data } = $props();
+    const projectId = page.params.projectId;
+    const journeyId = page.params.slug;
+    const access = getContext<ProjectAccess | undefined>("access");
+    const permissions = access?.permissions;
+    const canEditJourney = can(permissions, "story", "edit");
+    let journey = $state(structuredClone(data.journey));
+    let emotions: string[] = structuredClone(data.emotions) as string[];
 
     let isAddingStage = $state(false);
+    let metadataOpen = $state(false);
+    let savePhase = $state<"idle" | "saving" | "saved">("idle");
+    let saveBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
     function removeStage(index : number) {
         journey.stages.splice(index, 1);
@@ -104,6 +71,29 @@
         journey.stages = journey.stages;
     }
 
+    const triggerSave = async () => {
+        if (!permissions || !canEditJourney) return;
+        if (savePhase === "saving") return;
+        if (saveBadgeTimer) clearTimeout(saveBadgeTimer);
+        savePhase = "saving";
+        const result = await updateJourney({
+            input: {
+                projectId,
+                journeyId,
+                journey
+            },
+            permissions
+        });
+        if (!result.success) {
+            savePhase = "idle";
+            return;
+        }
+        savePhase = "saved";
+        saveBadgeTimer = setTimeout(() => {
+            savePhase = "idle";
+        }, 1400);
+    };
+
 </script>
 
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
@@ -133,7 +123,12 @@
             <div class="flex w-full flex-row justify-between items-center mt-2 px-2">
                 <div class="bg-accent px-2 py-1 w-fit rounded-lg text-sm font-medium">{journey.status.toUpperCase()}</div>
                 <div class="flex flex-row gap-2">
-                    <Button>Save Changes</Button>
+                    <Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open journey metadata">
+                        <Info class="h-4 w-4" />
+                    </Button>
+                    <Button onclick={triggerSave} disabled={!canEditJourney || savePhase === "saving"}>
+                        {savePhase === "saving" ? "Saving..." : "Save Changes"}
+                    </Button>
                     <Button variant="outline">Change Status</Button>
                 </div>
             </div>
@@ -369,3 +364,22 @@
         </div>
     </div>
 </div>
+<Dialog.Root bind:open={metadataOpen}>
+    <Dialog.Content>
+        <Dialog.Header>
+            <Dialog.Title>Artifact Metadata</Dialog.Title>
+            <Dialog.Description>Read-only metadata for this journey.</Dialog.Description>
+        </Dialog.Header>
+        <div class="grid gap-2 text-sm">
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Avery Patel</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-02 11:00</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Dr. Ramos</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 08:40</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{journey.status.toUpperCase()}</span></div>
+        </div>
+        <Dialog.Footer>
+            <Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+        </Dialog.Footer>
+    </Dialog.Content>
+</Dialog.Root>
+

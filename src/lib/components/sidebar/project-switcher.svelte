@@ -1,41 +1,64 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { useSidebar } from "$lib/components/ui/sidebar/index.js";
 	import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
 	import PlusIcon from "@lucide/svelte/icons/plus";
-  import type { Component } from "svelte";
+	import type { Component } from "svelte";
 
-	// This should be `Component` after @lucide/svelte updates types
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let { projects }: { projects: { name: string; url: string; icon: Component }[] } = $props();
+	let {
+		projects,
+		currentProjectId
+	}: {
+		projects: { id: string; name: string; url: string; icon: Component }[];
+		currentProjectId: string;
+	} = $props();
 	const sidebar = useSidebar();
 
-	let activeProject = $derived(projects[0]);
+	let activeProject = $derived.by(() => {
+		const found = projects.find((project) => project.id === currentProjectId);
+		return found ?? null;
+	});
+	let activeProjectMissing = $derived(
+		currentProjectId.trim().length > 0 && activeProject === null
+	);
+
+	const selectProject = async (projectUrl: string) => {
+		if (!projectUrl) return;
+		await goto(projectUrl);
+	};
 </script>
 
 <Sidebar.Menu>
 	<Sidebar.MenuItem>
 		<DropdownMenu.Root>
 			<Sidebar.Group class="space-y-0 gap-0">
-      			<Sidebar.GroupLabel class="h-4">Project</Sidebar.GroupLabel>
-      			<Sidebar.GroupContent>
+				<Sidebar.GroupLabel class="h-4">Project</Sidebar.GroupLabel>
+				<Sidebar.GroupContent>
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
 							<Sidebar.MenuButton
 								{...props}
 								size="lg"
-								class="w-full py-0 h-10  hover:border-primary data-[state=open]:border-primary transition-all duration-200 border mt-2"
+								class="w-full py-0 h-10 hover:border-primary data-[state=open]:border-primary transition-all duration-200 border mt-2"
 							>
-								<div
-									class="flex aspect-square size-8 items-center justify-center rounded-lg"
-								>
-									<activeProject.icon class="size-4" />
+								<div class="flex aspect-square size-8 items-center justify-center rounded-lg">
+									{#if activeProject}
+										<activeProject.icon class="size-4" />
+									{:else}
+										<PlusIcon class="size-4" />
+									{/if}
 								</div>
 								<div class="grid flex-1 text-start text-sm leading-tight">
-									<span class="truncate font-medium">
-										{activeProject.name}
-									</span>
+									{#if activeProject}
+										<span class="truncate font-medium">{activeProject.name}</span>
+									{:else}
+										<span class="truncate font-medium text-destructive">Project unavailable</span>
+									{/if}
+									{#if activeProjectMissing}
+										<span class="truncate text-xs text-destructive">Current project not found</span>
+									{/if}
 								</div>
 								<ChevronsUpDownIcon class="ms-auto" />
 							</Sidebar.MenuButton>
@@ -48,29 +71,29 @@
 						sideOffset={4}
 					>
 						<DropdownMenu.Label class="text-muted-foreground text-xs">Projects</DropdownMenu.Label>
-						{#each projects as project, index (project.name)}
-							<DropdownMenu.Item onSelect={() => (activeProject = project)} class="gap-2 p-2 hover:scale-101">
-								<div class="flex size-6 items-center justify-center rounded-md border">
-									<project.icon class="size-3.5 shrink-0" />
-								</div>
-								{project.name}
-								<DropdownMenu.Shortcut>⌘{index + 1}</DropdownMenu.Shortcut>
-							</DropdownMenu.Item>
-						{/each}
+						{#if projects.length === 0}
+							<div class="px-2 py-1.5 text-xs text-muted-foreground">No projects available</div>
+						{:else}
+							{#each projects as project, index (project.id)}
+								<DropdownMenu.Item onSelect={() => void selectProject(project.url)} class="gap-2 p-2 hover:scale-101">
+									<div class="flex size-6 items-center justify-center rounded-md border">
+										<project.icon class="size-3.5 shrink-0" />
+									</div>
+									{project.name}
+									<DropdownMenu.Shortcut>Ctrl{index + 1}</DropdownMenu.Shortcut>
+								</DropdownMenu.Item>
+							{/each}
+						{/if}
 						<DropdownMenu.Separator />
-						<DropdownMenu.Item class="gap-2 p-2">
-							<a href="/add-project" class="flex flex-row gap-2">
-								<div
-									class="flex size-6 items-center justify-center rounded-md border bg-transparent hover:scale-101"
-								>
-									<PlusIcon class="size-4" />
-								</div>
-								<div class="text-muted-foreground font-medium">Add Project</div>
-							</a>
+						<DropdownMenu.Item class="gap-2 p-2" onSelect={() => void goto("/projects/new")}>
+							<div class="flex size-6 items-center justify-center rounded-md border bg-transparent hover:scale-101">
+								<PlusIcon class="size-4" />
+							</div>
+							<div class="text-muted-foreground font-medium">Add Project</div>
 						</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</Sidebar.GroupContent>
-    		</Sidebar.Group>
+			</Sidebar.Group>
 		</DropdownMenu.Root>
 	</Sidebar.MenuItem>
 </Sidebar.Menu>

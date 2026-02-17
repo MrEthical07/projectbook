@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+	import { getContext, onMount } from "svelte";
 	import { page } from "$app/state";
 	import { Calendar as CalendarPicker } from "$lib/components/ui/calendar";
 	import { SvelteDate } from "svelte/reactivity";
@@ -25,6 +25,13 @@
 		ChevronRight,
 		Plus,
 	} from "@lucide/svelte";
+	import { createCalendarEvent } from "$lib/remote/calendar.remote";
+	import { can } from "$lib/utils/permission";
+
+	let { data } = $props();
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canCreateEvent = can(permissions, "calendar", "create");
 
 	type CalendarView = "Month" | "Week";
 	type EventSourceType = "Derived" | "Manual";
@@ -54,30 +61,9 @@
 		createdAt: string;
 	};
 
-	const phaseChoices: PhaseOption[] = [
-		"None",
-		"Empathize",
-		"Define",
-		"Ideate",
-		"Prototype",
-		"Test",
-	];
-	const manualKinds: ManualEventKind[] = [
-		"Workshop",
-		"Review",
-		"Testing Session",
-		"Meeting",
-		"Other",
-	];
-	const linkedArtifactOptions = [
-		"User Story - Streamline checkout",
-		"Problem Statement - Reduce abandonment",
-		"Idea - Timeline reminders",
-		"Task - Prototype timeline",
-		"Feedback - Reminder test",
-		"Resource - Survey synthesis",
-		"Page - Opportunity notes",
-	];
+	const phaseChoices: PhaseOption[] = structuredClone(data.reference.phaseChoices) as PhaseOption[];
+	const manualKinds: ManualEventKind[] = structuredClone(data.reference.manualKinds) as ManualEventKind[];
+	const linkedArtifactOptions = structuredClone(data.reference.linkedArtifactOptions) as string[];
 
 	const today = new Date().toISOString().split("T")[0];
 	const addDays = (date: string, amount: number) => {
@@ -93,54 +79,7 @@
 	let filterOwner = $state<string | "All">("All");
 	let filterPhase = $state<PhaseOption | "All">("All");
 
-	let events = $state<CalendarEvent[]>([
-		{
-			id: "evt-1",
-			title: "Prototype deadline",
-			type: "Derived",
-			start: today,
-			end: today,
-			allDay: true,
-			owner: "Avery Patel",
-			phase: "Prototype",
-			artifactType: "Task",
-			sourceTitle: "Task - Timeline prototype",
-			createdAt: today,
-		},
-		{
-			id: "evt-2",
-			title: "Usability testing session",
-			type: "Derived",
-			start: addDays(today, 4),
-			end: addDays(today, 4),
-			allDay: false,
-			startTime: "14:00",
-			endTime: "15:00",
-			owner: "Nia Clark",
-			phase: "Test",
-			artifactType: "Feedback",
-			sourceTitle: "Feedback - Reminder test",
-			createdAt: today,
-		},
-		{
-			id: "evt-3",
-			title: "Weekly prototype review",
-			type: "Manual",
-			start: addDays(today, 2),
-			end: addDays(today, 2),
-			allDay: false,
-			startTime: "10:00",
-			endTime: "11:00",
-			owner: "Jordan Lee",
-			phase: "Prototype",
-			artifactType: "Manual",
-			description: "Share progress and align on next steps.",
-			location: "Project room",
-			eventKind: "Review",
-			linkedArtifacts: ["Task - Prototype timeline"],
-			createdAt: today,
-		},
-	]);
+	let events = $state<CalendarEvent[]>(structuredClone(data.events) as CalendarEvent[]);
 
 	let addEventOpen = $state(false);
 	let eventDetailsOpen = $state(false);
@@ -159,8 +98,9 @@
 	let newLocation = $state("");
 	let newLinked = $state<string[]>([]);
 	let newTags = $state("");
+	let createError = $state("");
 
-	const filteredEvents = $derived(
+	let filteredEvents = $derived(
 		events.filter((event) => {
 			if (filterArtifact !== "All" && event.artifactType !== filterArtifact) {
 				return false;
@@ -174,21 +114,24 @@
 			return true;
 		})
 	);
-	const projectId = $derived(page.params.projectId);
-	const ownerOptions = $derived.by(() => {
+	let projectId = $derived(page.params.projectId);
+	let ownerOptions = $derived.by(() => {
 		const list = Array.from(new Set(events.map((event) => event.owner))).filter(Boolean);
-		return list.length ? list : ["Unassigned"];
+		if (access?.user.name && !list.includes(access.user.name)) {
+			list.unshift(access.user.name);
+		}
+		return list;
 	});
-	const artifactOptions = $derived(
+	let artifactOptions = $derived(
 		Array.from(new Set(events.map((event) => event.artifactType))).filter(Boolean)
 	);
-	const phaseOptions = $derived(
+	let phaseOptions = $derived(
 		Array.from(new Set(events.map((event) => event.phase))).filter(Boolean)
 	);
-	const selectedEvent = $derived(
+	let selectedEvent = $derived(
 		selectedEventId ? events.find((event) => event.id === selectedEventId) ?? null : null
 	);
-	const newDateLabel = $derived.by(() => {
+	let newDateLabel = $derived.by(() => {
 		if (!newDateValue) return "";
 		const date = new SvelteDate(newDateValue.toString());
 		return date.toLocaleDateString("en-US", {
@@ -198,18 +141,18 @@
 		});
 	});
 
-	const startOfMonth = $derived.by(() => {
+	let startOfMonth = $derived.by(() => {
 		const date = new SvelteDate(currentMonth);
 		date.setDate(1);
 		return date.toISOString().slice(0, 10);
 	});
 
-	const monthLabel = $derived.by(() => {
+	let monthLabel = $derived.by(() => {
 		const date = new SvelteDate(currentMonth);
 		return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 	});
 
-	const monthDays = $derived.by(() => {
+	let monthDays = $derived.by(() => {
 		const first = new SvelteDate(startOfMonth);
 		const dayOfWeek = first.getDay() === 0 ? 7 : first.getDay();
 		const gridStart = new SvelteDate(first);
@@ -225,11 +168,11 @@
 		});
 	});
 
-	const weekDates = $derived(
+	let weekDates = $derived(
 		Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
 	);
 
-	const weekLabel = $derived.by(() => {
+	let weekLabel = $derived.by(() => {
 		const start = new SvelteDate(weekStart);
 		const end = new SvelteDate(addDays(weekStart, 6));
 		const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -239,7 +182,7 @@
 
 	const timeSlots = Array.from({ length: 9 }, (_, index) => `${9 + index}:00`);
 
-	const eventsByDay = $derived(
+	let eventsByDay = $derived(
 		filteredEvents.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
 			const key = event.start;
 			if (!acc[key]) acc[key] = [];
@@ -248,13 +191,13 @@
 		}, {})
 	);
 
-	const eventsToday = $derived(
+	let eventsToday = $derived(
 		filteredEvents.filter((event) => event.start === today).length
 	);
-	const eventsLate = $derived(
+	let eventsLate = $derived(
 		filteredEvents.filter((event) => event.start < today && event.type === "Manual").length
 	);
-	const upcomingDeadlines = $derived(
+	let upcomingDeadlines = $derived(
 		filteredEvents.filter((event) => event.start > today && event.type === "Derived").length
 	);
 
@@ -270,12 +213,13 @@
 			.filter(Boolean);
 
 	const openAddEvent = () => {
+		createError = "";
 		newTitle = "";
 		newDateValue = parseDate(today);
 		newStartTime = "10:00";
 		newEndTime = "11:00";
 		newAllDay = false;
-		newOwner = ownerOptions[0] ?? "Unassigned";
+		newOwner = ownerOptions[0] ?? "";
 		newPhase = "None";
 		newKind = "Meeting";
 		newCustomKind = "";
@@ -301,36 +245,57 @@
 		newLinked = newLinked.filter((item) => item !== value);
 	};
 
-	const createEvent = () => {
-		if (!newTitle.trim()) {
+	const createEvent = async () => {
+		createError = "";
+		if (!permissions || !canCreateEvent) {
+			createError = "You do not have permission to create events.";
 			return;
 		}
-		const nextId = `evt-${Date.now()}`;
-		const eventKind =
-			newKind === "Other" ? newCustomKind.trim() || "Other" : newKind;
+		const actorId = access?.user.id;
+		if (!actorId) {
+			createError = "Active user id is missing.";
+			return;
+		}
+		if (!newTitle.trim()) {
+			createError = "Event title is required.";
+			return;
+		}
+		if (!newOwner.trim()) {
+			createError = "Event owner is required.";
+			return;
+		}
+		if (newKind === "Other" && !newCustomKind.trim()) {
+			createError = "Custom event type is required when selecting Other.";
+			return;
+		}
+		const eventKind = newKind === "Other" ? newCustomKind.trim() : newKind;
 		const tags = parseTags(newTags);
-		events = [
-			...events,
-			{
-				id: nextId,
+		const result = await createCalendarEvent({
+			input: {
+				projectId: page.params.projectId,
+				actorId,
 				title: newTitle.trim(),
-				type: "Manual",
 				start: newDateValue.toString(),
 				end: newDateValue.toString(),
-				startTime: newAllDay ? undefined : newStartTime,
-				endTime: newAllDay ? undefined : newEndTime,
 				allDay: newAllDay,
+				startTime: newStartTime,
+				endTime: newEndTime,
 				owner: newOwner,
 				phase: newPhase,
-				artifactType: "Manual",
 				description: newDescription,
 				location: newLocation,
 				eventKind,
 				linkedArtifacts: newLinked,
-				tags,
-				createdAt: today,
+				tags
 			},
-		];
+			permissions
+		});
+		if (!result.success) {
+			createError = result.error;
+			return;
+		}
+		const created = result.data as CalendarEvent;
+		events = [...events, created];
 		addEventOpen = false;
 	};
 
@@ -401,7 +366,7 @@
 					<h1 class="text-3xl font-semibold">Calendar</h1>
 				</div>
 				<div class="flex items-center gap-2">
-					<Button size="sm" onclick={openAddEvent}>
+					<Button size="sm" onclick={openAddEvent} disabled={!canCreateEvent}>
 						<Plus class="mr-2 h-4 w-4" />
 						Add Event
 					</Button>
@@ -728,10 +693,13 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
+			{#if createError}
+				<p class="text-xs text-destructive">{createError}</p>
+			{/if}
 		</div>
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button class={buttonVariants()} onclick={createEvent} disabled={!newTitle.trim()}>
+			<Button class={buttonVariants()} onclick={createEvent} disabled={!canCreateEvent || !newTitle.trim()}>
 				Add event
 			</Button>
 		</Dialog.Footer>

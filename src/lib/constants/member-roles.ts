@@ -3,4 +3,5 @@ export enum MemberRole {
 	Admin = "Admin",
 	Editor = "Editor",
 	Viewer = "Viewer",
+	LimitedAccess = "Limited Access",
 }

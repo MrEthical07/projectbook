@@ -11,11 +11,25 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { DateFormatter, getLocalTimeZone, today, type CalendarDate } from "@internationalized/date";
-	import { Calendar as CalendarIcon, ExternalLink, GripVertical, Plus } from "@lucide/svelte";
+	import {
+		DateFormatter,
+		getLocalTimeZone,
+		parseDate,
+		today,
+		type CalendarDate
+	} from "@internationalized/date";
+	import { Calendar as CalendarIcon, ExternalLink, GripVertical, Info, Plus, X } from "@lucide/svelte";
+	import { updateTask as updateTaskRemote, updateTaskStatus as updateTaskStatusRemote } from "$lib/remote/task.remote";
+	import { can } from "$lib/utils/permission";
 	import { page } from "$app/state";
+	import { getContext, onDestroy, onMount } from "svelte";
 
 	const projectId = page.params.projectId;
+	const taskId = page.params.slug;
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canChangeTaskStatus = can(permissions, "task", "statusChange");
+	const canEditTask = can(permissions, "task", "edit");
 
 	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
 	type OptionalModuleKey = "plan" | "execution";
@@ -53,60 +67,20 @@
 		role: string;
 	};
 
+	let { data } = $props();
+	const required = <T>(value: T | null | undefined, field: string): T => {
+		if (value === undefined || value === null) {
+			throw new Error(`Task payload is missing '${field}'.`);
+		}
+		return value;
+	};
+	const initialTask = required(data.task as Record<string, unknown> | undefined, "task");
 	const statusOptions: TaskStatus[] = ["Planned", "In Progress", "Completed", "Abandoned"];
 
-	const assigneeOptions: AssigneeOption[] = [
-		{ id: "user-1", name: "Nia Clark", role: "Designer" },
-		{ id: "user-2", name: "Dr. Ramos", role: "Product" },
-		{ id: "user-3", name: "Avery Patel", role: "Research" },
-	];
+	const assigneeOptions: AssigneeOption[] = (() =>
+		structuredClone(data.assigneeOptions) as AssigneeOption[])();
 
-	const ideaOptions: LinkedIdea[] = [
-		{
-			id: "idea-31",
-			title: "Visual deadline timeline for assignments",
-			phase: "Ideate",
-			href: "/project/alpha/ideas/deadline-timeline",
-			status: "Active",
-			problem: {
-				id: "problem-7",
-				title: "Students miss assignment requirements",
-				phase: "Define",
-				href: "/project/alpha/problem-statement/missed-requirements",
-				status: "Locked",
-			},
-			context: {
-				type: "Persona",
-				title: "Nia Clark",
-				detail: "First-year student balancing coursework and a part-time job.",
-				phase: "Empathize",
-				href: "/project/alpha/personas/nia-clark",
-				status: "Active",
-			},
-		},
-		{
-			id: "idea-44",
-			title: "Assignment checklist reminders",
-			phase: "Ideate",
-			href: "/project/alpha/ideas/assignment-reminders",
-			status: "Active",
-			problem: {
-				id: "problem-12",
-				title: "Deadline shifts create confusion",
-				phase: "Define",
-				href: "/project/alpha/problem-statement/deadline-shifts",
-				status: "Archived",
-			},
-			context: {
-				type: "User Journey",
-				title: "Assignment planning journey",
-				detail: "Confusion spikes when deadlines shift mid-week.",
-				phase: "Empathize",
-				href: "/project/alpha/journeys/assignment-planning",
-				status: "Active",
-			},
-		},
-	];
+	const ideaOptions: LinkedIdea[] = (() => structuredClone(data.ideaOptions) as LinkedIdea[])();
 
 	const moduleDetails: Record<OptionalModuleKey, { title: string; placeholder?: string }> = {
 		plan: {
@@ -122,47 +96,103 @@
 
 	const optionalModules: OptionalModuleKey[] = ["plan", "execution"];
 
-	let status = $state<TaskStatus>("Planned");
-	let title = $state("");
-	let assignedToId = $state("");
-	let deadlineDate = $state<CalendarDate | undefined>();
-	let hypothesis = $state("");
+	let status = $state<TaskStatus>(required(initialTask.status as TaskStatus | undefined, "task.status"));
+	let title = $state(required(initialTask.title as string | undefined, "task.title"));
+	let assignedToId = $state(
+		"assignedToId" in initialTask ? String(initialTask.assignedToId) : ""
+	);
+	let deadlineDate = $state<CalendarDate | undefined>(
+		(() => {
+			const raw = String(required(initialTask.deadline as string | undefined, "task.deadline")).trim();
+			if (!raw) return undefined;
+			try {
+				return parseDate(raw);
+			} catch {
+				return undefined;
+			}
+		})()
+	);
+	let hypothesis = $state("hypothesis" in initialTask ? String(initialTask.hypothesis) : "");
 	let addSectionOpen = $state(false);
 	let statusDialogOpen = $state(false);
-	let selectedIdeaId = $state("");
+	let metadataOpen = $state(false);
+	let selectedIdeaId = $state(
+		"selectedIdeaId" in initialTask ? String(initialTask.selectedIdeaId) : ""
+	);
 
-	const selectedIdea = $derived(
+	let selectedIdea = $derived(
 		ideaOptions.find((idea) => idea.id === selectedIdeaId) ?? null
 	);
-	const selectedAssignee = $derived(
+	let selectedAssignee = $derived(
 		assigneeOptions.find((assignee) => assignee.id === assignedToId) ?? null
 	);
-	const assigneeLabel = $derived(
+	let assigneeLabel = $derived(
 		selectedAssignee ? `${selectedAssignee.name} - ${selectedAssignee.role}` : "Unassigned"
 	);
 	const deadlineFormatter = new DateFormatter("en-US", { dateStyle: "medium" });
-	const deadlineLabel = $derived(
+	let deadlineLabel = $derived(
 		deadlineDate
 			? deadlineFormatter.format(deadlineDate.toDate(getLocalTimeZone()))
 			: "Select date"
 	);
 
-	let planItems = $state<string[]>([""]);
-	let executionLinks = $state<string[]>([""]);
-	let notesText = $state("");
+	let planItems = $state<string[]>(
+		Array.isArray(initialTask.planItems) && initialTask.planItems.length
+			? (structuredClone(initialTask.planItems) as unknown[]).map((item) => String(item))
+			: [""]
+	);
+	let executionLinks = $state<string[]>(
+		Array.isArray(initialTask.executionLinks) && initialTask.executionLinks.length
+			? (structuredClone(initialTask.executionLinks) as unknown[]).map((item) => String(item))
+			: [""]
+	);
+	let notesText = $state("notesText" in initialTask ? String(initialTask.notesText) : "");
 
 	let planDragIndex = $state<number | null>(null);
 
-	let activeModules = $state<OptionalModuleKey[]>(["plan", "execution"]);
+	let activeModules = $state<OptionalModuleKey[]>(
+		Array.isArray(initialTask.activeModules) && initialTask.activeModules.length
+			? (structuredClone(initialTask.activeModules) as OptionalModuleKey[])
+			: ["plan", "execution"]
+	);
 
-	let abandonReason = $state("");
-	let hasFeedback = $state(false);
+	let abandonReason = $state(
+		"abandonReason" in initialTask ? String(initialTask.abandonReason) : ""
+	);
+	let hasFeedback = $state(
+		Boolean(required(initialTask.hasFeedback as boolean | undefined, "task.hasFeedback"))
+	);
+
+	let savePhase = $state<"idle" | "saving" | "saved">("idle");
+	let saveReady = $state(false);
+	let saveTimer: ReturnType<typeof setTimeout> | null = null;
+	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const normalizedDeadline = (value: CalendarDate | undefined) => (value ? value.toString() : "");
+	let currentSignature = $derived(
+		JSON.stringify({
+			title,
+			status,
+			assignedToId,
+			selectedIdeaId,
+			deadline: normalizedDeadline(deadlineDate),
+			hypothesis,
+			planItems,
+			executionLinks,
+			notesText,
+			activeModules,
+			abandonReason,
+			hasFeedback
+		})
+	);
+	let savedSignature = $state("");
+	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 
 	const isReadOnly = (currentStatus: TaskStatus) =>
-		currentStatus === "Completed" || currentStatus === "Abandoned";
+		!canEditTask || currentStatus === "Completed" || currentStatus === "Abandoned";
 
 	const isNotesReadOnly = (currentStatus: TaskStatus) =>
-		currentStatus === "Abandoned";
+		!canEditTask || currentStatus === "Abandoned";
 
 	const addModule = (moduleKey: OptionalModuleKey) => {
 		if (!activeModules.includes(moduleKey)) {
@@ -227,6 +257,83 @@
 		executionLinks.splice(index, 1);
 		executionLinks = executionLinks.length ? executionLinks : [""];
 	};
+
+	const changeStatus = async (nextStatus: TaskStatus) => {
+		if (!permissions || !canChangeTaskStatus) return;
+		if (nextStatus === status) return;
+		const result = await updateTaskStatusRemote({
+			input: {
+				projectId,
+				taskId,
+				status: nextStatus
+			},
+			permissions
+		});
+		if (!result.success) return;
+		status = nextStatus;
+		savedSignature = currentSignature;
+		statusDialogOpen = false;
+	};
+
+	const triggerSave = async () => {
+		if (!permissions || !canEditTask) return;
+		if (savePhase === "saving" || !isDirty) return;
+		if (saveTimer) {
+			clearTimeout(saveTimer);
+		}
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+
+		savePhase = "saving";
+		const result = await updateTaskRemote({
+			input: {
+				projectId,
+				taskId,
+				state: {
+					title,
+					status,
+					assignedToId,
+					selectedIdeaId,
+					deadline: normalizedDeadline(deadlineDate),
+					hypothesis,
+					planItems,
+					executionLinks,
+					notesText,
+					activeModules,
+					abandonReason,
+					hasFeedback
+				}
+			},
+			permissions
+		});
+		if (!result.success) {
+			savePhase = "idle";
+			return;
+		}
+
+		savedSignature = currentSignature;
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) {
+				savePhase = "idle";
+			}
+		}, 1400);
+	};
+
+	onMount(() => {
+		savedSignature = currentSignature;
+		saveReady = true;
+	});
+
+	onDestroy(() => {
+		if (saveTimer) {
+			clearTimeout(saveTimer);
+		}
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+	});
 </script>
 
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
@@ -275,7 +382,7 @@
 							bind:value={assignedToId}
 							disabled={isReadOnly(status)}
 						>
-							<Select.Trigger id="assigned-to">
+							<Select.Trigger class="w-full" id="assigned-to">
 								{assigneeLabel}
 							</Select.Trigger>
 							<Select.Content>
@@ -295,7 +402,7 @@
 								class={buttonVariants({ variant: "outline" })}
 								disabled={isReadOnly(status)}
 							>
-								<CalendarIcon class="mr-2 h-4 w-4" />
+								<CalendarIcon class="h-4 w-4" />
 								<span class={!deadlineDate ? "text-muted-foreground" : ""}>
 									{deadlineLabel}
 								</span>
@@ -312,10 +419,23 @@
 					</div>
 				</div>
 				<div class="flex flex-wrap items-center gap-3">
+					<Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open task metadata">
+						<Info class="h-4 w-4" />
+					</Button>
 					<div class="bg-accent px-2 py-1 w-fit rounded-lg text-sm font-medium">
 						{status.toUpperCase()}
 					</div>
-					<Button variant="outline" size="sm">Archive</Button>
+					{#if savePhase === "saved"}
+						<span class="text-xs text-emerald-600">Saved</span>
+					{/if}
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={triggerSave}
+						disabled={!canEditTask || savePhase === "saving" || !isDirty}
+					>
+						{savePhase === "saving" ? "Saving..." : "Save changes"}
+					</Button>
 				</div>
 			</div>
 		</div>
@@ -480,12 +600,12 @@
 						<Separator></Separator>
 						<Button
 							variant="ghost"
-							size="sm"
-							class="h-7 px-2 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+							size="icon"
+							class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 							onclick={() => removeModule("plan")}
 							disabled={isReadOnly(status)}
 						>
-							Remove
+							<X class="h-4 w-4" />
 						</Button>
 					</div>
 					<div class="flex flex-col gap-3" role="list">
@@ -554,12 +674,12 @@
 						<Separator></Separator>
 						<Button
 							variant="ghost"
-							size="sm"
-							class="h-7 px-2 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+							size="icon"
+							class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 							onclick={() => removeModule("execution")}
 							disabled={isReadOnly(status)}
 						>
-							Remove
+							<X class="h-4 w-4" />
 						</Button>
 					</div>
 					<div class="flex flex-col gap-3">
@@ -627,7 +747,7 @@
 					<Dialog.Root bind:open={statusDialogOpen}>
 						<Dialog.Trigger
 							class={buttonVariants({ variant: "outline" })}
-							disabled={isReadOnly(status)}
+							disabled={isReadOnly(status) || !canChangeTaskStatus}
 						>
 							Change Status
 						</Dialog.Trigger>
@@ -637,16 +757,15 @@
 							</Dialog.Header>
 							<div class="grid gap-2">
 								{#each statusOptions as option (option)}
-									<Dialog.Close
+									<Button
 										class={buttonVariants({
 											variant: status === option ? "default" : "outline",
 										})}
-										onclick={() => {
-											status = option;
-										}}
+										disabled={!canChangeTaskStatus}
+										onclick={() => changeStatus(option)}
 									>
 										{option}
-									</Dialog.Close>
+									</Button>
 								{/each}
 							</div>
 						</Dialog.Content>
@@ -728,3 +847,24 @@
 		</div>
 	</div>
 </div>
+
+
+<Dialog.Root bind:open={metadataOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Artifact Metadata</Dialog.Title>
+			<Dialog.Description>Read-only metadata for this task.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-2 text-sm">
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Nia Clark</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-05 10:10</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Alex Morgan</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 12:00</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{status}</span></div>
+		</div>
+		<Dialog.Footer>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+

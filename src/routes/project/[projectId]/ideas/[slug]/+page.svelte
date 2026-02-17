@@ -1,6 +1,10 @@
 <script lang="ts">
-import { onDestroy, onMount } from "svelte";
-import * as Alert from "$lib/components/ui/alert";
+	import { invalidateAll } from "$app/navigation";
+	import { page } from "$app/state";
+	import { selectIdea, updateIdea, updateIdeaStatus } from "$lib/remote/idea.remote";
+	import { can } from "$lib/utils/permission";
+	import { getContext, onDestroy, onMount } from "svelte";
+	import * as Alert from "$lib/components/ui/alert";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -11,7 +15,7 @@ import * as Alert from "$lib/components/ui/alert";
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { ChevronDown, ExternalLink } from "@lucide/svelte";
+	import { ChevronDown, ExternalLink, Info, X } from "@lucide/svelte";
 
 	type IdeaStatus = "Considered" | "Selected" | "Rejected";
 	type PageStatus = IdeaStatus | "Archived";
@@ -71,49 +75,34 @@ import * as Alert from "$lib/components/ui/alert";
 		"assumptions",
 	];
 
-	const problemOptions: LinkedProblemStatement[] = [
-		{
-			id: "problem-41",
-			title: "Students miss assignment requirements",
-			phase: "Define",
-			href: "/project/alpha/problem-statement/missed-requirements",
-			status: "Locked",
-		},
-		{
-			id: "problem-42",
-			title: "Deadline shifts create confusion",
-			phase: "Define",
-			href: "/project/alpha/problem-statement/deadline-shifts",
-			status: "Draft",
-		},
-		{
-			id: "problem-43",
-			title: "Grading criteria is unclear",
-			phase: "Define",
-			href: "/project/alpha/problem-statement/grading-clarity",
-			status: "Archived",
-		},
-	];
+	let { data } = $props();
+	const required = <T>(value: T | null | undefined, field: string): T => {
+		if (value === undefined || value === null) {
+			throw new Error(`Idea payload is missing '${field}'.`);
+		}
+		return value;
+	};
+	const projectId = page.params.projectId;
+	const ideaId = page.params.slug;
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	const canEditIdea = can(permissions, "idea", "edit");
+	const canChangeIdeaStatus = can(permissions, "idea", "statusChange");
+	const canArchiveIdea = can(permissions, "idea", "archive");
+	const problemOptions: LinkedProblemStatement[] = structuredClone(data.problemOptions) as LinkedProblemStatement[];
 
-	const linkedStories = $state<LinkedStory[]>([
-		{
-			id: "story-7",
-			title: "Avery Patel - First-year student",
-			phase: "Empathize",
-			href: "/project/alpha/stories/avery-patel",
-		},
-	]);
+	let linkedStories = $state<LinkedStory[]>(structuredClone(data.linkedStories) as LinkedStory[]);
 
-	const derivedPersonas = $state<string[]>(["Avery Patel"]);
+	let derivedPersonas = $state<string[]>(structuredClone(data.derivedPersonas) as string[]);
 
-	let title = $state("");
-	let description = $state("");
-	let ideaStatus = $state<IdeaStatus>("Considered");
-	let isArchived = $state(false);
-	let summaryTitle = $state("");
-	let summaryDescription = $state("");
-	let notesText = $state("");
-	let selectedProblemId = $state("");
+	let title = $state(required(data.idea.title, "idea.title"));
+	let description = $state(required(data.idea.description, "idea.description"));
+	let ideaStatus = $state<IdeaStatus>(required(data.idea.status as IdeaStatus, "idea.status"));
+	let isArchived = $state(Boolean(required(data.isArchived, "isArchived")));
+	let summaryTitle = $state(required(data.summaryTitle, "summaryTitle"));
+	let summaryDescription = $state(required(data.summaryDescription, "summaryDescription"));
+	let notesText = $state(required(data.notesText, "notesText"));
+	let selectedProblemId = $state(required(data.selectedProblemId, "selectedProblemId"));
 	let pendingProblemId = $state("");
 	let addSectionOpen = $state(false);
 	let statusDialogOpen = $state(false);
@@ -122,14 +111,23 @@ import * as Alert from "$lib/components/ui/alert";
 	let unarchiveDialogOpen = $state(false);
 	let linkProblemOpen = $state(false);
 	let derivedOpen = $state(true);
-	let activeModules = $state<OptionalModuleKey[]>([]);
+	let activeModules = $state<OptionalModuleKey[]>(
+		(Array.isArray(data.activeModules)
+			? structuredClone(data.activeModules)
+			: []) as OptionalModuleKey[]
+	);
 	let pendingStatus = $state<IdeaStatus | null>(null);
+let metadataOpen = $state(false);
+	const moduleContentPayload = required(
+		data.moduleContent as Record<OptionalModuleKey, string> | undefined,
+		"moduleContent"
+	);
 	let moduleContent = $state<Record<OptionalModuleKey, string>>({
-		approach: "",
-		alternatives: "",
-		tradeoffs: "",
-		risks: "",
-		assumptions: "",
+		approach: moduleContentPayload.approach,
+		alternatives: moduleContentPayload.alternatives,
+		tradeoffs: moduleContentPayload.tradeoffs,
+		risks: moduleContentPayload.risks,
+		assumptions: moduleContentPayload.assumptions
 	});
 	let moduleOpen = $state<Record<OptionalModuleKey, boolean>>({
 		approach: true,
@@ -139,23 +137,23 @@ import * as Alert from "$lib/components/ui/alert";
 		assumptions: true,
 	});
 
-	const pageStatus = $derived<PageStatus>(isArchived ? "Archived" : ideaStatus);
-	const linkedProblem = $derived(
+	let pageStatus = $derived<PageStatus>(isArchived ? "Archived" : ideaStatus);
+	let linkedProblem = $derived(
 		problemOptions.find((problem) => problem.id === selectedProblemId) ?? null
 	);
-	const pendingProblem = $derived(
+	let pendingProblem = $derived(
 		problemOptions.find((problem) => problem.id === pendingProblemId) ?? null
 	);
 
-	const isReadOnly = $derived(isArchived || ideaStatus === "Rejected");
-	const isSummaryReadOnly = $derived(isArchived || ideaStatus !== "Considered");
+	let isReadOnly = $derived(isArchived || ideaStatus === "Rejected" || !canEditIdea);
+	let isSummaryReadOnly = $derived(isArchived || ideaStatus !== "Considered");
 	type SavePhase = "idle" | "saving" | "saved";
 	let savePhase = $state<SavePhase>("idle");
 	let savedSignature = $state("");
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
-	const currentSignature = $derived(
+	let currentSignature = $derived(
 		JSON.stringify({
 			title,
 			description,
@@ -169,8 +167,8 @@ import * as Alert from "$lib/components/ui/alert";
 			moduleContent,
 		})
 	);
-	const isDirty = $derived(saveReady && currentSignature !== savedSignature);
-	const saveIndicator = $derived.by(() => {
+	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+	let saveIndicator = $derived.by(() => {
 		if (savePhase === "saving") {
 			return "saving";
 		}
@@ -214,17 +212,42 @@ import * as Alert from "$lib/components/ui/alert";
 	};
 
 	const requestStatusChange = (nextStatus: IdeaStatus) => {
+		if (nextStatus === ideaStatus) return;
 		pendingStatus = nextStatus;
+		statusDialogOpen = false;
 		statusConfirmOpen = true;
 	};
 
-	const confirmStatusChange = () => {
+	const confirmStatusChange = async () => {
+		if (!canChangeIdeaStatus) return;
+		if (!permissions) return;
 		if (!pendingStatus) {
 			return;
 		}
 
+		const result =
+			pendingStatus === "Selected"
+				? await selectIdea({
+						input: {
+							projectId,
+							ideaId
+						},
+						permissions
+					})
+				: await updateIdeaStatus({
+						input: {
+							projectId,
+							ideaId,
+							status: pendingStatus
+						},
+						permissions
+					});
+		if (!result.success) return;
+		await invalidateAll();
+
 		ideaStatus = pendingStatus;
 		pendingStatus = null;
+		statusDialogOpen = false;
 		statusConfirmOpen = false;
 	};
 
@@ -260,7 +283,9 @@ import * as Alert from "$lib/components/ui/alert";
 		return "bg-amber-100 text-amber-700 border-amber-200";
 	};
 
-	const triggerSave = () => {
+	const triggerSave = async () => {
+		if (!canEditIdea) return;
+		if (!permissions) return;
 		if (savePhase === "saving" || !isDirty) {
 			return;
 		}
@@ -274,15 +299,36 @@ import * as Alert from "$lib/components/ui/alert";
 		}
 
 		savePhase = "saving";
-		saveTimer = setTimeout(() => {
-			savedSignature = currentSignature;
-			savePhase = "saved";
-			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) {
-					savePhase = "idle";
+		const result = await updateIdea({
+			input: {
+				projectId,
+				ideaId,
+				state: {
+					title,
+					description,
+					ideaStatus,
+					isArchived,
+					summaryTitle,
+					summaryDescription,
+					notesText,
+					selectedProblemId,
+					activeModules,
+					moduleContent
 				}
-			}, 1400);
-		}, 900);
+			},
+			permissions
+		});
+		if (!result.success) {
+			savePhase = "idle";
+			return;
+		}
+		savedSignature = currentSignature;
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) {
+				savePhase = "idle";
+			}
+		}, 1400);
 	};
 
 	onDestroy(() => {
@@ -336,6 +382,9 @@ import * as Alert from "$lib/components/ui/alert";
 			/>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="flex flex-wrap items-center gap-2">
+					<Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open idea metadata">
+						<Info class="h-4 w-4" />
+					</Button>
 					<Badge class={statusBadgeClass(pageStatus)} variant="outline">
 						{pageStatus}
 					</Badge>
@@ -408,13 +457,33 @@ import * as Alert from "$lib/components/ui/alert";
 					<Button
 						size="sm"
 						onclick={triggerSave}
-						disabled={savePhase === "saving" || !isDirty}
+						disabled={!canEditIdea || savePhase === "saving" || !isDirty}
 					>
 						{savePhase === "saving" ? "Saving..." : "Save changes"}
 					</Button>
 				</div>
 			</div>
 </div>
+
+
+<Dialog.Root bind:open={metadataOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Artifact Metadata</Dialog.Title>
+			<Dialog.Description>Read-only metadata for this idea.</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-2 text-sm">
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Jules Kim</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-04 10:05</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Alex Morgan</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 12:20</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{pageStatus}</span></div>
+		</div>
+		<Dialog.Footer>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
 
 <Dialog.Root bind:open={statusConfirmOpen}>
 	<Dialog.Content>
@@ -646,16 +715,20 @@ import * as Alert from "$lib/components/ui/alert";
 							<div class="grid gap-2">
 								{#each ["Considered", "Selected", "Rejected"] as option (option)}
 									<Button
-										variant={ideaStatus === option ? "default" : "outline"}
-										onclick={() => requestStatusChange(option as IdeaStatus)}
+										variant={(pendingStatus ?? ideaStatus) === option ? "default" : "outline"}
+										onclick={() => (pendingStatus = option as IdeaStatus)}
 									>
 										{option}
 									</Button>
 								{/each}
 							</div>
 							<div class="mt-3 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
-								Status changes are manual and do not alter the page structure.
+								Status changes are manual and require confirmation.
 							</div>
+							<Dialog.Footer>
+								<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
+								<Button onclick={() => requestStatusChange((pendingStatus ?? ideaStatus) as IdeaStatus)} disabled={(pendingStatus ?? ideaStatus) === ideaStatus}>Continue</Button>
+							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
 				</div>
@@ -728,7 +801,7 @@ import * as Alert from "$lib/components/ui/alert";
 					<div class="grid gap-3">
 						{#each optionalModules as moduleKey (moduleKey)}
 							{#if activeModules.includes(moduleKey)}
-								<div class="flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
+								<div class="group flex flex-col gap-3 rounded-lg border border-border px-4 py-3">
 									<div class="flex items-center justify-between gap-3">
 										<button
 											type="button"
@@ -746,12 +819,12 @@ import * as Alert from "$lib/components/ui/alert";
 										</button>
 										<Button
 											variant="ghost"
-											size="sm"
-											class="h-7 px-2 text-destructive hover:text-destructive"
+											size="icon"
+											class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 											onclick={() => removeModule(moduleKey)}
 											disabled={isArchived}
 										>
-											Remove
+											<X class="h-4 w-4" />
 										</Button>
 									</div>
 									{#if moduleOpen[moduleKey]}

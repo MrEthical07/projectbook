@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { invalidateAll } from "$app/navigation";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -10,11 +11,18 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Switch } from "$lib/components/ui/switch";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { onMount } from "svelte";
+	import { getContext, onMount } from "svelte";
+	import { page } from "$app/state";
+	import {
+		archiveProject as archiveProjectRemote,
+		deleteProject as deleteProjectRemote,
+		updateProjectSettings as updateProjectSettingsRemote
+	} from "$lib/remote/project.remote";
+	import { can } from "$lib/utils/permission";
 	import { Archive, Trash2 } from "@lucide/svelte";
 	import * as Select from "$lib/components/ui/select";
 
-	type Role = "Owner" | "Admin" | "Member" | "Viewer";
+	type Role = "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access";
 	type Status = "Active" | "Invited";
 
 	type Member = {
@@ -26,52 +34,88 @@
 		joinedAt: string;
 	};
 
-	let currentRole: Role = "Admin" as Role;
-	const canEdit = currentRole === "Owner" || currentRole === "Admin";
-	const canDelete = currentRole === "Owner";
+	const roleValues: Role[] = ["Owner", "Admin", "Editor", "Viewer", "Limited Access"];
 
-	let projectName = $state("Project Atlas");
-	let projectId = $state("atlas-2026");
-	let projectStatus = $state<"Active" | "Archived">("Active");
-	let projectDescription = $state("Core product research and prototype delivery.");
+	const requiredString = (value: unknown, path: string): string => {
+		if (typeof value !== "string" || value.trim().length === 0) {
+			throw new Error(`Invalid or missing '${path}'.`);
+		}
+		return value.trim();
+	};
 
-	let whiteboardsEnabled = $state(true);
-	let advancedDatabasesEnabled = $state(true);
-	let calendarManualEventsEnabled = $state(true);
-	let resourceVersioningEnabled = $state(true);
-	let feedbackAggregationEnabled = $state(true);
+	const requiredRole = (value: unknown, path: string): Role => {
+		if (!roleValues.includes(value as Role)) {
+			throw new Error(`Invalid '${path}'.`);
+		}
+		return value as Role;
+	};
 
-	let notifyArtifactCreated = $state(true);
-	let notifyArtifactLocked = $state(true);
-	let notifyFeedbackAdded = $state(true);
-	let notifyResourceUpdated = $state(true);
+	const requiredStatus = (value: unknown, path: string): Status => {
+		if (typeof value !== "string") {
+			throw new Error(`Invalid '${path}'.`);
+		}
+		const normalized = value.trim().toLowerCase();
+		if (normalized === "active") return "Active";
+		if (normalized === "invited") return "Invited";
+		throw new Error(`Invalid '${path}'. Expected Active or Invited.`);
+	};
 
-	let members = $state<Member[]>([
-		{
-			id: "mem-1",
-			name: "Avery Patel",
-			email: "avery@league.dev",
-			role: "Owner",
-			status: "Active",
-			joinedAt: "2026-02-04",
-		},
-		{
-			id: "mem-2",
-			name: "Nia Clark",
-			email: "nia@league.dev",
-			role: "Admin",
-			status: "Active",
-			joinedAt: "2026-02-05",
-		},
-		{
-			id: "mem-3",
-			name: "Jordan Lee",
-			email: "jordan@league.dev",
-			role: "Member",
-			status: "Invited",
-			joinedAt: "2026-02-06",
-		},
-	]);
+	let { data } = $props();
+	const access = getContext<ProjectAccess | undefined>("access");
+	const permissions = access?.permissions;
+	if (!access?.role) {
+		throw new Error("Project access role is missing.");
+	}
+	let currentRole: Role = requiredRole(access.role, "access.role");
+	const canEdit = can(permissions, "project", "edit");
+	const canDelete = can(permissions, "project", "delete");
+	const canArchiveProject = can(permissions, "project", "archive");
+	const initialSettings = () => data.settings;
+	const toMembers = (settings: typeof data.settings): Member[] => {
+		const rawMembers = structuredClone(settings.members);
+		if (!Array.isArray(rawMembers)) {
+			throw new Error("Invalid 'settings.members' payload.");
+		}
+		return rawMembers.map((member, index) => {
+			if (!member || typeof member !== "object") {
+				throw new Error(`Invalid 'settings.members[${index}]'.`);
+			}
+			const row = member as unknown as Record<string, unknown>;
+			return {
+				id: requiredString(row.id, `settings.members[${index}].id`),
+				name: requiredString(row.name, `settings.members[${index}].name`),
+				email: requiredString(row.email, `settings.members[${index}].email`),
+				role: requiredRole(row.role, `settings.members[${index}].role`),
+				status: requiredStatus(row.status, `settings.members[${index}].status`),
+				joinedAt: requiredString(row.joinedAt, `settings.members[${index}].joinedAt`)
+			};
+		});
+	};
+
+	let projectName = $state(initialSettings().projectName);
+	let projectId = $derived.by(() => {
+		const routeProjectId = page.params.projectId?.trim();
+		if (!routeProjectId) {
+			throw new Error("Missing project id in route.");
+		}
+		return routeProjectId;
+	});
+	let projectStatus = $state<"Active" | "Archived">(initialSettings().projectStatus);
+	let projectDescription = $state(initialSettings().projectDescription);
+
+	let whiteboardsEnabled = $state(initialSettings().whiteboardsEnabled);
+	let advancedDatabasesEnabled = $state(initialSettings().advancedDatabasesEnabled);
+	let calendarManualEventsEnabled = $state(initialSettings().calendarManualEventsEnabled);
+	let resourceVersioningEnabled = $state(initialSettings().resourceVersioningEnabled);
+	let feedbackAggregationEnabled = $state(initialSettings().feedbackAggregationEnabled);
+
+	let notifyArtifactCreated = $state(initialSettings().notifyArtifactCreated);
+	let notifyArtifactLocked = $state(initialSettings().notifyArtifactLocked);
+	let notifyFeedbackAdded = $state(initialSettings().notifyFeedbackAdded);
+	let notifyResourceUpdated = $state(initialSettings().notifyResourceUpdated);
+	let deliveryChannel = $state<"In-app" | "Email">(initialSettings().deliveryChannel);
+
+	let members = $state<Member[]>(toMembers(initialSettings()));
 
 	let archiveOpen = $state(false);
 	let deleteOpen = $state(false);
@@ -82,8 +126,9 @@
 	let savedSignature = $state("");
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+	let actionError = $state("");
 
-	const currentSignature = $derived(
+	let currentSignature = $derived(
 		JSON.stringify({
 			projectName,
 			projectDescription,
@@ -97,35 +142,109 @@
 			notifyArtifactLocked,
 			notifyFeedbackAdded,
 			notifyResourceUpdated,
+			deliveryChannel
 		})
 	);
-	const isDirty = $derived(currentSignature !== savedSignature);
-	const deletePhrase = $derived(`${projectName.toUpperCase()} DELETE CONFIRM`);
-	const canConfirmDelete = $derived(deleteConfirmText === deletePhrase);
-	const saveIndicator = $derived.by(() => {
+	let isDirty = $derived(currentSignature !== savedSignature);
+	let deletePhrase = $derived(`${projectName.toUpperCase()} DELETE CONFIRM`);
+	let canConfirmDelete = $derived(deleteConfirmText === deletePhrase);
+	let saveIndicator = $derived.by(() => {
 		if (savePhase === "saving") return "saving";
 		if (isDirty) return "edited";
 		if (savePhase === "saved") return "saved";
 		return "idle";
 	});
 
-	const triggerSave = () => {
+	const triggerSave = async () => {
+		if (!permissions) {
+			actionError = "Permissions context is unavailable.";
+			return;
+		}
+		if (!canEdit) {
+			actionError = "You do not have permission to edit project settings.";
+			return;
+		}
 		if (savePhase === "saving" || !isDirty) return;
+		actionError = "";
 		if (saveTimer) clearTimeout(saveTimer);
 		if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
 		savePhase = "saving";
-		saveTimer = setTimeout(() => {
-			savedSignature = currentSignature;
-			savePhase = "saved";
-			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) savePhase = "idle";
-			}, 1400);
-		}, 900);
+		const result = await updateProjectSettingsRemote({
+			input: {
+				projectId,
+				settings: {
+					projectName,
+					projectDescription,
+					projectStatus,
+					whiteboardsEnabled,
+					advancedDatabasesEnabled,
+					calendarManualEventsEnabled,
+					resourceVersioningEnabled,
+					feedbackAggregationEnabled,
+					notifyArtifactCreated,
+					notifyArtifactLocked,
+					notifyFeedbackAdded,
+					notifyResourceUpdated,
+					deliveryChannel
+				}
+			},
+			permissions
+		});
+		if (!result.success) {
+			savePhase = "idle";
+			actionError = result.error;
+			return;
+		}
+		savedSignature = currentSignature;
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) savePhase = "idle";
+		}, 1400);
 	};
 
 	onMount(() => {
 		savedSignature = currentSignature;
 	});
+
+	const archiveProject = async () => {
+		if (!permissions) {
+			actionError = "Permissions context is unavailable.";
+			return;
+		}
+		const result = await archiveProjectRemote({
+			input: {
+				projectId
+			},
+			permissions
+		});
+		if (!result.success) {
+			actionError = result.error;
+			return;
+		}
+		actionError = "";
+		archiveOpen = false;
+		await invalidateAll();
+	};
+
+	const deleteProject = async () => {
+		if (!permissions) {
+			actionError = "Permissions context is unavailable.";
+			return;
+		}
+		const result = await deleteProjectRemote({
+			input: {
+				projectId
+			},
+			permissions
+		});
+		if (!result.success) {
+			actionError = result.error;
+			return;
+		}
+		actionError = "";
+		deleteOpen = false;
+		await invalidateAll();
+	};
 
 </script>
 
@@ -166,11 +285,11 @@
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
-					<Button size="sm" onclick={triggerSave} disabled={!isDirty || savePhase === "saving"}>
+					<Button size="sm" onclick={triggerSave} disabled={!canEdit || !isDirty || savePhase === "saving"}>
 						{savePhase === "saving" ? "Saving..." : "Save changes"}
 					</Button>
 					<Dialog.Root bind:open={archiveOpen}>
-						<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+						<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canArchiveProject}>
 							<Archive class="mr-2 h-4 w-4" />
 							Archive Project
 						</Dialog.Trigger>
@@ -185,9 +304,9 @@
 								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 									Cancel
 								</Dialog.Close>
-								<Dialog.Close class={buttonVariants()} onclick={() => (projectStatus = "Archived")}>
+								<Button onclick={archiveProject}>
 									Archive
-								</Dialog.Close>
+								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
@@ -225,7 +344,7 @@
 									<Dialog.Close
 										class={buttonVariants({ variant: "destructive" })}
 										disabled={!canConfirmDelete}
-										onclick={() => {}}
+										onclick={deleteProject}
 									>
 										Delete
 									</Dialog.Close>
@@ -239,6 +358,9 @@
 				<span>Project ID: {projectId}</span>
 				<span>Role: {currentRole}</span>
 			</div>
+			{#if actionError}
+				<p class="px-3 text-xs text-destructive">{actionError}</p>
+			{/if}
 		</div>
 
 		<section class="flex flex-col gap-4 rounded-lg bg-white p-4">
@@ -368,8 +490,8 @@
 			</div>
 			<div class="grid gap-2">
 				<Label>Delivery channel</Label>
-				<Select.Root type="single" value="In-app">
-					<Select.Trigger>In-app</Select.Trigger>
+				<Select.Root type="single" bind:value={deliveryChannel}>
+					<Select.Trigger>{deliveryChannel}</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="In-app" label="In-app">In-app</Select.Item>
 						<Select.Item value="Email" label="Email">Email</Select.Item>
@@ -407,7 +529,7 @@
 					<div class="text-xs text-muted-foreground">
 						View historical changes and administrative actions.
 					</div>
-					<Button class="mt-3" size="sm" variant="outline">
+					<Button class="mt-3" size="sm" variant="outline" href="/project/{projectId}/activity">
 						View log
 					</Button>
 				</div>
@@ -417,7 +539,7 @@
 						Archive or delete this project with confirmation.
 					</div>
 					<div class="mt-3 flex flex-wrap gap-2">
-						<Button size="sm" variant="outline" onclick={() => (archiveOpen = true)}>
+						<Button size="sm" variant="outline" onclick={() => (archiveOpen = true)} disabled={!canArchiveProject}>
 							Archive project
 						</Button>
 						<Dialog.Root
@@ -452,7 +574,7 @@
 									<Dialog.Close
 										class={buttonVariants({ variant: "destructive" })}
 										disabled={!canConfirmDelete}
-										onclick={() => {}}
+										onclick={deleteProject}
 									>
 										Delete
 									</Dialog.Close>
