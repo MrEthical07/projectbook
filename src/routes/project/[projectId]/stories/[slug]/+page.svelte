@@ -133,6 +133,88 @@
         );
     };
 
+    let addOnSections = $state<AddOnSection[]>([]);
+    let addSectionOpen = $state(false);
+    let removeSectionOpen = $state(false);
+    let removeTarget = $state<AddOnSection | null>(null);
+
+    const isSectionAdded = (type: AddOnType) =>
+        addOnSections.some((section) => section.section_type === type);
+
+    const createSectionContent = (type: AddOnType) => {
+        switch (type) {
+            case "goals_success":
+                return { goal: "", successCriteria: [""] };
+            case "jtbd":
+                return { primaryJob: "", supportingJobs: [""], emotionalJobs: [""] };
+            case "assumptions":
+                return { assumptions: [{ text: "", confidence: "Medium" }] };
+            case "constraints":
+                return { constraints: [{ description: "", type: "Time" }] };
+            case "risks_unknowns":
+                return { risks: [{ text: "", impact: "Medium" }] };
+            case "evidence":
+                return { evidence: [{ source: "", summary: "", link: "" }] };
+            case "scenarios":
+                return { scenarios: [{ scenario: "", expected: "" }] };
+        }
+    };
+
+    const addSection = (type: AddOnType) => {
+        if (isSectionAdded(type)) return;
+        const id = `${type}-${Math.random().toString(36).slice(2, 8)}`;
+        const position = addOnSections.length + 1;
+        const created_at = new Date().toISOString();
+        const section: AddOnSection = {
+            section_type: type,
+            section_id: id,
+            position,
+            created_at,
+            collapsed: false,
+            content: createSectionContent(type)
+        };
+        addOnSections = [...addOnSections, section];
+        addSectionOpen = false;
+        setTimeout(() => {
+            const el = document.getElementById(`section-${id}-primary`);
+            if (el) (el as HTMLInputElement | HTMLTextAreaElement).focus();
+        }, 0);
+    };
+
+    const toggleSection = (sectionId: string) => {
+        addOnSections = addOnSections.map((section) =>
+            section.section_id === sectionId
+                ? { ...section, collapsed: !section.collapsed }
+                : section
+        );
+    };
+
+    const openRemoveSection = (section: AddOnSection) => {
+        removeTarget = section;
+        removeSectionOpen = true;
+    };
+
+    const removeSection = () => {
+        if (!removeTarget) return;
+        addOnSections = addOnSections.filter(
+            (section) => section.section_id !== removeTarget!.section_id
+        );
+        removeTarget = null;
+        removeSectionOpen = false;
+    };
+
+    const updateSectionContent = <T extends keyof AddOnSection["content"]>(
+        sectionId: string,
+        key: T,
+        value: AddOnSection["content"][T]
+    ) => {
+        addOnSections = addOnSections.map((section) =>
+            section.section_id === sectionId
+                ? { ...section, content: { ...section.content, [key]: value } }
+                : section
+        );
+    };
+
     function removePainPoint(index : number) {
         story.painPoints.splice(index, 1);
         story.painPoints = [...story.painPoints];
