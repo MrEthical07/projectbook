@@ -146,14 +146,14 @@ export const workspaceNotificationsData: WorkspaceNotification[] = [
 		text: "Alex mentioned you on Northwind Revamp",
 		timestamp: "10m ago",
 		url: "/notifications",
-		unread: true
+		read: false
 	},
 	{
 		id: "n-2",
 		text: "New invite from LaunchCraft",
 		timestamp: "30m ago",
 		url: "/invites",
-		unread: true
+		read: false
 	},
 	{
 		id: "n-3",

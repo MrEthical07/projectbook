@@ -39,7 +39,7 @@ export const teamMembersPageData: TeamMember[] = [
 		name: "Sophia Lee",
 		email: "sophia.lee@projectbook.io",
 		role: "Owner",
-		status: "active",
+		status: "Active",
 		joinedDate: "Jan 12, 2024",
 		team: "Product",
 		location: "San Francisco, CA"
@@ -49,7 +49,7 @@ export const teamMembersPageData: TeamMember[] = [
 		name: "Marcus Reid",
 		email: "marcus.reid@projectbook.io",
 		role: "Admin",
-		status: "active",
+		status: "Active",
 		joinedDate: "Feb 3, 2024",
 		team: "Design",
 		location: "New York, NY"
@@ -59,7 +59,7 @@ export const teamMembersPageData: TeamMember[] = [
 		name: "Priya Nair",
 		email: "priya.nair@projectbook.io",
 		role: "Editor",
-		status: "active",
+		status: "Active",
 		joinedDate: "Mar 22, 2024",
 		team: "Research",
 		location: "Toronto, CA"
@@ -69,7 +69,7 @@ export const teamMembersPageData: TeamMember[] = [
 		name: "Diego Santos",
 		email: "diego.santos@projectbook.io",
 		role: "Viewer",
-		status: "invited",
+		status: "Invited",
 		joinedDate: "Apr 10, 2024",
 		team: "Operations",
 		location: "Lisbon, PT"

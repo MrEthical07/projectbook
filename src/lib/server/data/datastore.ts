@@ -27,7 +27,7 @@ export interface DataStore {
 	activity: Array<ProjectActivityItem | WorkspaceActivityItem>;
 	team: {
 		members: TeamMember[];
-		invites: Array<{ email: string; role: "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access"; sentDate: string; status: "pending" | "accepted" }>;
+		invites: Array<{ email: string; role: "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access"; sentDate: string; status: "pending" | "accepted"; projectId?: string }>;
 		rolePermissions: Record<string, RolePermissionMap>;
 	};
 	settings: {
@@ -56,6 +56,9 @@ export const datastore: DataStore = {
 		activity: []
 	},
 	projects: [],
+	// NOTE: workspace.user.name is "Ayush" while projectDashboard.me.name is "Alex Morgan".
+	// These represent different contexts (workspace identity vs. project member display name)
+	// but in a real system they should be consistent or clearly differentiated.
 	projectDashboard: {
 		project: { id: "atlas-2026", name: "Northstar Checkout Revamp", status: "Active" },
 		me: { id: "u-1", name: "Alex Morgan", initials: "AM" },
