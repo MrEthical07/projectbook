@@ -3,6 +3,9 @@ import {
 	DEFAULT_SESSION_TTL_MS,
 	PASSWORD_RESET_TOKEN_TTL_MS,
 	REMEMBER_SESSION_TTL_MS,
+	SUPERADMIN_EMAIL,
+	SUPERADMIN_NAME,
+	SUPERADMIN_PASSWORD,
 	VERIFICATION_TOKEN_TTL_MS
 } from "./constants";
 import { generateSecureToken, hashToken } from "./crypto";
@@ -191,7 +194,8 @@ export const authService = {
 	},
 
 	invalidateSessionByToken(token: string): void {
-		const session = authStore.sessions.find((entry) => entry.tokenHash === hashToken(token));
+		const hash = hashToken(token);
+		const session = authStore.sessions.find((entry) => entry.tokenHash === hash);
 		if (session && !session.revokedAt) {
 			session.revokedAt = new Date();
 		}
@@ -284,5 +288,27 @@ export const authService = {
 		revokeAllUserSessions(user.id);
 
 		return { ok: true, user };
+	},
+
+	async seedSuperAdmin(): Promise<void> {
+		const existing = findUserByEmail(SUPERADMIN_EMAIL);
+		if (existing) {
+			return;
+		}
+
+		const createdAt = new Date();
+		const user: AuthUser = {
+			id: randomUUID(),
+			name: SUPERADMIN_NAME,
+			email: normalizeEmail(SUPERADMIN_EMAIL),
+			passwordHash: await hashPassword(SUPERADMIN_PASSWORD),
+			isEmailVerified: true,
+			createdAt,
+			updatedAt: createdAt,
+			lastLoginAt: null
+		};
+
+		authStore.users.push(user);
+		console.info(`[auth] superadmin account seeded: ${SUPERADMIN_EMAIL}`);
 	}
 };

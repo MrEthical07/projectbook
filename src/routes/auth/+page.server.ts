@@ -10,6 +10,7 @@ import {
 	setSessionCookie
 } from "$lib/server/auth/cookies";
 import { authService } from "$lib/server/auth/service";
+import { checkRateLimit, withFormError } from "$lib/server/auth/rate-limit";
 
 const SIGN_IN_FORM_ID = "sign-in-form";
 const SIGN_UP_FORM_ID = "sign-up-form";
@@ -18,14 +19,6 @@ const loadForms = async () => {
 	const loginForm = await superValidate(zod4(signInSchema), { id: SIGN_IN_FORM_ID });
 	const signupForm = await superValidate(zod4(signUpSchema), { id: SIGN_UP_FORM_ID });
 	return { loginForm, signupForm };
-};
-
-const withFormError = <T extends { valid: boolean; errors: { _errors?: string[] } }>(
-	form: T,
-	error: string
-) => {
-	form.valid = false;
-	form.errors._errors = [error];
 };
 
 export const load: PageServerLoad = async ({ cookies }) => {
@@ -46,12 +39,19 @@ export const load: PageServerLoad = async ({ cookies }) => {
 };
 
 export const actions: Actions = {
-	login: async ({ request, cookies }) => {
+	login: async ({ request, cookies, getClientAddress }) => {
 		const loginForm = await superValidate(request, zod4(signInSchema), { id: SIGN_IN_FORM_ID });
 		const signupForm = await superValidate(zod4(signUpSchema), { id: SIGN_UP_FORM_ID });
 
 		if (!loginForm.valid) {
 			return fail(400, { loginForm, signupForm });
+		}
+
+		const ip = getClientAddress();
+		const rl = checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
+		if (!rl.allowed) {
+			withFormError(loginForm, "Too many login attempts. Please try again later.");
+			return fail(429, { loginForm, signupForm });
 		}
 
 		const result = await authService.authenticate(loginForm.data.email, loginForm.data.password);
@@ -71,12 +71,19 @@ export const actions: Actions = {
 		redirect(303, "/");
 	},
 
-	signup: async ({ request }) => {
+	signup: async ({ request, getClientAddress }) => {
 		const signupForm = await superValidate(request, zod4(signUpSchema), { id: SIGN_UP_FORM_ID });
 		const loginForm = await superValidate(zod4(signInSchema), { id: SIGN_IN_FORM_ID });
 
 		if (!signupForm.valid) {
 			return fail(400, { loginForm, signupForm });
+		}
+
+		const ip = getClientAddress();
+		const rl = checkRateLimit(`signup:${ip}`, 5, 15 * 60 * 1000);
+		if (!rl.allowed) {
+			withFormError(signupForm, "Too many signup attempts. Please try again later.");
+			return fail(429, { loginForm, signupForm });
 		}
 
 		const result = await authService.registerUser(

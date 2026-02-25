@@ -5,14 +5,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { resetPasswordSchema } from "$lib/schemas/auth.schema";
 import { setAuthNoticeCookie } from "$lib/server/auth/cookies";
 import { authService } from "$lib/server/auth/service";
-
-const withFormError = <T extends { valid: boolean; errors: { _errors?: string[] } }>(
-	form: T,
-	error: string
-) => {
-	form.valid = false;
-	form.errors._errors = [error];
-};
+import { checkRateLimit, withFormError } from "$lib/server/auth/rate-limit";
 
 export const load: PageServerLoad = async ({ url }) => {
 	const token = url.searchParams.get("token");

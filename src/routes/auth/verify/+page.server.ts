@@ -3,6 +3,7 @@ import { fail, message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { resendVerificationSchema } from "$lib/schemas/auth.schema";
 import { authService } from "$lib/server/auth/service";
+import { checkRateLimit } from "$lib/server/auth/rate-limit";
 
 const RESEND_FORM_ID = "resend-verification-form";
 
@@ -29,13 +30,21 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions: Actions = {
-	resend: async ({ request }) => {
+	resend: async ({ request, getClientAddress }) => {
 		const form = await superValidate(request, zod4(resendVerificationSchema), {
 			id: RESEND_FORM_ID
 		});
 
 		if (!form.valid) {
 			return fail(400, { form });
+		}
+
+		const ip = getClientAddress();
+		const rl = checkRateLimit(`resend:${ip}`, 3, 15 * 60 * 1000);
+		if (!rl.allowed) {
+			form.valid = false;
+			form.errors.email = ["Too many requests. Please try again later."];
+			return fail(429, { form });
 		}
 
 		const result = await authService.resendVerificationEmail(form.data.email);

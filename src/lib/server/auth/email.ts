@@ -17,7 +17,7 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
 		to: email,
 		link
 	});
-	console.info(`[auth] verification email -> ${email}: ${link}`);
+	console.info(`[auth] verification email sent to ${email}`);
 };
 
 export const sendPasswordResetEmail = async (email: string, token: string): Promise<void> => {
@@ -27,5 +27,5 @@ export const sendPasswordResetEmail = async (email: string, token: string): Prom
 		to: email,
 		link
 	});
-	console.info(`[auth] reset email -> ${email}: ${link}`);
+	console.info(`[auth] password reset email sent to ${email}`);
 };

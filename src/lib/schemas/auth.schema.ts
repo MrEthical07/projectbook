@@ -19,7 +19,7 @@ export const signInSchema = z.object({
 	email: emailSchema,
 	password: z
 		.string()
-		.min(10, "Password must be at least 10 characters."),
+		.min(1, "Password is required."),
 	remember: z.coerce.boolean().default(false)
 });
 
