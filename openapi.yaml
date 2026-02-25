@@ -1,0 +1,4983 @@
+openapi: 3.0.3
+info:
+  title: ProjectBook API
+  version: 1.0.0
+  description: |
+    REST API for ProjectBook — a design-thinking project management platform.
+
+    ## Authentication
+    Two mechanisms are supported:
+    - **Session cookies** (`projectbook_session`) for browser clients
+    - **Bearer tokens** (`Authorization: Bearer <token>`) for API clients
+
+    Both are obtained via `POST /api/v1/auth/login`.
+
+    ## Conventions
+    - All request/response bodies are JSON
+    - Dates use ISO 8601 format
+    - IDs are slug-based strings or UUID v4
+    - Successful responses wrap data in `{ success: true, data: ... }`
+    - Errors wrap details in `{ success: false, error: { ... } }`
+  contact:
+    name: ProjectBook Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Authentication
+    description: User registration, login, logout, email verification, and password reset
+  - name: Workspace
+    description: Cross-project workspace operations — dashboard, projects, invites, notifications, activity, account settings
+  - name: Project
+    description: Project-scoped operations — dashboard, access, sidebar, settings, archive, delete
+  - name: Team
+    description: Team membership, invitations, roles, and permission customization
+  - name: Stories
+    description: User Stories — personas, empathy maps, pain points, hypotheses
+  - name: Journeys
+    description: User Journeys — stage-by-stage mapping of persona experiences
+  - name: Problems
+    description: Problem Statements — core problems derived from research
+  - name: Ideas
+    description: Ideas — proposed solutions to locked problems
+  - name: Tasks
+    description: Tasks — actionable work items derived from selected ideas
+  - name: Feedback
+    description: Feedback — validation results and iteration insights
+  - name: Resources
+    description: Resources — documents, files, and reference materials
+  - name: Pages
+    description: Pages — custom documents with rich text and database views
+  - name: Calendar
+    description: Calendar — project milestones, meetings, and deadlines
+  - name: Sidebar
+    description: Sidebar Artifacts — quick create, rename, and delete from navigation
+  - name: Activity
+    description: Activity — chronological action logs
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+components:
+
+  # ── Security Schemes ────────────────────────────────────────────────
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: JWT token returned from the login endpoint
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: projectbook_session
+      description: HTTP-only session cookie set on login
+
+  # ── Reusable Parameters ─────────────────────────────────────────────
+
+  parameters:
+    projectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Project identifier (slug)
+    slug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Entity slug/ID
+    memberId:
+      name: memberId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Team member identifier
+    inviteId:
+      name: inviteId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Invite identifier
+    eventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Calendar event identifier
+    resourceId:
+      name: resourceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Resource identifier
+    artifactId:
+      name: artifactId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Artifact identifier
+    pageId:
+      name: pageId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Page identifier
+    offsetParam:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Number of items to skip
+    limitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 25
+        minimum: 1
+        maximum: 100
+      description: Max items to return
+    sortParam:
+      name: sort
+      in: query
+      schema:
+        type: string
+        default: lastUpdated
+      description: Sort field
+    orderParam:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+      description: Sort order
+
+  # ── Enum Schemas ────────────────────────────────────────────────────
+
+  schemas:
+
+    ProjectStatus:
+      type: string
+      enum: [Active, Archived]
+
+    ProjectRole:
+      type: string
+      enum: [Owner, Admin, Editor, Member, Viewer, Limited Access]
+
+    StoryStatus:
+      type: string
+      enum: [Draft, Locked, Archived]
+
+    JourneyStatus:
+      type: string
+      enum: [Draft, Archived]
+
+    ProblemStatus:
+      type: string
+      enum: [Draft, Locked, Archived]
+
+    IdeaStatus:
+      type: string
+      enum: [Considered, Selected, Rejected, Archived]
+
+    TaskStatus:
+      type: string
+      enum: [Planned, In Progress, Completed, Abandoned, Blocked]
+
+    FeedbackOutcome:
+      type: string
+      enum: [Validated, Invalidated, Needs Iteration]
+
+    PageStatus:
+      type: string
+      enum: [Draft, Archived]
+
+    ResourceStatus:
+      type: string
+      enum: [Active, Archived]
+
+    CalendarEventType:
+      type: string
+      enum: [Derived, Manual]
+
+    CalendarPhase:
+      type: string
+      enum: [Empathize, Define, Ideate, Prototype, Test, None]
+
+    CalendarArtifactType:
+      type: string
+      enum: [Task, Feedback, Manual]
+
+    ProjectIconKey:
+      type: string
+      enum:
+        - folderKanban
+        - rocket
+        - lightbulb
+        - flaskConical
+        - compass
+        - target
+        - briefcase
+        - layoutGrid
+        - notebookPen
+        - sparkles
+        - code
+        - palette
+        - zap
+        - shieldCheck
+        - chartLine
+        - database
+        - globe
+        - megaphone
+        - users
+        - graduationCap
+        - handshake
+        - wrench
+        - cpu
+        - bookOpen
+        - flag
+
+    SidebarPrefix:
+      type: string
+      enum: [stories, journeys, problem-statement, ideas, tasks, feedback, pages]
+
+    # ── Permission Schemas ──────────────────────────────────────────────
+
+    ActionPermission:
+      type: object
+      required: [view, create, edit, delete, archive, statusChange]
+      properties:
+        view:
+          type: boolean
+        create:
+          type: boolean
+        edit:
+          type: boolean
+        delete:
+          type: boolean
+        archive:
+          type: boolean
+        statusChange:
+          type: boolean
+
+    EffectivePermissions:
+      type: object
+      required: [project, story, problem, idea, task, feedback, resource, page, calendar, member]
+      properties:
+        project:
+          $ref: '#/components/schemas/ActionPermission'
+        story:
+          $ref: '#/components/schemas/ActionPermission'
+        problem:
+          $ref: '#/components/schemas/ActionPermission'
+        idea:
+          $ref: '#/components/schemas/ActionPermission'
+        task:
+          $ref: '#/components/schemas/ActionPermission'
+        feedback:
+          $ref: '#/components/schemas/ActionPermission'
+        resource:
+          $ref: '#/components/schemas/ActionPermission'
+        page:
+          $ref: '#/components/schemas/ActionPermission'
+        calendar:
+          $ref: '#/components/schemas/ActionPermission'
+        member:
+          $ref: '#/components/schemas/ActionPermission'
+
+    RolePermissionMap:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/EffectivePermissions'
+      description: Map of role name to its effective permissions
+
+    # ── User / Workspace Schemas ────────────────────────────────────────
+
+    WorkspaceUser:
+      type: object
+      required: [id, name, email]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    WorkspaceProject:
+      type: object
+      required: [id, name, organization, icon, lastUpdatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        organization:
+          type: string
+        icon:
+          $ref: '#/components/schemas/ProjectIconKey'
+        description:
+          type: string
+        role:
+          $ref: '#/components/schemas/ProjectRole'
+        openTasks:
+          type: integer
+        lastVisitedAt:
+          type: string
+          format: date-time
+        lastUpdatedAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+
+    WorkspaceInvite:
+      type: object
+      properties:
+        id:
+          type: string
+        projectName:
+          type: string
+        projectDescription:
+          type: string
+        projectStatus:
+          $ref: '#/components/schemas/ProjectStatus'
+        projectId:
+          type: string
+        organizationName:
+          type: string
+        inviterName:
+          type: string
+        inviterRole:
+          $ref: '#/components/schemas/ProjectRole'
+        inviterEmail:
+          type: string
+          format: email
+        assignedRole:
+          $ref: '#/components/schemas/ProjectRole'
+        sentAt:
+          type: string
+        expiresAt:
+          type: string
+        expiresSoon:
+          type: boolean
+        expired:
+          type: boolean
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        timestamp:
+          type: string
+        url:
+          type: string
+        read:
+          type: boolean
+        sourceType:
+          type: string
+        dismissed:
+          type: boolean
+
+    ActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        userName:
+          type: string
+        userInitials:
+          type: string
+        action:
+          type: string
+        artifactName:
+          type: string
+        artifactUrl:
+          type: string
+        projectId:
+          type: string
+        projectName:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+
+    DashboardActivity:
+      type: object
+      properties:
+        id:
+          type: string
+        userName:
+          type: string
+        userInitials:
+          type: string
+        action:
+          type: string
+        projectName:
+          type: string
+        timestamp:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        involved:
+          type: boolean
+
+    ProjectActivity:
+      type: object
+      properties:
+        id:
+          type: string
+        user:
+          type: string
+        initials:
+          type: string
+        action:
+          type: string
+        artifact:
+          type: string
+        href:
+          type: string
+        at:
+          type: string
+          format: date-time
+
+    AccountSettings:
+      type: object
+      properties:
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+        bio:
+          type: string
+        theme:
+          type: string
+          enum: [Light, Dark, System]
+        density:
+          type: string
+          enum: [Comfortable, Compact]
+        landing:
+          type: string
+          enum: [Last Project, Project Selector]
+        timeFormat:
+          type: string
+          enum: [12-hour, 24-hour]
+        inAppNotifications:
+          type: boolean
+        emailNotifications:
+          type: boolean
+
+    # ── Project Schemas ─────────────────────────────────────────────────
+
+    ProjectInfo:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+
+    ProjectSidebarItem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          $ref: '#/components/schemas/ProjectIconKey'
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+
+    SidebarArtifact:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+
+    SidebarArtifacts:
+      type: object
+      properties:
+        stories:
+          type: array
+          items:
+            $ref: '#/components/schemas/SidebarArtifact'
+        journeys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SidebarArtifact'
+        problems:
+          type: array
+          items:
+            $ref: '#/components/schemas/SidebarArtifact'
+        ideas:
+          type: array
+          items:
+            $ref: '#/components/schemas/SidebarArtifact'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/SidebarArtifact'
+        feedback:
+          type: array
+          items:
+            $ref: '#/components/schemas/SidebarArtifact'
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/SidebarArtifact'
+
+    ProjectSettings:
+      type: object
+      properties:
+        projectName:
+          type: string
+        projectDescription:
+          type: string
+        projectStatus:
+          $ref: '#/components/schemas/ProjectStatus'
+        whiteboardsEnabled:
+          type: boolean
+        advancedDatabasesEnabled:
+          type: boolean
+        calendarManualEventsEnabled:
+          type: boolean
+        resourceVersioningEnabled:
+          type: boolean
+        feedbackAggregationEnabled:
+          type: boolean
+        notifyArtifactCreated:
+          type: boolean
+        notifyArtifactLocked:
+          type: boolean
+        notifyFeedbackAdded:
+          type: boolean
+        notifyResourceUpdated:
+          type: boolean
+        deliveryChannel:
+          type: string
+          enum: [In-app, Email]
+
+    DashboardEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        creator:
+          type: string
+        initials:
+          type: string
+
+    RecentEdit:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        href:
+          type: string
+        at:
+          type: string
+          format: date-time
+
+    # ── Team Schemas ────────────────────────────────────────────────────
+
+    TeamMember:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/ProjectRole'
+        status:
+          type: string
+          enum: [Active, Invited]
+        joinedAt:
+          type: string
+          format: date
+        updatedAt:
+          type: string
+        team:
+          type: string
+        location:
+          type: string
+
+    PendingInvite:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/ProjectRole'
+        sentDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [pending]
+
+    # ── Story Schemas ───────────────────────────────────────────────────
+
+    StoryRow:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        personaName:
+          type: string
+        painPointsCount:
+          type: integer
+        problemHypothesesCount:
+          type: integer
+        owner:
+          type: string
+        lastUpdated:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/StoryStatus'
+        isOrphan:
+          type: boolean
+
+    Persona:
+      type: object
+      properties:
+        name:
+          type: string
+        bio:
+          type: string
+        role:
+          type: string
+        age:
+          type: integer
+        job:
+          type: string
+        edu:
+          type: string
+
+    EmpathyMap:
+      type: object
+      properties:
+        says:
+          type: string
+        thinks:
+          type: string
+        does:
+          type: string
+        feels:
+          type: string
+
+    StoryDetail:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        persona:
+          $ref: '#/components/schemas/Persona'
+        context:
+          type: string
+        empathyMap:
+          $ref: '#/components/schemas/EmpathyMap'
+        painPoints:
+          type: array
+          items:
+            type: string
+        hypothesis:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+
+    AddOnCatalogItem:
+      type: object
+      properties:
+        type:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        tag:
+          type: string
+
+    # ── Journey Schemas ─────────────────────────────────────────────────
+
+    JourneyRow:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        linkedPersonas:
+          type: array
+          items:
+            type: string
+        stagesCount:
+          type: integer
+        painPointsCount:
+          type: integer
+        owner:
+          type: string
+        lastUpdated:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/JourneyStatus'
+        isOrphan:
+          type: boolean
+
+    JourneyStage:
+      type: object
+      properties:
+        name:
+          type: string
+        actions:
+          type: array
+          items:
+            type: string
+        emotion:
+          type: string
+        painPoints:
+          type: array
+          items:
+            type: string
+
+    JourneyDetail:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        persona:
+          $ref: '#/components/schemas/Persona'
+        context:
+          type: string
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/JourneyStage'
+        notes:
+          type: string
+
+    # ── Problem Schemas ─────────────────────────────────────────────────
+
+    ProblemRow:
+      type: object
+      properties:
+        id:
+          type: string
+        statement:
+          type: string
+        linkedSources:
+          type: array
+          items:
+            type: string
+        painPointsCount:
+          type: integer
+        ideasCount:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ProblemStatus'
+        owner:
+          type: string
+        lastUpdated:
+          type: string
+          format: date
+        isOrphan:
+          type: boolean
+
+    LinkedSource:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [story, journey]
+        title:
+          type: string
+        phase:
+          type: string
+
+    ProblemDetail:
+      type: object
+      properties:
+        title:
+          type: string
+        finalStatement:
+          type: string
+        selectedPainPoints:
+          type: array
+          items:
+            type: string
+        linkedSources:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkedSource'
+        activeModules:
+          type: array
+          items:
+            type: string
+        moduleContent:
+          type: object
+        notes:
+          type: string
+
+    SourcePainPoint:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        sourceLabel:
+          type: string
+
+    ReferenceOption:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        phase:
+          type: string
+        href:
+          type: string
+        status:
+          type: string
+
+    # ── Idea Schemas ────────────────────────────────────────────────────
+
+    IdeaRow:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        linkedProblemStatement:
+          type: string
+        persona:
+          type: string
+        status:
+          $ref: '#/components/schemas/IdeaStatus'
+        tasksCount:
+          type: integer
+        owner:
+          type: string
+        lastUpdated:
+          type: string
+          format: date
+        linkedProblemLocked:
+          type: boolean
+        isOrphan:
+          type: boolean
+
+    IdeaDetail:
+      type: object
+      properties:
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/IdeaStatus'
+        summary:
+          type: string
+        notes:
+          type: string
+        selectedProblemId:
+          type: string
+        activeModules:
+          type: array
+          items:
+            type: string
+        moduleContent:
+          type: object
+
+    IdeaReferenceOption:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        phase:
+          type: string
+        href:
+          type: string
+        status:
+          type: string
+        problem:
+          $ref: '#/components/schemas/ReferenceOption'
+        context:
+          type: object
+          properties:
+            type:
+              type: string
+            title:
+              type: string
+            detail:
+              type: string
+            phase:
+              type: string
+            href:
+              type: string
+            status:
+              type: string
+
+    # ── Task Schemas ────────────────────────────────────────────────────
+
+    TaskRow:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        linkedIdea:
+          type: string
+        linkedProblemStatement:
+          type: string
+        persona:
+          type: string
+        owner:
+          type: string
+        deadline:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        ideaRejected:
+          type: boolean
+        hasFeedback:
+          type: boolean
+        isOrphan:
+          type: boolean
+
+    ExecutionLink:
+      type: object
+      properties:
+        label:
+          type: string
+        url:
+          type: string
+          format: uri
+
+    AssigneeOption:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    TaskDetail:
+      type: object
+      properties:
+        assignedToId:
+          type: string
+        selectedIdeaId:
+          type: string
+        deadline:
+          type: string
+          format: date
+        hypothesis:
+          type: string
+        planItems:
+          type: array
+          items:
+            type: string
+        executionLinks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionLink'
+        notes:
+          type: string
+        activeModules:
+          type: array
+          items:
+            type: string
+        abandonReason:
+          type: string
+
+    # ── Feedback Schemas ────────────────────────────────────────────────
+
+    FeedbackRow:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        linkedArtifacts:
+          type: array
+          items:
+            type: string
+        outcome:
+          $ref: '#/components/schemas/FeedbackOutcome'
+        linkedTaskOrIdea:
+          type: string
+        owner:
+          type: string
+        createdDate:
+          type: string
+          format: date
+        hasTaskLink:
+          type: boolean
+        isOrphan:
+          type: boolean
+
+    FeedbackLinkedArtifact:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [Task, Idea, Problem Statement]
+        phase:
+          type: string
+        status:
+          type: string
+
+    FeedbackDetail:
+      type: object
+      properties:
+        description:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/FeedbackOutcome'
+        linkedArtifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackLinkedArtifact'
+        activeModules:
+          type: array
+          items:
+            type: string
+        moduleContent:
+          type: object
+        notes:
+          type: string
+
+    # ── Resource Schemas ────────────────────────────────────────────────
+
+    ResourceRow:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        fileType:
+          type: string
+        docType:
+          type: string
+        owner:
+          type: string
+        version:
+          type: string
+        lastUpdated:
+          type: string
+        linkedCount:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ResourceStatus'
+
+    ResourceLinkedArtifact:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [User Story, Problem Statement, Idea, Task]
+        phase:
+          type: string
+        href:
+          type: string
+
+    ResourceVersion:
+      type: object
+      properties:
+        version:
+          type: string
+        uploadedBy:
+          type: string
+        uploadDate:
+          type: string
+        description:
+          type: string
+
+    ResourceDetail:
+      type: object
+      properties:
+        name:
+          type: string
+        fileType:
+          type: string
+        docType:
+          type: string
+        status:
+          $ref: '#/components/schemas/ResourceStatus'
+        description:
+          type: string
+        owner:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        fileSize:
+          type: string
+        linkedArtifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceLinkedArtifact'
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceVersion'
+        notes:
+          type: string
+
+    # ── Page Schemas ────────────────────────────────────────────────────
+
+    PageRow:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        owner:
+          type: string
+        lastEdited:
+          type: string
+          format: date
+        linkedArtifactsCount:
+          type: integer
+        status:
+          $ref: '#/components/schemas/PageStatus'
+        isOrphan:
+          type: boolean
+
+    PageView:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [Document, Table, Board]
+
+    PageDetail:
+      type: object
+      properties:
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        linkedArtifacts:
+          type: array
+          items:
+            type: string
+        docHeading:
+          type: string
+        docBody:
+          type: string
+        views:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageView'
+        activeViewId:
+          type: string
+        tableData:
+          type: array
+          items:
+            type: object
+
+    # ── Calendar Schemas ────────────────────────────────────────────────
+
+    CalendarEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        type:
+          $ref: '#/components/schemas/CalendarEventType'
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        startTime:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+        endTime:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+        allDay:
+          type: boolean
+        owner:
+          type: string
+        phase:
+          $ref: '#/components/schemas/CalendarPhase'
+        artifactType:
+          $ref: '#/components/schemas/CalendarArtifactType'
+        sourceTitle:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        eventKind:
+          type: string
+        linkedArtifacts:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+        lastEdited:
+          type: string
+
+    # ── Error Schemas ───────────────────────────────────────────────────
+
+    ValidationIssue:
+      type: object
+      required: [message]
+      properties:
+        path:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        received:
+          {}
+        expected:
+          {}
+
+    ErrorDetail:
+      type: object
+      required: [message, status, code]
+      properties:
+        message:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        source:
+          type: string
+          enum: [app, client, server, network, validation, authorization, not-found, unknown]
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        retryable:
+          type: boolean
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+
+    # ── Response Wrappers ───────────────────────────────────────────────
+
+    SuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          {}
+
+    PaginatedMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        offset:
+          type: integer
+        limit:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+
+  # ── Reusable Responses ──────────────────────────────────────────────
+
+  responses:
+    BadRequest:
+      description: Validation error or malformed input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: Validation failed
+              status: 400
+              code: VALIDATION_ERROR
+              source: validation
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: Authentication required
+              status: 401
+              code: UNAUTHORIZED
+              source: authorization
+    Forbidden:
+      description: Authenticated but lacks required permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: Permission denied
+              status: 403
+              code: PERMISSION_DENIED
+              source: authorization
+    NotFound:
+      description: Resource does not exist or is out of scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: Resource not found
+              status: 404
+              code: NOT_FOUND
+              source: server
+    Conflict:
+      description: Duplicate resource or conflicting state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: Resource already exists
+              status: 409
+              code: EMAIL_TAKEN
+              source: server
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: Too many requests
+              status: 429
+              code: RATE_LIMITED
+              source: server
+    InternalError:
+      description: Unexpected server failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              message: Internal server error
+              status: 500
+              code: INTERNAL_ERROR
+              source: server
+
+# ════════════════════════════════════════════════════════════════════════
+# Paths
+# ════════════════════════════════════════════════════════════════════════
+
+paths:
+
+  # ── Authentication ──────────────────────────────────────────────────
+
+  /auth/signup:
+    post:
+      tags: [Authentication]
+      summary: Register a new user account
+      operationId: signup
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, confirmPassword]
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 10
+                  description: Must include uppercase, lowercase, digit, and special character
+                confirmPassword:
+                  type: string
+      responses:
+        '201':
+          description: Account created — verification email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                          email:
+                            type: string
+                            format: email
+                          isEmailVerified:
+                            type: boolean
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate and create a session
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 1
+                remember:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Session cookie (browser flow)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          name:
+                            type: string
+                          email:
+                            type: string
+                            format: email
+                      session:
+                        type: object
+                        properties:
+                          token:
+                            type: string
+                          expiresAt:
+                            type: string
+                            format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Invalid credentials or unverified email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Invalidate the current session
+      operationId: logout
+      responses:
+        '200':
+          description: Session revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    nullable: true
+                    example: null
+
+  /auth/verify-email:
+    post:
+      tags: [Authentication]
+      summary: Verify email address with token
+      operationId: verifyEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [success, missing, failed]
+                      email:
+                        type: string
+                        format: email
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/resend-verification:
+    post:
+      tags: [Authentication]
+      summary: Resend email verification link
+      operationId: resendVerification
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Verification email sent (or appropriate status)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [sent, not_found, already_verified]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Request a password reset email
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Always returns success (prevents email enumeration)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+
+  /auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Reset password using token from email
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password, confirmPassword]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 10
+                confirmPassword:
+                  type: string
+      responses:
+        '200':
+          description: Password reset — all sessions revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ── Workspace ───────────────────────────────────────────────────────
+
+  /workspace/dashboard:
+    get:
+      tags: [Workspace]
+      summary: Get workspace dashboard overview
+      operationId: getWorkspaceDashboard
+      responses:
+        '200':
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/WorkspaceUser'
+                      projects:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WorkspaceProject'
+                      invites:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WorkspaceInvite'
+                      notifications:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Notification'
+                      activity:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ActivityItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /workspace/projects:
+    get:
+      tags: [Workspace]
+      summary: List all projects the user has access to
+      operationId: getWorkspaceProjects
+      responses:
+        '200':
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkspaceProject'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Workspace]
+      summary: Create a new project
+      operationId: createWorkspaceProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, icon]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                description:
+                  type: string
+                icon:
+                  $ref: '#/components/schemas/ProjectIconKey'
+      responses:
+        '201':
+          description: Project created — user becomes Owner
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      projectId:
+                        type: string
+                      project:
+                        $ref: '#/components/schemas/WorkspaceProject'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /workspace/projects/reference:
+    get:
+      tags: [Workspace]
+      summary: Get reference data for project creation form
+      operationId: getProjectCreationReference
+      responses:
+        '200':
+          description: Reference data including existing project names and known user emails
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      existingProjects:
+                        type: array
+                        items:
+                          type: string
+                        description: Names of projects the user already belongs to (for duplicate detection)
+                      existingUsers:
+                        type: array
+                        items:
+                          type: string
+                          format: email
+                        description: Known user emails for invite auto-complete
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /workspace/invites:
+    get:
+      tags: [Workspace]
+      summary: Get pending workspace invites
+      operationId: getWorkspaceInvites
+      responses:
+        '200':
+          description: Invite list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkspaceInvite'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /workspace/invites/{inviteId}/accept:
+    post:
+      tags: [Workspace]
+      summary: Accept a workspace invite
+      operationId: acceptWorkspaceInvite
+      parameters:
+        - $ref: '#/components/parameters/inviteId'
+      responses:
+        '200':
+          description: Invite accepted — user joined project
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      inviteId:
+                        type: string
+                      projectId:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workspace/invites/{inviteId}/decline:
+    post:
+      tags: [Workspace]
+      summary: Decline a workspace invite
+      operationId: declineWorkspaceInvite
+      parameters:
+        - $ref: '#/components/parameters/inviteId'
+      responses:
+        '200':
+          description: Invite declined
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      inviteId:
+                        type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /workspace/notifications:
+    get:
+      tags: [Workspace]
+      summary: Get all notifications
+      operationId: getWorkspaceNotifications
+      responses:
+        '200':
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /workspace/activity:
+    get:
+      tags: [Workspace, Activity]
+      summary: Get full workspace activity stream
+      operationId: getWorkspaceActivity
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [Artifacts, Tasks, Feedback, Comments]
+        - name: projectId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity stream
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ActivityItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /workspace/dashboard-activity:
+    get:
+      tags: [Workspace, Activity]
+      summary: Get compact dashboard activity feed
+      operationId: getWorkspaceDashboardActivity
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Dashboard activity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DashboardActivity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /workspace/account:
+    get:
+      tags: [Workspace]
+      summary: Get account settings
+      operationId: getAccountSettings
+      responses:
+        '200':
+          description: Account settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/AccountSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags: [Workspace]
+      summary: Update account settings
+      operationId: updateAccountSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [settings]
+              properties:
+                settings:
+                  $ref: '#/components/schemas/AccountSettings'
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      updatedAt:
+                        type: string
+                        format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /workspace/docs:
+    get:
+      tags: [Workspace]
+      summary: Get documentation sections
+      operationId: getDocsSections
+      responses:
+        '200':
+          description: Documentation sections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      sections:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Project ─────────────────────────────────────────────────────────
+
+  /projects/{projectId}/dashboard:
+    get:
+      tags: [Project]
+      summary: Get project dashboard
+      operationId: getProjectDashboard
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Project dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      project:
+                        $ref: '#/components/schemas/ProjectInfo'
+                      me:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          name:
+                            type: string
+                          initials:
+                            type: string
+                      events:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DashboardEvent'
+                      activity:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProjectActivity'
+                      recentEdits:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/RecentEdit'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/access:
+    get:
+      tags: [Project]
+      summary: Get current user's role and permissions
+      operationId: getProjectAccess
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Access info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/WorkspaceUser'
+                      role:
+                        $ref: '#/components/schemas/ProjectRole'
+                      permissions:
+                        $ref: '#/components/schemas/EffectivePermissions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /projects/{projectId}/sidebar:
+    get:
+      tags: [Project]
+      summary: Get sidebar navigation data
+      operationId: getProjectSidebar
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Sidebar data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/WorkspaceUser'
+                      projects:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProjectSidebarItem'
+                      artifacts:
+                        $ref: '#/components/schemas/SidebarArtifacts'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/settings:
+    get:
+      tags: [Project]
+      summary: Get project settings
+      operationId: getProjectSettings
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Project settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/ProjectSettings'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Project]
+      summary: Update project settings
+      operationId: updateProjectSettings
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [settings]
+              properties:
+                settings:
+                  $ref: '#/components/schemas/ProjectSettings'
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      projectId:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/archive:
+    post:
+      tags: [Project]
+      summary: Archive a project
+      operationId: archiveProject
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Project archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      projectId:
+                        type: string
+                      status:
+                        type: string
+                        enum: [Archived]
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /projects/{projectId}:
+    delete:
+      tags: [Project]
+      summary: Permanently delete a project
+      operationId: deleteProject
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Project deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      projectId:
+                        type: string
+                      status:
+                        type: string
+                        enum: [Deleted]
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Team Management ────────────────────────────────────────────────
+
+  /projects/{projectId}/team/members:
+    get:
+      tags: [Team]
+      summary: List all team members and pending invites
+      operationId: getTeamMembers
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Members and invites
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      members:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TeamMember'
+                      invites:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PendingInvite'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/team/roles:
+    get:
+      tags: [Team]
+      summary: Get full role permission matrix
+      operationId: getTeamRoles
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Role permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/RolePermissionMap'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/team/invites:
+    post:
+      tags: [Team]
+      summary: Send a team invitation
+      operationId: createTeamInvite
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  $ref: '#/components/schemas/ProjectRole'
+      responses:
+        '201':
+          description: Invite sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/PendingInvite'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /projects/{projectId}/team/invites/batch:
+    post:
+      tags: [Team]
+      summary: Batch-send team invitations (used during project creation)
+      operationId: batchCreateTeamInvites
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invites]
+              properties:
+                invites:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [email, role]
+                    properties:
+                      email:
+                        type: string
+                        format: email
+                      role:
+                        $ref: '#/components/schemas/ProjectRole'
+      responses:
+        '201':
+          description: All invitations sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      projectId:
+                        type: string
+                      invited:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            email:
+                              type: string
+                              format: email
+                            role:
+                              $ref: '#/components/schemas/ProjectRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/team/invites/{email}:
+    delete:
+      tags: [Team]
+      summary: Cancel a pending invite
+      operationId: cancelTeamInvite
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          description: Email of the invited user
+      responses:
+        '200':
+          description: Invite cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/team/members/{memberId}/role:
+    put:
+      tags: [Team]
+      summary: Update a member's role
+      operationId: updateMemberRole
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/memberId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [Admin, Editor, Member, Viewer, Limited Access]
+                  description: Cannot assign Owner role
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      memberId:
+                        type: string
+                      role:
+                        $ref: '#/components/schemas/ProjectRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/team/roles/{role}/permissions:
+    put:
+      tags: [Team]
+      summary: Update role permission matrix
+      operationId: updateRolePermissions
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [Admin, Editor, Member, Viewer, Limited Access]
+          description: Role to update (Owner cannot be modified)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permissions]
+              properties:
+                permissions:
+                  $ref: '#/components/schemas/EffectivePermissions'
+      responses:
+        '200':
+          description: Permissions updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      role:
+                        $ref: '#/components/schemas/ProjectRole'
+                      permissions:
+                        $ref: '#/components/schemas/EffectivePermissions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Stories ─────────────────────────────────────────────────────────
+
+  /projects/{projectId}/stories:
+    get:
+      tags: [Stories]
+      summary: List all user stories
+      operationId: getStories
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/StoryStatus'
+        - $ref: '#/components/parameters/offsetParam'
+        - $ref: '#/components/parameters/limitParam'
+      responses:
+        '200':
+          description: Story list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StoryRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Stories]
+      summary: Create a new user story
+      operationId: createStory
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Story created with draft template
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/StoryRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/stories/{slug}:
+    get:
+      tags: [Stories]
+      summary: Get full story detail view
+      operationId: getStoryDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Story with detail, add-on catalog, and references
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      story:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          title:
+                            type: string
+                          status:
+                            $ref: '#/components/schemas/StoryStatus'
+                          owner:
+                            type: string
+                          lastUpdated:
+                            type: string
+                      detail:
+                        $ref: '#/components/schemas/StoryDetail'
+                      addOnCatalog:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AddOnCatalogItem'
+                      addOnSections:
+                        type: array
+                        items:
+                          type: object
+                      reference:
+                        type: object
+                        properties:
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/stories/{storyId}:
+    put:
+      tags: [Stories]
+      summary: Update a story (partial update)
+      operationId: updateStory
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: storyId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [story]
+              properties:
+                story:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    status:
+                      $ref: '#/components/schemas/StoryStatus'
+                    persona:
+                      $ref: '#/components/schemas/Persona'
+                    context:
+                      type: string
+                    empathyMap:
+                      $ref: '#/components/schemas/EmpathyMap'
+                    painPoints:
+                      type: array
+                      items:
+                        type: string
+                    hypothesis:
+                      type: array
+                      items:
+                        type: string
+                    notes:
+                      type: string
+      responses:
+        '200':
+          description: Story updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/StoryRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Journeys ────────────────────────────────────────────────────────
+
+  /projects/{projectId}/journeys:
+    get:
+      tags: [Journeys]
+      summary: List all journeys
+      operationId: getJourneys
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/JourneyStatus'
+        - $ref: '#/components/parameters/offsetParam'
+        - $ref: '#/components/parameters/limitParam'
+      responses:
+        '200':
+          description: Journey list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JourneyRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Journeys]
+      summary: Create a new journey
+      operationId: createJourney
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Journey created with default stages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/JourneyRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/journeys/{slug}:
+    get:
+      tags: [Journeys]
+      summary: Get full journey detail view
+      operationId: getJourneyDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Journey with stages, emotions, and references
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      journey:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          title:
+                            type: string
+                          status:
+                            $ref: '#/components/schemas/JourneyStatus'
+                          owner:
+                            type: string
+                          lastUpdated:
+                            type: string
+                      detail:
+                        $ref: '#/components/schemas/JourneyDetail'
+                      emotionOptions:
+                        type: array
+                        items:
+                          type: string
+                      reference:
+                        type: object
+                        properties:
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/journeys/{journeyId}:
+    put:
+      tags: [Journeys]
+      summary: Update a journey (partial update)
+      operationId: updateJourney
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: journeyId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [journey]
+              properties:
+                journey:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    status:
+                      $ref: '#/components/schemas/JourneyStatus'
+                    persona:
+                      $ref: '#/components/schemas/Persona'
+                    context:
+                      type: string
+                    stages:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/JourneyStage'
+                    notes:
+                      type: string
+      responses:
+        '200':
+          description: Journey updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/JourneyRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Problem Statements ──────────────────────────────────────────────
+
+  /projects/{projectId}/problems:
+    get:
+      tags: [Problems]
+      summary: List all problem statements
+      operationId: getProblems
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ProblemStatus'
+        - $ref: '#/components/parameters/offsetParam'
+        - $ref: '#/components/parameters/limitParam'
+      responses:
+        '200':
+          description: Problem list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProblemRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Problems]
+      summary: Create a new problem statement
+      operationId: createProblem
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [statement]
+              properties:
+                statement:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Problem created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/ProblemRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/problems/{slug}:
+    get:
+      tags: [Problems]
+      summary: Get full problem statement detail view
+      operationId: getProblemDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Problem with detail, sources, pain points, and references
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      problem:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          statement:
+                            type: string
+                          status:
+                            $ref: '#/components/schemas/ProblemStatus'
+                          owner:
+                            type: string
+                          lastUpdated:
+                            type: string
+                      detail:
+                        $ref: '#/components/schemas/ProblemDetail'
+                      reference:
+                        type: object
+                        properties:
+                          storyOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          journeyOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          sourcePainPoints:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/SourcePainPoint'
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/problems/{problemId}:
+    put:
+      tags: [Problems]
+      summary: Update a problem statement (partial update)
+      operationId: updateProblem
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: problemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    finalStatement:
+                      type: string
+                    selectedPainPoints:
+                      type: array
+                      items:
+                        type: string
+                    linkedSources:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/LinkedSource'
+                    activeModules:
+                      type: array
+                      items:
+                        type: string
+                    moduleContent:
+                      type: object
+                    notes:
+                      type: string
+                    status:
+                      $ref: '#/components/schemas/ProblemStatus'
+      responses:
+        '200':
+          description: Problem updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/ProblemRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/problems/{problemId}/lock:
+    post:
+      tags: [Problems]
+      summary: Quick-lock a problem statement (Draft to Locked)
+      operationId: lockProblem
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: problemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Problem locked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      statement:
+                        type: string
+                      status:
+                        type: string
+                        enum: [Locked]
+                      lastUpdated:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/problems/{problemId}/status:
+    put:
+      tags: [Problems]
+      summary: Change problem statement status
+      operationId: updateProblemStatus
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: problemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/ProblemStatus'
+      responses:
+        '200':
+          description: Status changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      status:
+                        $ref: '#/components/schemas/ProblemStatus'
+                      lastUpdated:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Ideas ───────────────────────────────────────────────────────────
+
+  /projects/{projectId}/ideas:
+    get:
+      tags: [Ideas]
+      summary: List all ideas
+      operationId: getIdeas
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/IdeaStatus'
+        - $ref: '#/components/parameters/offsetParam'
+        - $ref: '#/components/parameters/limitParam'
+      responses:
+        '200':
+          description: Idea list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IdeaRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Ideas]
+      summary: Create a new idea
+      operationId: createIdea
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Idea created in Considered status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/IdeaRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/ideas/{slug}:
+    get:
+      tags: [Ideas]
+      summary: Get full idea detail view
+      operationId: getIdeaDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Idea with detail, problem link, personas, and references
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      idea:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          title:
+                            type: string
+                          status:
+                            $ref: '#/components/schemas/IdeaStatus'
+                          owner:
+                            type: string
+                          lastUpdated:
+                            type: string
+                      detail:
+                        $ref: '#/components/schemas/IdeaDetail'
+                      reference:
+                        type: object
+                        properties:
+                          problemOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          linkedStories:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          derivedPersonas:
+                            type: array
+                            items:
+                              type: string
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/ideas/{ideaId}:
+    put:
+      tags: [Ideas]
+      summary: Update an idea (partial update)
+      operationId: updateIdea
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: ideaId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: object
+                  properties:
+                    description:
+                      type: string
+                    summary:
+                      type: string
+                    selectedProblemId:
+                      type: string
+                    notes:
+                      type: string
+                    activeModules:
+                      type: array
+                      items:
+                        type: string
+                    moduleContent:
+                      type: object
+      responses:
+        '200':
+          description: Idea updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/IdeaRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/ideas/{ideaId}/select:
+    post:
+      tags: [Ideas]
+      summary: Quick-select an idea (requires linked problem to be Locked)
+      operationId: selectIdea
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: ideaId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Idea selected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      status:
+                        type: string
+                        enum: [Selected]
+                      lastUpdated:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/ideas/{ideaId}/status:
+    put:
+      tags: [Ideas]
+      summary: Change idea status
+      operationId: updateIdeaStatus
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: ideaId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/IdeaStatus'
+      responses:
+        '200':
+          description: Status changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      status:
+                        $ref: '#/components/schemas/IdeaStatus'
+                      lastUpdated:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Tasks ──────────────────────────────────────────────────────────
+
+  /projects/{projectId}/tasks:
+    get:
+      tags: [Tasks]
+      summary: List all tasks
+      operationId: getTasks
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+        - $ref: '#/components/parameters/offsetParam'
+        - $ref: '#/components/parameters/limitParam'
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaskRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Tasks]
+      summary: Create a new task
+      operationId: createTask
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Task created in Planned status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/TaskRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/tasks/{slug}:
+    get:
+      tags: [Tasks]
+      summary: Get full task detail view
+      operationId: getTaskDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Task with detail, idea link, assignees, and references
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      task:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          title:
+                            type: string
+                          status:
+                            $ref: '#/components/schemas/TaskStatus'
+                          owner:
+                            type: string
+                          lastUpdated:
+                            type: string
+                      detail:
+                        $ref: '#/components/schemas/TaskDetail'
+                      reference:
+                        type: object
+                        properties:
+                          ideaOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/IdeaReferenceOption'
+                          assigneeOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/AssigneeOption'
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/tasks/{taskId}:
+    put:
+      tags: [Tasks]
+      summary: Update a task (partial update)
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: object
+                  properties:
+                    assignedToId:
+                      type: string
+                    selectedIdeaId:
+                      type: string
+                    deadline:
+                      type: string
+                      format: date
+                    hypothesis:
+                      type: string
+                    planItems:
+                      type: array
+                      items:
+                        type: string
+                    executionLinks:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ExecutionLink'
+                    notes:
+                      type: string
+                    activeModules:
+                      type: array
+                      items:
+                        type: string
+                    abandonReason:
+                      type: string
+      responses:
+        '200':
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/TaskRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/tasks/{taskId}/status:
+    put:
+      tags: [Tasks]
+      summary: Change task status
+      operationId: updateTaskStatus
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/TaskStatus'
+                abandonReason:
+                  type: string
+                  description: Required when status is Abandoned
+      responses:
+        '200':
+          description: Status changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      status:
+                        $ref: '#/components/schemas/TaskStatus'
+                      lastUpdated:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Feedback ───────────────────────────────────────────────────────
+
+  /projects/{projectId}/feedback:
+    get:
+      tags: [Feedback]
+      summary: List all feedback entries
+      operationId: getFeedback
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: outcome
+          in: query
+          schema:
+            $ref: '#/components/schemas/FeedbackOutcome'
+        - $ref: '#/components/parameters/offsetParam'
+        - $ref: '#/components/parameters/limitParam'
+      responses:
+        '200':
+          description: Feedback list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeedbackRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Feedback]
+      summary: Create a new feedback entry
+      operationId: createFeedback
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Feedback created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/FeedbackRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/feedback/{slug}:
+    get:
+      tags: [Feedback]
+      summary: Get full feedback detail view
+      operationId: getFeedbackDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Feedback with detail, linked artifacts, and references
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      feedback:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          title:
+                            type: string
+                          outcome:
+                            $ref: '#/components/schemas/FeedbackOutcome'
+                          owner:
+                            type: string
+                          createdDate:
+                            type: string
+                      detail:
+                        $ref: '#/components/schemas/FeedbackDetail'
+                      reference:
+                        type: object
+                        properties:
+                          taskOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          ideaOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          problemOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/feedback/{feedbackId}:
+    put:
+      tags: [Feedback]
+      summary: Update a feedback entry (partial update)
+      operationId: updateFeedback
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: feedbackId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: object
+                  properties:
+                    description:
+                      type: string
+                    outcome:
+                      $ref: '#/components/schemas/FeedbackOutcome'
+                    linkedArtifacts:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/FeedbackLinkedArtifact'
+                    activeModules:
+                      type: array
+                      items:
+                        type: string
+                    moduleContent:
+                      type: object
+                    notes:
+                      type: string
+      responses:
+        '200':
+          description: Feedback updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/FeedbackRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Resources ──────────────────────────────────────────────────────
+
+  /projects/{projectId}/resources:
+    get:
+      tags: [Resources]
+      summary: List all resources
+      operationId: getResources
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ResourceStatus'
+        - $ref: '#/components/parameters/offsetParam'
+        - $ref: '#/components/parameters/limitParam'
+      responses:
+        '200':
+          description: Resource list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ResourceRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Resources]
+      summary: Upload a new resource
+      operationId: createResource
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, fileType, docType]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                fileType:
+                  type: string
+                docType:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/ResourceRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/resources/{resourceId}:
+    get:
+      tags: [Resources]
+      summary: Get full resource detail view
+      operationId: getResourceDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/resourceId'
+      responses:
+        '200':
+          description: Resource with detail, linked artifacts, and versions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      resource:
+                        $ref: '#/components/schemas/ResourceDetail'
+                      reference:
+                        type: object
+                        properties:
+                          artifactOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Resources]
+      summary: Update a resource (partial update)
+      operationId: updateResource
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/resourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource]
+              properties:
+                resource:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    linkedArtifacts:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ResourceLinkedArtifact'
+                    notes:
+                      type: string
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/ResourceRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/resources/{resourceId}/status:
+    put:
+      tags: [Resources]
+      summary: Change resource status
+      operationId: updateResourceStatus
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/resourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/ResourceStatus'
+      responses:
+        '200':
+          description: Status changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      status:
+                        $ref: '#/components/schemas/ResourceStatus'
+                      lastUpdated:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Pages ──────────────────────────────────────────────────────────
+
+  /projects/{projectId}/pages:
+    get:
+      tags: [Pages]
+      summary: List all pages
+      operationId: getPages
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PageStatus'
+        - $ref: '#/components/parameters/offsetParam'
+        - $ref: '#/components/parameters/limitParam'
+      responses:
+        '200':
+          description: Page list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PageRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Pages]
+      summary: Create a new page
+      operationId: createPage
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Page created with default Document view
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/PageRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/pages/{slug}:
+    get:
+      tags: [Pages]
+      summary: Get full page editor view
+      operationId: getPageDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: Page with document body, views, table data, and references
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      page:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          title:
+                            type: string
+                          status:
+                            $ref: '#/components/schemas/PageStatus'
+                          owner:
+                            type: string
+                          lastEdited:
+                            type: string
+                      detail:
+                        $ref: '#/components/schemas/PageDetail'
+                      reference:
+                        type: object
+                        properties:
+                          artifactOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/pages/{pageId}:
+    put:
+      tags: [Pages]
+      summary: Update page content (partial update)
+      operationId: updatePage
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/pageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: object
+                  properties:
+                    description:
+                      type: string
+                    tags:
+                      type: array
+                      items:
+                        type: string
+                    linkedArtifacts:
+                      type: array
+                      items:
+                        type: string
+                    docHeading:
+                      type: string
+                    docBody:
+                      type: string
+                    views:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PageView'
+                    activeViewId:
+                      type: string
+                    tableData:
+                      type: array
+                      items:
+                        type: object
+      responses:
+        '200':
+          description: Page updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/PageRow'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/pages/{pageId}/rename:
+    put:
+      tags: [Pages]
+      summary: Rename a page
+      operationId: renamePage
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/pageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: Page renamed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Calendar ───────────────────────────────────────────────────────
+
+  /projects/{projectId}/calendar:
+    get:
+      tags: [Calendar]
+      summary: Get all calendar events for a project
+      operationId: getCalendarEvents
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: month
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+          description: Month filter (1-12)
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: Year filter
+        - name: phase
+          in: query
+          schema:
+            $ref: '#/components/schemas/CalendarPhase'
+      responses:
+        '200':
+          description: Calendar event list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CalendarEvent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Calendar]
+      summary: Create a manual calendar event
+      operationId: createCalendarEvent
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, start]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                start:
+                  type: string
+                  format: date
+                end:
+                  type: string
+                  format: date
+                startTime:
+                  type: string
+                  pattern: '^\d{2}:\d{2}$'
+                endTime:
+                  type: string
+                  pattern: '^\d{2}:\d{2}$'
+                allDay:
+                  type: boolean
+                  default: true
+                phase:
+                  $ref: '#/components/schemas/CalendarPhase'
+                description:
+                  type: string
+                location:
+                  type: string
+                eventKind:
+                  type: string
+                linkedArtifacts:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Calendar event created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/CalendarEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/calendar/{eventId}:
+    get:
+      tags: [Calendar]
+      summary: Get calendar event detail
+      operationId: getCalendarEventDetail
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '200':
+          description: Calendar event detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      event:
+                        $ref: '#/components/schemas/CalendarEvent'
+                      reference:
+                        type: object
+                        properties:
+                          artifactOptions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ReferenceOption'
+                          permissions:
+                            $ref: '#/components/schemas/EffectivePermissions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Calendar]
+      summary: Update a calendar event
+      operationId: updateCalendarEvent
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/eventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event]
+              properties:
+                event:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    start:
+                      type: string
+                      format: date
+                    end:
+                      type: string
+                      format: date
+                    startTime:
+                      type: string
+                      pattern: '^\d{2}:\d{2}$'
+                    endTime:
+                      type: string
+                      pattern: '^\d{2}:\d{2}$'
+                    allDay:
+                      type: boolean
+                    phase:
+                      $ref: '#/components/schemas/CalendarPhase'
+                    description:
+                      type: string
+                    location:
+                      type: string
+                    eventKind:
+                      type: string
+                    linkedArtifacts:
+                      type: array
+                      items:
+                        type: string
+                    tags:
+                      type: array
+                      items:
+                        type: string
+      responses:
+        '200':
+          description: Calendar event updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    $ref: '#/components/schemas/CalendarEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Calendar]
+      summary: Delete a calendar event (manual events only)
+      operationId: deleteCalendarEvent
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '200':
+          description: Calendar event deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      eventId:
+                        type: string
+                      status:
+                        type: string
+                        enum: [Deleted]
+        '400':
+          description: Cannot delete derived events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Sidebar Artifacts ──────────────────────────────────────────────
+
+  /projects/{projectId}/sidebar/artifacts:
+    post:
+      tags: [Sidebar]
+      summary: Quick-create an artifact from sidebar
+      operationId: createSidebarArtifact
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prefix, title]
+              properties:
+                prefix:
+                  $ref: '#/components/schemas/SidebarPrefix'
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: Artifact created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+                      prefix:
+                        $ref: '#/components/schemas/SidebarPrefix'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/sidebar/artifacts/{artifactId}/rename:
+    put:
+      tags: [Sidebar]
+      summary: Rename an artifact from sidebar
+      operationId: renameSidebarArtifact
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/artifactId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prefix, title]
+              properties:
+                prefix:
+                  $ref: '#/components/schemas/SidebarPrefix'
+                title:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: Artifact renamed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /projects/{projectId}/sidebar/artifacts/{artifactId}:
+    delete:
+      tags: [Sidebar]
+      summary: Delete an artifact from sidebar
+      operationId: deleteSidebarArtifact
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - $ref: '#/components/parameters/artifactId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prefix]
+              properties:
+                prefix:
+                  $ref: '#/components/schemas/SidebarPrefix'
+      responses:
+        '200':
+          description: Artifact deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      status:
+                        type: string
+                        enum: [Deleted]
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Activity ───────────────────────────────────────────────────────
+
+  /projects/{projectId}/activity:
+    get:
+      tags: [Activity]
+      summary: Get project activity stream
+      operationId: getProjectActivity
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [Artifacts, Tasks, Feedback, Comments]
+      responses:
+        '200':
+          description: Project activity stream
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectActivity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
