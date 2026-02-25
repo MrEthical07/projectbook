@@ -87,7 +87,7 @@ declare global {
 	type ProblemStatus = "Draft" | "Locked" | "Archived";
 	type IdeaStatus = "Considered" | "Selected" | "Rejected" | "Archived";
 	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned" | "Blocked";
-	type FeedbackOutcome = "Validated" | "Invalidated" | "Needs Iteration" | "Resolved" | "Open";
+	type FeedbackOutcome = "Validated" | "Invalidated" | "Needs Iteration";
 	type PageStatus = "Draft" | "Archived";
 	type ResourceStatus = "Active" | "Archived";
 	type CalendarEventType = "Derived" | "Manual";
@@ -217,6 +217,7 @@ declare global {
 		linkedArtifacts?: string[];
 		tags?: string[];
 		createdAt: string;
+		lastEdited?: string;
 	}
 
 	// Shared project model types.
@@ -230,7 +231,7 @@ declare global {
 		id: string;
 		name: string;
 		initials: string;
-		role?: "Owner" | "Admin" | "Member" | "Viewer" | "Limited Access";
+		role?: "Owner" | "Admin" | "Editor" | "Member" | "Viewer" | "Limited Access";
 		email?: string;
 	}
 
@@ -261,7 +262,7 @@ declare global {
 		name: string;
 		email: string;
 		role: ProjectRole;
-		status: "active" | "invited" | "Active" | "Invited";
+		status: "Active" | "Invited";
 		joinedAt?: string;
 		updatedAt?: string;
 		joinedDate?: string;
@@ -290,7 +291,7 @@ declare global {
 		organization: string;
 		icon: ProjectIconKey;
 		description?: string;
-		role: "Owner" | "Admin" | "Member" | "Viewer" | "Limited Access";
+		role: "Owner" | "Admin" | "Editor" | "Member" | "Viewer" | "Limited Access";
 		openTasks?: number;
 		lastVisitedAt?: string;
 		lastUpdatedAt: string;
@@ -322,7 +323,6 @@ declare global {
 		project?: string;
 		sourceType?: "Project Activity" | "Project Invitation" | "System Notification";
 		read?: boolean;
-		unread?: boolean;
 		timestamp: string;
 		url?: string;
 		inviter?: string;
