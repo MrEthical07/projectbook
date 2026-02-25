@@ -22,10 +22,18 @@
 	import { updateTask as updateTaskRemote, updateTaskStatus as updateTaskStatusRemote } from "$lib/remote/task.remote";
 	import { can } from "$lib/utils/permission";
 	import { page } from "$app/state";
-	import { getContext, onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, untrack } from "svelte";
+	import { toast } from "svelte-sonner";
 
-	const projectId = page.params.projectId;
-	const taskId = page.params.slug;
+	let { data } = $props();
+	const required = <T>(value: T | null | undefined, field: string): T => {
+		if (value === undefined || value === null) {
+			throw new Error(`Task payload is missing '${field}'.`);
+		}
+		return value;
+	};
+	let projectId = $derived(page.params.projectId);
+	let taskId = $derived(page.params.slug);
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canChangeTaskStatus = can(permissions, "task", "statusChange");
@@ -67,20 +75,12 @@
 		role: string;
 	};
 
-	let { data } = $props();
-	const required = <T>(value: T | null | undefined, field: string): T => {
-		if (value === undefined || value === null) {
-			throw new Error(`Task payload is missing '${field}'.`);
-		}
-		return value;
-	};
 	const initialTask = required(data.task as Record<string, unknown> | undefined, "task");
 	const statusOptions: TaskStatus[] = ["Planned", "In Progress", "Completed", "Abandoned"];
 
-	const assigneeOptions: AssigneeOption[] = (() =>
-		structuredClone(data.assigneeOptions) as AssigneeOption[])();
+	let assigneeOptions = $state<AssigneeOption[]>(structuredClone(data.assigneeOptions) as AssigneeOption[]);
 
-	const ideaOptions: LinkedIdea[] = (() => structuredClone(data.ideaOptions) as LinkedIdea[])();
+	let ideaOptions = $state<LinkedIdea[]>(structuredClone(data.ideaOptions) as LinkedIdea[]);
 
 	const moduleDetails: Record<OptionalModuleKey, { title: string; placeholder?: string }> = {
 		plan: {
@@ -187,6 +187,21 @@
 	);
 	let savedSignature = $state("");
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+	let saveIndicator = $derived.by(() => {
+		if (savePhase === "saving") {
+			return "saving";
+		}
+
+		if (isDirty) {
+			return "edited";
+		}
+
+		if (savePhase === "saved") {
+			return "saved";
+		}
+
+		return "idle";
+	});
 
 	const isReadOnly = (currentStatus: TaskStatus) =>
 		!canEditTask || currentStatus === "Completed" || currentStatus === "Abandoned";
@@ -269,10 +284,14 @@
 			},
 			permissions
 		});
-		if (!result.success) return;
+		if (!result.success) {
+			toast.error("error" in result ? result.error : "Status change failed.");
+			return;
+		}
 		status = nextStatus;
 		savedSignature = currentSignature;
 		statusDialogOpen = false;
+		toast.success("Status changed");
 	};
 
 	const triggerSave = async () => {
@@ -309,11 +328,13 @@
 		});
 		if (!result.success) {
 			savePhase = "idle";
+			toast.error("error" in result ? result.error : "Save failed.");
 			return;
 		}
 
 		savedSignature = currentSignature;
 		savePhase = "saved";
+		toast.success("Changes saved");
 		savedBadgeTimer = setTimeout(() => {
 			if (!isDirty) {
 				savePhase = "idle";
@@ -321,9 +342,62 @@
 		}, 1400);
 	};
 
-	onMount(() => {
-		savedSignature = currentSignature;
-		saveReady = true;
+	$effect(() => {
+		const d = data;
+		untrack(() => {
+			const task = required(d.task as Record<string, unknown> | undefined, "task");
+			assigneeOptions = structuredClone(d.assigneeOptions) as AssigneeOption[];
+			ideaOptions = structuredClone(d.ideaOptions) as LinkedIdea[];
+
+			status = required(task.status as TaskStatus | undefined, "task.status");
+			title = required(task.title as string | undefined, "task.title");
+			assignedToId = "assignedToId" in task ? String(task.assignedToId) : "";
+			deadlineDate = (() => {
+				const raw = String(required(task.deadline as string | undefined, "task.deadline")).trim();
+				if (!raw) return undefined;
+				try {
+					return parseDate(raw);
+				} catch {
+					return undefined;
+				}
+			})();
+			hypothesis = "hypothesis" in task ? String(task.hypothesis) : "";
+			selectedIdeaId = "selectedIdeaId" in task ? String(task.selectedIdeaId) : "";
+			planItems = Array.isArray(task.planItems) && task.planItems.length
+				? (structuredClone(task.planItems) as unknown[]).map((item) => String(item))
+				: [""];
+			executionLinks = Array.isArray(task.executionLinks) && task.executionLinks.length
+				? (structuredClone(task.executionLinks) as unknown[]).map((item) => String(item))
+				: [""];
+			notesText = "notesText" in task ? String(task.notesText) : "";
+			activeModules = Array.isArray(task.activeModules) && task.activeModules.length
+				? (structuredClone(task.activeModules) as OptionalModuleKey[])
+				: ["plan", "execution"];
+			abandonReason = "abandonReason" in task ? String(task.abandonReason) : "";
+			hasFeedback = Boolean(required(task.hasFeedback as boolean | undefined, "task.hasFeedback"));
+
+			addSectionOpen = false;
+			statusDialogOpen = false;
+			metadataOpen = false;
+			planDragIndex = null;
+			savePhase = "idle";
+
+			savedSignature = JSON.stringify({
+				title,
+				status,
+				assignedToId,
+				selectedIdeaId,
+				deadline: normalizedDeadline(deadlineDate),
+				hypothesis,
+				planItems,
+				executionLinks,
+				notesText,
+				activeModules,
+				abandonReason,
+				hasFeedback
+			});
+			saveReady = true;
+		});
 	});
 
 	onDestroy(() => {
@@ -336,6 +410,7 @@
 	});
 </script>
 
+{#key page.params.slug}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -377,6 +452,11 @@
 				<div class="flex flex-wrap items-center gap-3">
 					<div class="flex flex-col gap-2 min-w-55">
 						<Label class="text-muted-foreground" for="assigned-to">Assigned to</Label>
+						{#if assigneeOptions.length === 0}
+							<div class="text-sm text-muted-foreground border border-dashed border-border rounded-lg p-3 text-center">
+								No team members available.
+							</div>
+						{:else}
 						<Select.Root
 							type="single"
 							bind:value={assignedToId}
@@ -393,6 +473,7 @@
 								{/each}
 							</Select.Content>
 						</Select.Root>
+						{/if}
 					</div>
 					<div class="flex flex-col gap-2 min-w-55">
 						<Label class="text-muted-foreground" for="task-deadline">Deadline</Label>
@@ -425,9 +506,15 @@
 					<div class="bg-accent px-2 py-1 w-fit rounded-lg text-sm font-medium">
 						{status.toUpperCase()}
 					</div>
-					{#if savePhase === "saved"}
-						<span class="text-xs text-emerald-600">Saved</span>
-					{/if}
+					<div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
+						{#if saveIndicator === "edited"}
+							<span class="text-amber-600">Edited</span>
+						{:else if saveIndicator === "saving"}
+							<span class="text-blue-600">Saving...</span>
+						{:else if saveIndicator === "saved"}
+							<span class="text-emerald-600">Saved</span>
+						{/if}
+					</div>
 					<Button
 						variant="outline"
 						size="sm"
@@ -450,6 +537,11 @@
 				</div>
 				<div class="flex flex-col gap-2 max-w-xl">
 					<Label class="text-muted-foreground" for="linked-idea">Linked idea</Label>
+					{#if ideaOptions.length === 0}
+						<div class="text-sm text-muted-foreground border border-dashed border-border rounded-lg p-4 text-center">
+							No ideas available to link.
+						</div>
+					{:else}
 					<Select.Root
 						type="single"
 						bind:value={selectedIdeaId}
@@ -466,6 +558,7 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
+					{/if}
 				</div>
 				{#if selectedIdea}
 					{#if selectedIdea.status === "Rejected"}
@@ -867,4 +960,4 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
-
+{/key}

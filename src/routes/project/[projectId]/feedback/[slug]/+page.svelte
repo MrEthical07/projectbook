@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, untrack } from "svelte";
 	import { page } from "$app/state";
 	import * as Alert from "$lib/components/ui/alert";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -15,6 +15,7 @@
 	import { ChevronDown, ExternalLink, Info, X } from "@lucide/svelte";
 	import { updateFeedback } from "$lib/remote/feedback.remote";
 	import { can } from "$lib/utils/permission";
+	import { toast } from "svelte-sonner";
 
 	type OutcomeStatus = "Validated" | "Invalidated" | "Needs Iteration";
 	type PageStatus = OutcomeStatus | "Archived";
@@ -38,16 +39,16 @@
 		}
 		return value;
 	};
-	const projectId = page.params.projectId;
-	const feedbackId = page.params.slug;
+	let projectId = $derived(page.params.projectId);
+	let feedbackId = $derived(page.params.slug);
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditFeedback = can(permissions, "feedback", "edit");
-	const taskOptions: LinkedArtifact[] = structuredClone(data.taskOptions) as LinkedArtifact[];
+	let taskOptions = $state<LinkedArtifact[]>(structuredClone(data.taskOptions) as LinkedArtifact[]);
 
-	const ideaOptions: LinkedArtifact[] = structuredClone(data.ideaOptions) as LinkedArtifact[];
+	let ideaOptions = $state<LinkedArtifact[]>(structuredClone(data.ideaOptions) as LinkedArtifact[]);
 
-	const problemOptions: LinkedArtifact[] = structuredClone(data.problemOptions) as LinkedArtifact[];
+	let problemOptions = $state<LinkedArtifact[]>(structuredClone(data.problemOptions) as LinkedArtifact[]);
 
 	const optionalModules: OptionalModuleKey[] = ["evidence", "nextSteps"];
 
@@ -215,7 +216,7 @@ let metadataOpen = $state(false);
 		statusConfirmOpen = true;
 	};
 
-	const confirmOutcomeChange = () => {
+	const confirmOutcomeChange = async () => {
 		if (!pendingOutcome) {
 			return;
 		}
@@ -223,6 +224,7 @@ let metadataOpen = $state(false);
 		outcome = pendingOutcome;
 		pendingOutcome = null;
 		statusConfirmOpen = false;
+		await triggerSave();
 	};
 
 	const triggerSave = async () => {
@@ -262,10 +264,12 @@ let metadataOpen = $state(false);
 		});
 		if (!result.success) {
 			savePhase = "idle";
+			toast.error("Failed to save changes");
 			return;
 		}
 		savedSignature = currentSignature;
 		savePhase = "saved";
+		toast.success("Changes saved");
 		savedBadgeTimer = setTimeout(() => {
 			if (!isDirty) {
 				savePhase = "idle";
@@ -283,12 +287,59 @@ let metadataOpen = $state(false);
 		}
 	});
 
-	onMount(() => {
-		savedSignature = currentSignature;
-		saveReady = true;
+	$effect(() => {
+		const d = data;
+		untrack(() => {
+			taskOptions = structuredClone(d.taskOptions) as LinkedArtifact[];
+			ideaOptions = structuredClone(d.ideaOptions) as LinkedArtifact[];
+			problemOptions = structuredClone(d.problemOptions) as LinkedArtifact[];
+
+			title = required(d.feedback.title, "feedback.title");
+			outcome = required(d.feedback.outcome as OutcomeStatus, "feedback.outcome");
+			isArchived = Boolean(required(d.isArchived, "isArchived"));
+			observation = required(d.observation, "observation");
+			interpretation = required(d.interpretation, "interpretation");
+			notesText = required(d.notesText, "notesText");
+
+			activeModules = (Array.isArray(d.activeModules)
+				? structuredClone(d.activeModules)
+				: []) as OptionalModuleKey[];
+			moduleOpen = { evidence: true, nextSteps: true };
+			evidenceText = required(d.evidenceText, "evidenceText");
+			evidenceLocked = Boolean(required(d.evidenceLocked, "evidenceLocked"));
+			nextStepsText = required(d.nextStepsText, "nextStepsText");
+
+			linkedArtifacts = (Array.isArray(d.linkedArtifacts)
+				? structuredClone(d.linkedArtifacts)
+				: []) as LinkedArtifact[];
+
+			selectedTaskId = "";
+			selectedIdeaId = "";
+			selectedProblemId = "";
+
+			savePhase = "idle";
+			pendingOutcome = null;
+			statusConfirmOpen = false;
+
+			savedSignature = JSON.stringify({
+				title,
+				outcome,
+				isArchived,
+				observation,
+				interpretation,
+				notesText,
+				linkedArtifacts,
+				activeModules,
+				evidenceText,
+				evidenceLocked,
+				nextStepsText,
+			});
+			saveReady = true;
+		});
 	});
 </script>
 
+{#key page.params.slug}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -350,6 +401,7 @@ let metadataOpen = $state(false);
 										class={buttonVariants()}
 										onclick={() => {
 											isArchived = false;
+											triggerSave();
 										}}
 									>
 										Unarchive
@@ -377,6 +429,7 @@ let metadataOpen = $state(false);
 										class={buttonVariants()}
 										onclick={() => {
 											isArchived = true;
+											triggerSave();
 										}}
 									>
 										Archive
@@ -413,11 +466,12 @@ let metadataOpen = $state(false);
 				</div>
 				<div class="grid gap-3">
 					<div class="grid gap-3 md:grid-cols-3">
-						<div class="flex flex-col gap-2">
+						<div class="flex flex-col gap-2 min-w-0">
 							<Label class="text-muted-foreground" for="link-task">Link Task</Label>
-							<div class="flex items-center gap-2">
+							<div class="flex items-center gap-2 min-w-0">
+								<div class="min-w-0 flex-1">
 								<Select.Root type="single" bind:value={selectedTaskId}>
-									<Select.Trigger class="w-full" id="link-task">
+									<Select.Trigger class="w-full truncate" id="link-task">
 										{selectedTaskId
 											? taskOptions.find((item) => item.id === selectedTaskId)?.title
 											: "Select task"}
@@ -430,16 +484,18 @@ let metadataOpen = $state(false);
 										{/each}
 									</Select.Content>
 								</Select.Root>
+								</div>
 								<Button variant="outline" size="sm" onclick={addTask} disabled={!selectedTaskId}>
 									Add
 								</Button>
 							</div>
 						</div>
-						<div class="flex flex-col gap-2">
+						<div class="flex flex-col gap-2 min-w-0">
 							<Label class="text-muted-foreground" for="link-idea">Link Idea</Label>
-							<div class="flex items-center gap-2">
+							<div class="flex items-center gap-2 min-w-0">
+								<div class="min-w-0 flex-1">
 								<Select.Root type="single" bind:value={selectedIdeaId}>
-									<Select.Trigger  class="w-full" id="link-idea">
+									<Select.Trigger class="w-full truncate" id="link-idea">
 										{selectedIdeaId
 											? ideaOptions.find((item) => item.id === selectedIdeaId)?.title
 											: "Select idea"}
@@ -452,16 +508,18 @@ let metadataOpen = $state(false);
 										{/each}
 									</Select.Content>
 								</Select.Root>
+								</div>
 								<Button variant="outline" size="sm" onclick={addIdea} disabled={!selectedIdeaId}>
 									Add
 								</Button>
 							</div>
 						</div>
-						<div class="flex flex-col gap-2">
+						<div class="flex flex-col gap-2 min-w-0">
 							<Label class="text-muted-foreground" for="link-problem">Link Problem</Label>
-							<div class="flex items-center gap-2">
+							<div class="flex items-center gap-2 min-w-0">
+								<div class="min-w-0 flex-1">
 								<Select.Root type="single" bind:value={selectedProblemId}>
-									<Select.Trigger  class="w-full" id="link-problem">
+									<Select.Trigger class="w-full truncate" id="link-problem">
 										{selectedProblemId
 											? problemOptions.find((item) => item.id === selectedProblemId)?.title
 											: "Select problem"}
@@ -474,6 +532,7 @@ let metadataOpen = $state(false);
 										{/each}
 									</Select.Content>
 								</Select.Root>
+								</div>
 								<Button
 									variant="outline"
 									size="sm"
@@ -798,9 +857,10 @@ let metadataOpen = $state(false);
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 				Cancel
 			</Dialog.Close>
-			<Dialog.Close class={buttonVariants()} onclick={confirmOutcomeChange}>
+			<Button onclick={confirmOutcomeChange}>
 				Confirm outcome
-			</Dialog.Close>
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
+{/key}

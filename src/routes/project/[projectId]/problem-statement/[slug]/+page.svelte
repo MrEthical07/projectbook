@@ -3,7 +3,8 @@
 	import { page } from "$app/state";
 	import { lockProblem, updateProblem, updateProblemStatus } from "$lib/remote/problem.remote";
 	import { can } from "$lib/utils/permission";
-	import { getContext, onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, untrack } from "svelte";
+	import { toast } from "svelte-sonner";
 	import * as Alert from "$lib/components/ui/alert";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -16,7 +17,7 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { ExternalLink, Info, X } from "@lucide/svelte";
+	import { Check, CircleX, ExternalLink, Info, X } from "@lucide/svelte";
 
 	type ProblemStatus = "Draft" | "Locked" | "Archived";
 
@@ -41,6 +42,13 @@
 		sourceLabel: string;
 	};
 
+	type SourceInsight = {
+		personas: Array<{ name: string; description: string }>;
+		context: string;
+		painPoints: Array<{ text: string; sourceLabel: string }>;
+		journeyPainPoints: Array<{ text: string; journeyName: string; stageName: string }>;
+	};
+
 	type OptionalModuleKey = "why" | "constraints" | "success" | "assumptions";
 
 	let { data } = $props();
@@ -50,16 +58,16 @@
 		}
 		return value;
 	};
-	const projectId = page.params.projectId;
-	const problemId = page.params.slug;
+	let projectId = $derived(page.params.projectId);
+	let problemId = $derived(page.params.slug);
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditProblem = can(permissions, "problem", "edit");
 	const canChangeProblemStatus = can(permissions, "problem", "statusChange");
 	const statusOptions: ProblemStatus[] = ["Draft", "Locked", "Archived"];
 
-	const storyOptions: SourceOption[] = structuredClone(data.storyOptions) as SourceOption[];
-	const journeyOptions: SourceOption[] = structuredClone(data.journeyOptions) as SourceOption[];
+	let storyOptions = $state<SourceOption[]>(structuredClone(data.storyOptions) as SourceOption[]);
+	let journeyOptions = $state<SourceOption[]>(structuredClone(data.journeyOptions) as SourceOption[]);
 	let linkedSources = $state<LinkedSource[]>(
 		(Array.isArray(data.linkedSources) && data.linkedSources.length > 0
 			? (structuredClone(data.linkedSources) as LinkedSource[])
@@ -78,7 +86,13 @@
 						: null
 				].filter(Boolean)) as LinkedSource[]
 	);
-	const sourcePainPoints: SourcePainPoint[] = structuredClone(data.sourcePainPoints) as SourcePainPoint[];
+	let sourcePainPoints = $state<SourcePainPoint[]>(structuredClone(data.sourcePainPoints) as SourcePainPoint[]);
+	let sourceInsights = $state<SourceInsight>((data.sourceInsights as SourceInsight) ?? {
+		personas: [],
+		context: "",
+		painPoints: [],
+		journeyPainPoints: []
+	});
 
 	const optionalModules: {
 		key: OptionalModuleKey;
@@ -114,7 +128,7 @@
 
 	let status = $state<ProblemStatus>(data.problem.status as ProblemStatus);
 	let title = $state(required(data.problem.title, "problem.title"));
-	let finalStatement = $state(required(data.problem.title, "problem.title"));
+	let finalStatement = $state(data.problem.finalStatement ?? data.problem.title ?? "");
 	let orphanAcknowledged = $state(false);
 	let selectedPainPoints = $state<string[]>(
 		Array.isArray(data.selectedPainPoints) ? (structuredClone(data.selectedPainPoints) as string[]) : []
@@ -155,6 +169,8 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const isDraft = (currentStatus: ProblemStatus) => currentStatus === "Draft";
+	let isLocked = $derived(status === "Locked" || status === "Archived");
+	let isNotEditable = $derived(isLocked || !canEditProblem);
 
 	let suggestedTitle = $derived(
 		isDraft(status) && !title ? finalStatement : title
@@ -230,8 +246,12 @@ let saveIndicator = $derived.by(() => {
 			},
 			permissions
 		});
-		if (!result.success) return;
+		if (!result.success) {
+			toast.error("error" in result ? result.error : "Lock failed.");
+			return;
+		}
 		status = "Locked";
+		toast.success("Problem statement locked");
 		await invalidateAll();
 	};
 
@@ -256,22 +276,27 @@ let availableJourneyOptions = $derived.by(() =>
 			return;
 		}
 
-		if (pendingStatus === "Locked" && !canLock()) {
+		const targetStatus = pendingStatus;
+
+		if (targetStatus === "Locked" && !canLock()) {
 			return;
 		}
-		if (pendingStatus === "Locked") {
+		if (targetStatus === "Locked") {
 			await confirmLock();
 		} else {
 			const result = await updateProblemStatus({
 				input: {
 					projectId,
 					problemId,
-					status: pendingStatus
+					status: targetStatus
 				},
 				permissions
 			});
-			if (!result.success) return;
-			status = pendingStatus;
+			if (!result.success) {
+				toast.error("error" in result ? result.error : "Status change failed.");
+				return;
+			}
+			status = targetStatus;
 			await invalidateAll();
 		}
 
@@ -360,7 +385,6 @@ let availableJourneyOptions = $derived.by(() =>
 				projectId,
 				problemId,
 				state: {
-					status,
 					title,
 					finalStatement,
 					orphanAcknowledged,
@@ -375,10 +399,13 @@ let availableJourneyOptions = $derived.by(() =>
 		});
 		if (!result.success) {
 			savePhase = "idle";
+			toast.error("error" in result ? result.error : "Save failed.");
 			return;
 		}
 		savedSignature = currentSignature;
 		savePhase = "saved";
+		toast.success("Changes saved");
+		await invalidateAll();
 		savedBadgeTimer = setTimeout(() => {
 			if (!isDirty) {
 				savePhase = "idle";
@@ -396,12 +423,78 @@ onDestroy(() => {
 	}
 });
 
-onMount(() => {
-	savedSignature = currentSignature;
-	saveReady = true;
+$effect(() => {
+	const d = data;
+	untrack(() => {
+		const problemData = d.problem;
+		const resolvedModuleContent = d.moduleContent as Record<OptionalModuleKey, string> | undefined;
+
+		storyOptions = structuredClone(d.storyOptions) as SourceOption[];
+		journeyOptions = structuredClone(d.journeyOptions) as SourceOption[];
+
+		const defaultLinked = (Array.isArray(d.linkedSources) && d.linkedSources.length > 0
+			? (structuredClone(d.linkedSources) as LinkedSource[])
+			: [
+					storyOptions[0]
+						? { ...storyOptions[0], type: "User Story" as const }
+						: null,
+					journeyOptions[0]
+						? { ...journeyOptions[0], type: "User Journey" as const }
+						: null
+				].filter(Boolean)) as LinkedSource[];
+
+		linkedSources = defaultLinked;
+		sourcePainPoints = structuredClone(d.sourcePainPoints) as SourcePainPoint[];
+		sourceInsights = (d.sourceInsights as SourceInsight) ?? {
+			personas: [],
+			context: "",
+			painPoints: [],
+			journeyPainPoints: []
+		};
+
+		status = problemData.status as ProblemStatus;
+		title = required(problemData.title, "problem.title");
+		finalStatement = problemData.finalStatement ?? problemData.title ?? "";
+		orphanAcknowledged = false;
+		selectedPainPoints = Array.isArray(d.selectedPainPoints)
+			? (structuredClone(d.selectedPainPoints) as string[])
+			: [];
+		activeModules = Array.isArray(d.activeModules) && d.activeModules.length > 0
+			? (structuredClone(d.activeModules) as OptionalModuleKey[])
+			: ["why"];
+		moduleContent = {
+			why: resolvedModuleContent?.why ?? "",
+			constraints: resolvedModuleContent?.constraints ?? "",
+			success: resolvedModuleContent?.success ?? "",
+			assumptions: resolvedModuleContent?.assumptions ?? ""
+		};
+		notesText = required(d.notesText, "notesText");
+
+		savePhase = "idle";
+		pendingStatus = null;
+		statusConfirmOpen = false;
+		selectedStoryId = "";
+		selectedJourneyId = "";
+
+		savedSignature = JSON.stringify({
+			title,
+			finalStatement,
+			orphanAcknowledged,
+			selectedPainPoints,
+			linkedSources: linkedSources.map((source) => ({
+				id: source.id,
+				type: source.type,
+			})),
+			activeModules,
+			moduleContent,
+			notesText,
+		});
+		saveReady = true;
+	});
 });
 </script>
 
+{#key page.params.slug}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
 	<header
 		class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -433,7 +526,7 @@ onMount(() => {
 				value={suggestedTitle}
 				class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3"
 				placeholder="Problem Statement Title"
-				disabled={!isDraft(status)}
+				disabled={isNotEditable}
 				oninput={(event) => {
 					title = event.currentTarget.value;
 				}}
@@ -467,6 +560,7 @@ onMount(() => {
 										class={buttonVariants()}
 										onclick={() => {
 											status = "Draft";
+											triggerSave();
 										}}
 									>
 										Unarchive
@@ -494,6 +588,7 @@ onMount(() => {
 										class={buttonVariants()}
 										onclick={() => {
 											status = "Archived";
+											triggerSave();
 										}}
 									>
 										Archive
@@ -534,7 +629,7 @@ onMount(() => {
 					<Separator></Separator>
 					<div class="flex gap-2">
 						<Dialog.Root bind:open={linkStoryOpen}>
-							<Dialog.Trigger class={buttonVariants({ size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ size: "sm" })} disabled={isNotEditable}>
 								+ Link User Story
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -546,6 +641,11 @@ onMount(() => {
 								</Dialog.Header>
 								<div class="grid gap-2">
 									<Label for="link-story">User Story</Label>
+									{#if availableStoryOptions.length === 0}
+										<div class="text-sm text-muted-foreground border border-dashed border-border rounded-lg p-4 text-center">
+											No user stories available to link.
+										</div>
+									{:else}
 									<Select.Root type="single" bind:value={selectedStoryId}>
 										<Select.Trigger id="link-story">
 											{selectedStoryId
@@ -560,6 +660,7 @@ onMount(() => {
 											{/each}
 										</Select.Content>
 									</Select.Root>
+									{/if}
 								</div>
 								<Dialog.Footer>
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
@@ -572,7 +673,7 @@ onMount(() => {
 							</Dialog.Content>
 						</Dialog.Root>
 						<Dialog.Root bind:open={linkJourneyOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={isNotEditable}>
 								+ Link User Journey
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -584,6 +685,11 @@ onMount(() => {
 								</Dialog.Header>
 								<div class="grid gap-2">
 									<Label for="link-journey">User Journey</Label>
+									{#if availableJourneyOptions.length === 0}
+										<div class="text-sm text-muted-foreground border border-dashed border-border rounded-lg p-4 text-center">
+											No user journeys available to link.
+										</div>
+									{:else}
 									<Select.Root type="single" bind:value={selectedJourneyId}>
 										<Select.Trigger id="link-journey">
 											{selectedJourneyId
@@ -598,6 +704,7 @@ onMount(() => {
 											{/each}
 										</Select.Content>
 									</Select.Root>
+									{/if}
 								</div>
 								<Dialog.Footer>
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
@@ -642,6 +749,7 @@ onMount(() => {
 										size="sm"
 										class="h-7 px-2 text-destructive hover:text-destructive"
 										onclick={() => requestRemoveSource(source)}
+										disabled={isNotEditable}
 									>
 										Remove
 									</Button>
@@ -661,36 +769,49 @@ onMount(() => {
 					<span class="font-medium text-nowrap">Source Insights</span>
 					<Separator></Separator>
 				</div>
-				<div class="grid gap-4 md:grid-cols-2 text-sm text-muted-foreground">
-					<div>
-						<div class="text-xs font-semibold uppercase text-muted-foreground">Persona</div>
-						<div class="mt-2 text-sm text-foreground">Avery Patel</div>
-						<div class="mt-1 text-xs">Busy parent balancing family logistics.</div>
+				{#if sourceInsights.personas.length === 0 && !sourceInsights.context && sourceInsights.painPoints.length === 0 && sourceInsights.journeyPainPoints.length === 0}
+					<div class="text-sm text-muted-foreground">No insights available. Link sources to generate insights.</div>
+				{:else}
+					<div class="grid gap-4 md:grid-cols-2 text-sm text-muted-foreground">
+						{#if sourceInsights.personas.length > 0}
+							<div>
+								<div class="text-xs font-semibold uppercase text-muted-foreground">Persona</div>
+								{#each sourceInsights.personas as persona}
+									<div class="mt-2 text-sm text-foreground">{persona.name}</div>
+									{#if persona.description}
+										<div class="mt-1 text-xs">{persona.description}</div>
+									{/if}
+								{/each}
+							</div>
+						{/if}
+						{#if sourceInsights.context}
+							<div>
+								<div class="text-xs font-semibold uppercase text-muted-foreground">Context</div>
+								<div class="mt-2 text-sm text-foreground">{sourceInsights.context}</div>
+							</div>
+						{/if}
+						{#if sourceInsights.painPoints.length > 0}
+							<div>
+								<div class="text-xs font-semibold uppercase text-muted-foreground">Pain Points</div>
+								<ul class="mt-2 list-disc space-y-1 pl-4 text-sm text-foreground">
+									{#each sourceInsights.painPoints as point}
+										<li>{point.text} <span class="text-xs text-muted-foreground">({point.sourceLabel})</span></li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+						{#if sourceInsights.journeyPainPoints.length > 0}
+							<div>
+								<div class="text-xs font-semibold uppercase text-muted-foreground">Journey Pain Points</div>
+								<ul class="mt-2 list-disc space-y-1 pl-4 text-sm text-foreground">
+									{#each sourceInsights.journeyPainPoints as point}
+										<li>{point.text} <span class="text-xs text-muted-foreground">({point.journeyName} / {point.stageName})</span></li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
 					</div>
-					<div>
-						<div class="text-xs font-semibold uppercase text-muted-foreground">Context</div>
-						<div class="mt-2 text-sm text-foreground">
-							Shopping on mobile while managing multiple errands.
-						</div>
-					</div>
-					<div>
-						<div class="text-xs font-semibold uppercase text-muted-foreground">Key observations</div>
-						<ul class="mt-2 list-disc space-y-1 pl-4 text-sm text-foreground">
-							<li>Needs to move quickly between checkout steps.</li>
-							<li>Feels uncertainty when payment errors appear.</li>
-							<li>Wants reassurance that shipping choices are correct.</li>
-						</ul>
-					</div>
-					<div>
-						<div class="text-xs font-semibold uppercase text-muted-foreground">
-							Journey highlights
-						</div>
-						<ul class="mt-2 list-disc space-y-1 pl-4 text-sm text-foreground">
-							<li>Lowest emotional point during payment confirmation.</li>
-							<li>High friction when comparing shipping options.</li>
-						</ul>
-					</div>
-				</div>
+				{/if}
 			</section>
 
 			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
@@ -704,7 +825,7 @@ onMount(() => {
 							<Checkbox
 								checked={selectedPainPoints.includes(painPoint.id)}
 								onclick={() => togglePainPoint(painPoint.id)}
-								disabled={!isDraft(status)}
+								disabled={isNotEditable}
 							/>
 							<div class="flex flex-col gap-1">
 								<div class="text-sm font-medium text-foreground">{painPoint.text}</div>
@@ -724,7 +845,7 @@ onMount(() => {
 					id="final-problem"
 					placeholder="[User] needs a way to [need] because [insight]."
 					bind:value={finalStatement}
-					disabled={!isDraft(status)}
+					disabled={isNotEditable}
 					class="min-h-28 text-base md:text-lg font-medium"
 				/>
 			</section>
@@ -776,42 +897,46 @@ onMount(() => {
 									Locking will freeze the definition. This cannot be undone.
 								</Dialog.Description>
 							</Dialog.Header>
-							<div class="grid gap-2 text-sm">
+							<div class="grid gap-3 text-sm">
+								<p class="text-xs font-semibold uppercase text-muted-foreground">Requirements to lock</p>
 								<div class="flex items-center gap-2">
-									<span class={canLock() ? "text-foreground" : "text-muted-foreground"}>
-										Linked sources or confirmation
-									</span>
+									{#if linkedSources.length > 0 || orphanAcknowledged}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Linked sources or orphan acknowledgment</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Link at least one source, or acknowledge this is an orphan problem</span>
+									{/if}
 								</div>
 								<div class="flex items-center gap-2">
-									<span
-										class={
-											selectedPainPoints.length > 0
-												? "text-foreground"
-												: "text-muted-foreground"
-										}
-									>
-										Selected pain points
-									</span>
+									{#if selectedPainPoints.length > 0}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Pain points selected ({selectedPainPoints.length})</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Select at least one pain point from source insights</span>
+									{/if}
 								</div>
 								<div class="flex items-center gap-2">
-									<span
-										class={finalStatement.trim() ? "text-foreground" : "text-muted-foreground"}
-									>
-										Final problem statement
-									</span>
+									{#if finalStatement.trim()}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Final problem statement written</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Write a final problem statement before locking</span>
+									{/if}
 								</div>
 							</div>
 							<Dialog.Footer>
 								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 									Cancel
 								</Dialog.Close>
-								<Dialog.Close
-									class={buttonVariants()}
+								<Button
 									disabled={!canLock()}
 									onclick={confirmLock}
 								>
 									Confirm Lock
-								</Dialog.Close>
+								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
@@ -824,7 +949,7 @@ onMount(() => {
 					<Separator></Separator>
 				</div>
 				<Dialog.Root bind:open={addSectionOpen}>
-					<Dialog.Trigger class={buttonVariants({ variant: "outline" })}>
+					<Dialog.Trigger class={buttonVariants({ variant: "outline" })} disabled={isNotEditable}>
 						+ Add Section
 					</Dialog.Trigger>
 					<Dialog.Content>
@@ -880,6 +1005,7 @@ onMount(() => {
 											size="icon"
 											class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 											onclick={() => removeModule(module.key)}
+											disabled={isNotEditable}
 										>
 											<X class="h-4 w-4" />
 										</Button>
@@ -887,6 +1013,7 @@ onMount(() => {
 									<Textarea
 										placeholder={module.placeholder}
 										bind:value={moduleContent[module.key]}
+										disabled={isNotEditable}
 									/>
 								</div>
 							{/if}
@@ -903,6 +1030,7 @@ onMount(() => {
 				<Textarea
 					placeholder="Additional notes"
 					bind:value={notesText}
+					disabled={isNotEditable}
 				/>
 			</section>
 		</div>
@@ -968,13 +1096,13 @@ onMount(() => {
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 				Cancel
 			</Dialog.Close>
-			<Dialog.Close
-				class={buttonVariants()}
+			<Button
 				disabled={!canChangeProblemStatus || (pendingStatus === "Locked" && !canLock())}
 				onclick={confirmStatusChange}
 			>
 				Confirm
-			</Dialog.Close>
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
+{/key}

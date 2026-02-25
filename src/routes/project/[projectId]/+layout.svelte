@@ -2,6 +2,7 @@
 	import AppSidebar from "$lib/components/sidebar/app-sidebar.svelte";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Card from "$lib/components/ui/card";
+	import { Toaster } from "$lib/components/ui/sonner";
 	import { can } from "$lib/utils/permission";
 	import { page } from "$app/state";
 	import { setContext } from "svelte";
@@ -69,3 +70,4 @@
 		</div>
 	</Sidebar.Inset>
 </Sidebar.Provider>
+<Toaster position="top-right" />

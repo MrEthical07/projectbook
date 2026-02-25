@@ -137,7 +137,7 @@
 			};
 		});
 	};
-	let members = $derived.by<Member[]>(() => parseMembers());
+	let members = $state<Member[]>(parseMembers());
 
 	let permissionsSaving = $state(false);
 	let permissionsSavePhase = $state<"idle" | "saving" | "saved">("idle");
@@ -239,8 +239,7 @@
 			return;
 		}
 		toast.success(`Role updated for ${member.name}.`);
-		member.updatedAt = "Just now";
-		members = [...members];
+		members = members.map(m => m.id === member.id ? { ...m, role: member.role, updatedAt: "Just now" } : m);
 	};
 
 	const statusVariant = (status: Member["status"]) => (status === "invited" ? "secondary" : "default");
@@ -261,7 +260,7 @@
 			<Breadcrumb.Root>
 				<Breadcrumb.List>
 					<Breadcrumb.Item class="hidden md:block">
-						<Breadcrumb.Link href="/members">Members</Breadcrumb.Link>
+						<Breadcrumb.Link href="/project/{projectId}/team">Members</Breadcrumb.Link>
 					</Breadcrumb.Item>
 					<Breadcrumb.Separator class="hidden md:block" />
 					<Breadcrumb.Item>

@@ -3,7 +3,8 @@
 	import { page } from "$app/state";
 	import { selectIdea, updateIdea, updateIdeaStatus } from "$lib/remote/idea.remote";
 	import { can } from "$lib/utils/permission";
-	import { getContext, onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, untrack } from "svelte";
+	import { toast } from "svelte-sonner";
 	import * as Alert from "$lib/components/ui/alert";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -82,14 +83,14 @@
 		}
 		return value;
 	};
-	const projectId = page.params.projectId;
-	const ideaId = page.params.slug;
+	let projectId = $derived(page.params.projectId);
+	let ideaId = $derived(page.params.slug);
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditIdea = can(permissions, "idea", "edit");
 	const canChangeIdeaStatus = can(permissions, "idea", "statusChange");
 	const canArchiveIdea = can(permissions, "idea", "archive");
-	const problemOptions: LinkedProblemStatement[] = structuredClone(data.problemOptions) as LinkedProblemStatement[];
+	let problemOptions = $state<LinkedProblemStatement[]>(structuredClone(data.problemOptions) as LinkedProblemStatement[]);
 
 	let linkedStories = $state<LinkedStory[]>(structuredClone(data.linkedStories) as LinkedStory[]);
 
@@ -225,8 +226,10 @@ let metadataOpen = $state(false);
 			return;
 		}
 
+		const targetStatus = pendingStatus;
+
 		const result =
-			pendingStatus === "Selected"
+			targetStatus === "Selected"
 				? await selectIdea({
 						input: {
 							projectId,
@@ -238,14 +241,17 @@ let metadataOpen = $state(false);
 						input: {
 							projectId,
 							ideaId,
-							status: pendingStatus
+							status: targetStatus
 						},
 						permissions
 					});
-		if (!result.success) return;
+		if (!result.success) {
+			toast.error("error" in result ? result.error : "Status change failed.");
+			return;
+		}
 		await invalidateAll();
 
-		ideaStatus = pendingStatus;
+		ideaStatus = targetStatus;
 		pendingStatus = null;
 		statusDialogOpen = false;
 		statusConfirmOpen = false;
@@ -306,8 +312,6 @@ let metadataOpen = $state(false);
 				state: {
 					title,
 					description,
-					ideaStatus,
-					isArchived,
 					summaryTitle,
 					summaryDescription,
 					notesText,
@@ -320,10 +324,12 @@ let metadataOpen = $state(false);
 		});
 		if (!result.success) {
 			savePhase = "idle";
+			toast.error("error" in result ? result.error : "Save failed.");
 			return;
 		}
 		savedSignature = currentSignature;
 		savePhase = "saved";
+		toast.success("Changes saved");
 		savedBadgeTimer = setTimeout(() => {
 			if (!isDirty) {
 				savePhase = "idle";
@@ -341,12 +347,67 @@ let metadataOpen = $state(false);
 		}
 	});
 
-	onMount(() => {
-		savedSignature = currentSignature;
-		saveReady = true;
+	$effect(() => {
+		const d = data;
+		untrack(() => {
+			problemOptions = structuredClone(d.problemOptions) as LinkedProblemStatement[];
+			linkedStories = structuredClone(d.linkedStories) as LinkedStory[];
+			derivedPersonas = structuredClone(d.derivedPersonas) as string[];
+
+			title = required(d.idea.title, "idea.title");
+			description = required(d.idea.description, "idea.description");
+			ideaStatus = required(d.idea.status as IdeaStatus, "idea.status");
+			isArchived = Boolean(required(d.isArchived, "isArchived"));
+			summaryTitle = required(d.summaryTitle, "summaryTitle");
+			summaryDescription = required(d.summaryDescription, "summaryDescription");
+			notesText = required(d.notesText, "notesText");
+			selectedProblemId = required(d.selectedProblemId, "selectedProblemId");
+			pendingProblemId = "";
+
+			activeModules = (Array.isArray(d.activeModules)
+				? structuredClone(d.activeModules)
+				: []) as OptionalModuleKey[];
+			const mc = required(
+				d.moduleContent as Record<OptionalModuleKey, string> | undefined,
+				"moduleContent"
+			);
+			moduleContent = {
+				approach: mc.approach,
+				alternatives: mc.alternatives,
+				tradeoffs: mc.tradeoffs,
+				risks: mc.risks,
+				assumptions: mc.assumptions
+			};
+			moduleOpen = {
+				approach: true,
+				alternatives: true,
+				tradeoffs: true,
+				risks: true,
+				assumptions: true,
+			};
+
+			pendingStatus = null;
+			statusConfirmOpen = false;
+			savePhase = "idle";
+
+			savedSignature = JSON.stringify({
+				title,
+				description,
+				ideaStatus,
+				isArchived,
+				summaryTitle,
+				summaryDescription,
+				notesText,
+				selectedProblemId,
+				activeModules,
+				moduleContent,
+			});
+			saveReady = true;
+		});
 	});
 </script>
 
+{#key page.params.slug}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -408,6 +469,7 @@ let metadataOpen = $state(false);
 										class={buttonVariants()}
 										onclick={() => {
 											isArchived = false;
+											triggerSave();
 										}}
 									>
 										Unarchive
@@ -435,6 +497,7 @@ let metadataOpen = $state(false);
 										class={buttonVariants()}
 										onclick={() => {
 											isArchived = true;
+											triggerSave();
 										}}
 									>
 										Archive
@@ -473,10 +536,8 @@ let metadataOpen = $state(false);
 			<Dialog.Description>Read-only metadata for this idea.</Dialog.Description>
 		</Dialog.Header>
 		<div class="grid gap-2 text-sm">
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Jules Kim</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-04 10:05</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Alex Morgan</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 12:20</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Owner</span><span>{data.metadata?.owner ?? "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last updated</span><span>{data.metadata?.lastUpdated ?? "Unknown"}</span></div>
 			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{pageStatus}</span></div>
 		</div>
 		<Dialog.Footer>
@@ -506,9 +567,9 @@ let metadataOpen = $state(false);
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 				Cancel
 			</Dialog.Close>
-			<Dialog.Close class={buttonVariants()} onclick={confirmStatusChange}>
+			<Button onclick={confirmStatusChange}>
 				Confirm status
-			</Dialog.Close>
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
@@ -525,6 +586,11 @@ let metadataOpen = $state(false);
 						<Label class="text-muted-foreground" for="linked-problem">
 							Linked problem statement
 						</Label>
+						{#if problemOptions.length === 0}
+							<div class="text-sm text-muted-foreground border border-dashed border-border rounded-lg p-4 text-center">
+								No locked problem statements available. Lock a problem statement first.
+							</div>
+						{:else}
 						<Select.Root type="single" bind:value={pendingProblemId}>
 							<Select.Trigger id="linked-problem">
 								{pendingProblemId
@@ -539,6 +605,7 @@ let metadataOpen = $state(false);
 								{/each}
 							</Select.Content>
 						</Select.Root>
+						{/if}
 						<div class="flex items-center gap-3">
 							<Dialog.Root bind:open={linkProblemOpen}>
 								<Dialog.Trigger
@@ -643,20 +710,27 @@ let metadataOpen = $state(false);
 									Problem statement
 								</div>
 								<div class="mt-2 text-sm text-foreground">
-									Students miss assignment requirements because they lose track of changes.
+									{linkedProblem.title}
 								</div>
 							</div>
 							<div>
 								<div class="text-xs font-semibold uppercase text-muted-foreground">Persona</div>
 								<div class="mt-2 text-sm text-foreground">
+									{#if derivedPersonas.length === 0}
+										<span class="text-muted-foreground">No personas derived</span>
+									{:else}
 									{#each derivedPersonas as persona, index (persona)}
 										<span>{persona}{index < derivedPersonas.length - 1 ? ", " : ""}</span>
 									{/each}
+									{/if}
 								</div>
 							</div>
 							<div>
-								<div class="text-xs font-semibold uppercase text-muted-foreground">User story</div>
+								<div class="text-xs font-semibold uppercase text-muted-foreground">Linked sources</div>
 								<div class="mt-2 flex flex-col gap-2">
+									{#if linkedStories.length === 0}
+										<span class="text-sm text-muted-foreground">No linked stories or journeys</span>
+									{:else}
 									{#each linkedStories as story (story.id)}
 										<div class="flex items-center justify-between gap-2 text-sm text-foreground">
 											<span>{story.title}</span>
@@ -671,6 +745,7 @@ let metadataOpen = $state(false);
 											</Button>
 										</div>
 									{/each}
+									{/if}
 								</div>
 							</div>
 						</div>
@@ -855,3 +930,4 @@ let metadataOpen = $state(false);
 		</div>
 	</div>
 </div>
+{/key}

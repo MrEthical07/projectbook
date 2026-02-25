@@ -2,6 +2,7 @@
     import { Input } from "$lib/components/ui/input";
     import { Separator } from "$lib/components/ui/separator/index.js";
     import { Button } from "$lib/components/ui/button";
+    import { Badge } from "$lib/components/ui/badge";
     import { Label } from "$lib/components/ui/label/index.js";
     import { Textarea } from "$lib/components/ui/textarea";
     import { Info, Plus, X } from "@lucide/svelte"
@@ -13,21 +14,49 @@
 	import { page } from "$app/state";
 	import { updateJourney } from "$lib/remote/journey.remote";
 	import { can } from "$lib/utils/permission";
-	import { getContext } from "svelte";
+	import { getContext, onDestroy, untrack } from "svelte";
+	import { toast } from "svelte-sonner";
 
     let { data } = $props();
-    const projectId = page.params.projectId;
-    const journeyId = page.params.slug;
+    let projectId = $derived(page.params.projectId);
+    let journeyId = $derived(page.params.slug);
     const access = getContext<ProjectAccess | undefined>("access");
     const permissions = access?.permissions;
     const canEditJourney = can(permissions, "story", "edit");
+    const canChangeJourneyStatus = can(permissions, "story", "statusChange");
+    const statusOptions = ["draft", "archived"] as const;
+    type JourneyStatus = typeof statusOptions[number];
     let journey = $state(structuredClone(data.journey));
-    let emotions: string[] = structuredClone(data.emotions) as string[];
+    const isReadOnly = $derived(journey.status === "archived" || !canEditJourney);
+    let emotions = $state<string[]>(structuredClone(data.emotions) as string[]);
 
     let isAddingStage = $state(false);
     let metadataOpen = $state(false);
     let savePhase = $state<"idle" | "saving" | "saved">("idle");
     let saveBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+    let statusConfirmOpen = $state(false);
+    let pendingStatus = $state<JourneyStatus | null>(null);
+    let savedSignature = $state("");
+    let saveReady = $state(false);
+    let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    let currentSignature = $derived(
+        JSON.stringify({
+            title: journey.title,
+            description: journey.description,
+            persona: journey.persona,
+            context: journey.context,
+            stages: journey.stages,
+            notes: journey.notes
+        })
+    );
+    let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+    let saveIndicator = $derived.by(() => {
+        if (savePhase === "saving") return "saving";
+        if (isDirty) return "edited";
+        if (savePhase === "saved") return "saved";
+        return "idle";
+    });
 
     function removeStage(index : number) {
         journey.stages.splice(index, 1);
@@ -35,6 +64,7 @@
     }
     let newStageName = $state("");
     function addStage() {
+        if (!newStageName.trim()) return;
         journey.stages.push({
             name: newStageName,
             actions: [],
@@ -45,20 +75,22 @@
         isAddingStage = false;
     }
 
-    let newAction = $state("");
+    let newActionByStage = $state<Record<number, string>>({});
     function addAction(stageIndex : number) {
-        if(newAction == "") return;
-        journey.stages[stageIndex].actions.push(newAction);
+        const value = newActionByStage[stageIndex] ?? "";
+        if(value.trim() === "") return;
+        journey.stages[stageIndex].actions.push(value);
         journey.stages = journey.stages;
-        newAction = "";
+        newActionByStage[stageIndex] = "";
     }
 
-    let newPainPoint = $state("");
+    let newPainPointByStage = $state<Record<number, string>>({});
     function addPainPoint(stageIndex : number) {
-        if(newPainPoint == "") return;
-        journey.stages[stageIndex].painPoints.push(newPainPoint);
+        const value = newPainPointByStage[stageIndex] ?? "";
+        if(value.trim() === "") return;
+        journey.stages[stageIndex].painPoints.push(value);
         journey.stages = journey.stages;
-        newPainPoint = "";
+        newPainPointByStage[stageIndex] = "";
     }
 
     function removeAction(stageIndex : number, actionIndex : number) {
@@ -73,8 +105,9 @@
 
     const triggerSave = async () => {
         if (!permissions || !canEditJourney) return;
-        if (savePhase === "saving") return;
+        if (savePhase === "saving" || !isDirty) return;
         if (saveBadgeTimer) clearTimeout(saveBadgeTimer);
+        if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
         savePhase = "saving";
         const result = await updateJourney({
             input: {
@@ -88,14 +121,88 @@
             savePhase = "idle";
             return;
         }
+        savedSignature = currentSignature;
         savePhase = "saved";
-        saveBadgeTimer = setTimeout(() => {
-            savePhase = "idle";
+        toast.success("Changes saved");
+        savedBadgeTimer = setTimeout(() => {
+            if (!isDirty) {
+                savePhase = "idle";
+            }
         }, 1400);
     };
 
+    const statusVariant = (s: string) => {
+        if (s === "archived") return "destructive";
+        return "default";
+    };
+
+    const requestStatusChange = (nextStatus: JourneyStatus) => {
+        if (nextStatus === journey.status) return;
+        pendingStatus = nextStatus;
+        statusConfirmOpen = true;
+    };
+
+    const confirmStatusChange = async () => {
+        if (!pendingStatus || !permissions || !canChangeJourneyStatus) return;
+        const result = await updateJourney({
+            input: {
+                projectId,
+                journeyId,
+                journey: {
+                    ...journey,
+                    status: pendingStatus
+                }
+            },
+            permissions
+        });
+        if (!result.success) return;
+        journey.status = pendingStatus;
+        savedSignature = JSON.stringify({
+            title: journey.title,
+            description: journey.description,
+            persona: journey.persona,
+            context: journey.context,
+            stages: journey.stages,
+            notes: journey.notes
+        });
+        pendingStatus = null;
+        statusConfirmOpen = false;
+        toast.success("Status updated");
+    };
+
+    onDestroy(() => {
+        if (saveBadgeTimer) clearTimeout(saveBadgeTimer);
+        if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
+    });
+
+    $effect(() => {
+        const d = data;
+        untrack(() => {
+            const j = structuredClone(d.journey);
+            journey = j;
+            emotions = structuredClone(d.emotions) as string[];
+            savePhase = "idle";
+            pendingStatus = null;
+            statusConfirmOpen = false;
+            isAddingStage = false;
+            newStageName = "";
+            newActionByStage = {};
+            newPainPointByStage = {};
+            savedSignature = JSON.stringify({
+                title: j.title,
+                description: j.description,
+                persona: j.persona,
+                context: j.context,
+                stages: j.stages,
+                notes: j.notes
+            });
+            saveReady = true;
+        });
+    });
+
 </script>
 
+{#key page.params.slug}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
     <header
 			class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -118,18 +225,29 @@
 		</header>
     <div class="flex flex-col md:px-20 gap-4 py-2">
         <div class="flex mt-2 flex-col  bg-white rounded-lg gap-2 p-2">
-            <Input type="text" bind:value={journey.title} class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3" placeholder="Title Goes Here"></Input>
-            <Input type="text" bind:value={journey.description} class="bg-transparent outline-0 shadow-none border-0 text-lg! h-fit py-2 px-3" placeholder="Journey description"></Input>
+            <Input type="text" bind:value={journey.title} disabled={isReadOnly} class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3" placeholder="Title Goes Here"></Input>
+            <Input type="text" bind:value={journey.description} disabled={isReadOnly} class="bg-transparent outline-0 shadow-none border-0 text-lg! h-fit py-2 px-3" placeholder="Journey description"></Input>
             <div class="flex w-full flex-row justify-between items-center mt-2 px-2">
-                <div class="bg-accent px-2 py-1 w-fit rounded-lg text-sm font-medium">{journey.status.toUpperCase()}</div>
-                <div class="flex flex-row gap-2">
+                <div class="flex items-center gap-2">
+                    <Badge variant={statusVariant(journey.status)}>{journey.status.toUpperCase()}</Badge>
+                </div>
+                <div class="flex flex-row gap-2 items-center">
+                    <div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
+                        {#if saveIndicator === "edited"}
+                            <span class="text-amber-600">Edited</span>
+                        {:else if saveIndicator === "saving"}
+                            <span class="text-blue-600">Saving...</span>
+                        {:else if saveIndicator === "saved"}
+                            <span class="text-emerald-600">Saved</span>
+                        {/if}
+                    </div>
                     <Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open journey metadata">
                         <Info class="h-4 w-4" />
                     </Button>
-                    <Button onclick={triggerSave} disabled={!canEditJourney || savePhase === "saving"}>
+                    <Button onclick={triggerSave} disabled={isReadOnly || savePhase === "saving" || !isDirty}>
                         {savePhase === "saving" ? "Saving..." : "Save Changes"}
                     </Button>
-                    <Button variant="outline">Change Status</Button>
+                    <Button variant="outline" onclick={() => (statusConfirmOpen = true)} disabled={!canChangeJourneyStatus}>Change Status</Button>
                 </div>
             </div>
         </div>
@@ -144,11 +262,11 @@
                     <div class="flex flex-row gap-6">
                         <div class="flex flex-col gap-2 max-w-sm w-full">
                             <Label class="text-muted-foreground" for="personaName">User Name</Label>
-                            <Input bind:value={journey.persona.name} id="personaName" type="text" placeholder="John Doe"></Input>
+                            <Input bind:value={journey.persona.name} disabled={isReadOnly} id="personaName" type="text" placeholder="John Doe"></Input>
                         </div>
                         <div class="flex flex-col gap-2 max-w-sm w-full">
                             <Label class="text-muted-foreground" for="personaRole">Archtype / Role</Label>
-                            <Input bind:value={journey.persona.role} id="personaRole" type="text" placeholder="Ex. Student"></Input>
+                            <Input bind:value={journey.persona.role} disabled={isReadOnly} id="personaRole" type="text" placeholder="Ex. Student"></Input>
                         </div>
                     </div>
                     <div class="flex flex-col gap-3">
@@ -156,21 +274,21 @@
                         <div class="grid grid-cols-1 gap-6 md:grid-cols-4 w-full">
                             <div class="flex flex-row gap-1 w-full">
                                 <Label class="text-muted-foreground" for="personaAge">Age: </Label>
-                                <Input bind:value={journey.persona.age} id="personaAge" class="w-full" type="number" placeholder="26"></Input>
+                                <Input bind:value={journey.persona.age} disabled={isReadOnly} id="personaAge" class="w-full" type="number" placeholder="26"></Input>
                             </div>
                             <div class="flex flex-row gap-1 w-full">
                                 <Label class="text-muted-foreground" for="personaJob">Job: </Label>
-                                <Input bind:value={journey.persona.job} id="personaJob" class="w-full" type="number" placeholder="Ex. Software Engineer"></Input>
+                                <Input bind:value={journey.persona.job} disabled={isReadOnly} id="personaJob" class="w-full" type="text" placeholder="Ex. Software Engineer"></Input>
                             </div>
                             <div class="flex flex-row gap-1 w-full">
                                 <Label class="text-muted-foreground" for="personaEdu">Education: </Label>
-                                <Input bind:value={journey.persona.edu} id="personaEdu" class="w-full" type="text" placeholder="Ex. B.Tech in CSE"></Input>
+                                <Input bind:value={journey.persona.edu} disabled={isReadOnly} id="personaEdu" class="w-full" type="text" placeholder="Ex. B.Tech in CSE"></Input>
                             </div>
                         </div>
                     </div>
                     <div class="flex flex-col gap-2">
                         <Label class="text-muted-foreground" for="personaBio">Bio / About</Label>
-                        <Textarea bind:value={journey.persona.bio} id="personaBio"  placeholder="Persona Bio"></Textarea>
+                        <Textarea bind:value={journey.persona.bio} disabled={isReadOnly} id="personaBio"  placeholder="Persona Bio"></Textarea>
                     </div>
                 </div>
             </div>
@@ -183,7 +301,7 @@
                 <div class="flex flex-col gap-6 p-2 py-4">
                     <div class="flex flex-col gap-2">
                         <Label class="text-muted-foreground" for="userContext">User Context or Environment</Label>
-                        <Textarea bind:value={journey.context} id="userContext"  placeholder="User Context"></Textarea>
+                        <Textarea bind:value={journey.context} disabled={isReadOnly} id="userContext"  placeholder="User Context"></Textarea>
                     </div>
                 </div>
             </div>
@@ -204,7 +322,7 @@
                                     Stage {index + 1}: {stage.name}
                                     </h4>
                                     <div class="flex flex-row gap-4">
-                                        <Select.Root type="single" name="emotion" bind:value={stage.emotion}>
+                                        <Select.Root type="single" name="emotion" bind:value={stage.emotion} disabled={isReadOnly}>
                                             <Select.Trigger size="sm" class="min-w-25 w-fit text-xs! font-medium text-muted-foreground px-2! py-0! ">
                                                 {stage.emotion}
                                             </Select.Trigger>
@@ -222,12 +340,14 @@
                                                 </Select.Group>
                                             </Select.Content>
                                             </Select.Root>
+                                        {#if !isReadOnly}
                                         <button
                                             onclick={() => removeStage(index)}
                                             class="p-1 text-destructive opacity-50 hover:opacity-100 transition-opacity"
                                         >
                                             <X size={16}/>
                                         </button>
+                                        {/if}
                                     </div>
                                 </div>
 
@@ -247,7 +367,7 @@
                                                     </Dialog.Header>
                                                     <div class="grid gap-3">
                                                         <Label for="action">New Action</Label>
-                                                        <Input id="action" name="action" bind:value={newAction} defaultValue="New Action" />
+                                                        <Input id="action" name="action" bind:value={newActionByStage[index]} defaultValue="New Action" />
                                                     </div>
                                                     <Dialog.Footer>
                                                         <Dialog.Close class={buttonVariants({ variant: "outline" })}
@@ -262,11 +382,13 @@
                                             {#each stage.actions as action, i}
                                                 <li class="flex flex-row justify-between group items-center">
                                                     {action}
+                                                    {#if !isReadOnly}
                                                     <button
                                                         class="hidden group-hover:flex text-destructive opacity-50 hover:opacity-100 transition-opacity"
                                                         onclick={() => removeAction(index, i)}>
                                                         <X size={16}/>
                                                     </button>
+                                                    {/if}
                                                 </li>
                                             {:else}
                                                 <li class="italic">No Action</li>
@@ -288,7 +410,7 @@
                                                     </Dialog.Header>
                                                     <div class="grid gap-3">
                                                         <Label for="painpoint">New Pain Point</Label>
-                                                        <Input id="painpoint" name="painpoint" bind:value={newPainPoint} defaultValue="New Pain Point" />
+                                                        <Input id="painpoint" name="painpoint" bind:value={newPainPointByStage[index]} defaultValue="New Pain Point" />
                                                     </div>
                                                     <Dialog.Footer>
                                                         <Dialog.Close class={buttonVariants({ variant: "outline" })}
@@ -305,11 +427,13 @@
                                                 class="text-sm text-red-700 bg-red-50 px-2 py-1 rounded border border-red-100 flex flex-row justify-between group items-center"
                                                 >
                                                     {point}
+                                                    {#if !isReadOnly}
                                                     <button
                                                         class="hidden group-hover:flex text-destructive opacity-50 hover:opacity-100 transition-opacity"
                                                         onclick={() => removePainPoint(index, i)}>
                                                         <X size={16}/>
                                                     </button>
+                                                    {/if}
                                                 </div>
                                             {:else}
                                             <span class="text-sm text-muted-foreground italic">
@@ -325,6 +449,7 @@
                                 No Journey Stages. Click Add to add one.
                             </div>   
                         {/each}
+                        {#if !isReadOnly}
                         {#if isAddingStage}
                             <div class="flex gap-2 items-center p-4 border border-dashed rounded-lg">
                             <Input
@@ -346,6 +471,7 @@
                             Add Journey Stage
                             </Button>
                         {/if}
+                        {/if}
                 </div>
             </div>
 
@@ -357,7 +483,7 @@
                 </div>
                 <div class="flex flex-col gap-6">
                     <div class="flex flex-col gap-2">
-                        <Textarea id="notes" bind:value={journey.notes}  placeholder="Additional Notes"></Textarea>
+                        <Textarea id="notes" bind:value={journey.notes} disabled={isReadOnly} placeholder="Additional Notes"></Textarea>
                     </div>
                 </div>
             </div>
@@ -382,4 +508,48 @@
         </Dialog.Footer>
     </Dialog.Content>
 </Dialog.Root>
+
+<Dialog.Root bind:open={statusConfirmOpen} onOpenChange={(open) => { statusConfirmOpen = open; if (!open) pendingStatus = null; }}>
+    <Dialog.Content>
+        <Dialog.Header>
+            <Dialog.Title>Change status</Dialog.Title>
+            <Dialog.Description>
+                {#if pendingStatus === "archived"}
+                    Archiving hides this journey from active work. You can unarchive later.
+                {:else if pendingStatus === "draft"}
+                    Moving back to Draft will reopen the journey for edits.
+                {:else}
+                    Select a new status for this journey.
+                {/if}
+            </Dialog.Description>
+        </Dialog.Header>
+        {#if !pendingStatus}
+            <div class="flex items-center gap-2 py-2">
+                {#each statusOptions as option (option)}
+                    <Button
+                        variant={journey.status === option ? "default" : "outline"}
+                        onclick={() => requestStatusChange(option)}
+                        disabled={journey.status === option}
+                    >
+                        {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </Button>
+                {/each}
+            </div>
+        {/if}
+        <Dialog.Footer>
+            <Dialog.Close class={buttonVariants({ variant: "outline" })}>
+                Cancel
+            </Dialog.Close>
+            {#if pendingStatus}
+                <Button
+                    disabled={!canChangeJourneyStatus}
+                    onclick={confirmStatusChange}
+                >
+                    Confirm
+                </Button>
+            {/if}
+        </Dialog.Footer>
+    </Dialog.Content>
+</Dialog.Root>
+{/key}
 

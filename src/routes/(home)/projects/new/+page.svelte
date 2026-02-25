@@ -256,7 +256,7 @@
 									<span>{selectedIconOption.label}</span>
 								</div>
 							</Select.Trigger>
-							<Select.Content class="w-[28rem]">
+							<Select.Content class="max-w-100">
 								<div
 									class="sticky top-0 z-10 border-b bg-popover p-2"
 								>
@@ -270,12 +270,12 @@
 								{#if filteredIconOptions.length === 0}
 									<div class="px-3 py-2 text-xs text-muted-foreground">No icons found.</div>
 								{:else}
-									<div class="grid max-h-72 grid-cols-4 gap-2 overflow-y-auto p-2">
+									<div class="grid max-h-72 grid-cols-3 max-w-100 gap-2 overflow-y-auto p-2">
 										{#each filteredIconOptions as option (option.key)}
 											<Select.Item
 												value={option.key}
 												label={option.label}
-												class="h-auto min-h-16 justify-center rounded-md border px-2 py-2 text-center"
+												class="h-auto min-h-16 justify-center rounded-md border px-2 py-2 text-center "
 											>
 												<div class="flex w-full flex-col items-center gap-1">
 													<option.icon class="h-4 w-4" />
