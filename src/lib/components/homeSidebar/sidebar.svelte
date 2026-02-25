@@ -27,12 +27,15 @@
 	let pathname = $derived(page.url.pathname);
 	const activeClass = "bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary";
 
+	let {
+		user = { name: "User", email: "", avatar: "" },
+		ref = $bindable(null),
+		collapsible = "icon",
+		...restProps
+	}: ComponentProps<typeof Sidebar.Root> & { user?: { name: string; email: string; avatar: string } } = $props();
+	
 	let data = $derived({
-		user: {
-			name: "shadcn",
-			email: "m@example.com",
-			avatar: "/avatars/shadcn.jpg"
-		},
+		user: user,
 		branding: {
 			name: "ProjectBook",
 			plan: "Free"
@@ -51,7 +54,7 @@
 				icon: Bell,
 				tooltip: "Notifications",
 				isActive: pathname.includes("/notifications"),
-				badge: "3"
+				badge: ""
 			},
 			{
 				name: "Invites",
@@ -59,7 +62,7 @@
 				icon: Mail,
 				tooltip: "Invites",
 				isActive: pathname.includes("/invites"),
-				badge: "2"
+				badge: ""
 			}
 		] satisfies NavItem[],
 		projects: [
@@ -90,12 +93,6 @@
 			}
 		] satisfies NavItem[]
 	});
-
-	let {
-		ref = $bindable(null),
-		collapsible = "icon",
-		...restProps
-	}: ComponentProps<typeof Sidebar.Root> = $props();
 </script>
 
 <Sidebar.Root {collapsible} {...restProps} class="">

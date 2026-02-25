@@ -53,7 +53,10 @@
 		onMutated?: () => Promise<void> | void;
 	} = $props();
 
-	let isOpen = $derived(item.isActive);
+	let isOpen = $state(item.isActive ?? false);
+	$effect(() => {
+		isOpen = item.isActive ?? false;
+	});
 	let addOpen = $state(false);
 	let newPageTitle = $state("");
 	let isCreating = $state(false);
@@ -63,6 +66,9 @@
 	let targetItem = $state<SidebarSubItem | null>(null);
 	let isMutating = $state(false);
 	let mutationError = $state("");
+	$effect(() => {
+		if (addOpen) mutationError = "";
+	});
 	const access = getContext<ProjectAccess | undefined>("access");
 
 	const prefixToDomain = (prefix: string): DomainKey | null => {
@@ -249,7 +255,7 @@
 				<Collapsible.Trigger>
 					{#snippet child({ props })}
 						<Sidebar.MenuButton {...props} tooltipContent={item.title}>
-							<item.icon />
+							{#if item.icon}<item.icon />{/if}
 							<span class="whitespace-nowrap truncate">{item.title}</span>
 							<ChevronRightIcon
 								size={16}

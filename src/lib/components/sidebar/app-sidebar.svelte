@@ -145,14 +145,14 @@
 								title: "User Stories",
 								icon: UserRound,
 								prefix: "stories",
-								isActive: path.includes("stories"),
+								isActive: path === "stories" || path.startsWith("stories/"),
 								items: source.artifacts.stories
 							},
 							{
 								title: "User Journeys",
 								icon: Route,
 								prefix: "journeys",
-								isActive: path.includes("journeys"),
+								isActive: path === "journeys" || path.startsWith("journeys/"),
 								items: source.artifacts.journeys
 							}
 						]
@@ -164,7 +164,7 @@
 								title: "Problem Statement",
 								icon: Target,
 								prefix: "problem-statement",
-								isActive: path.includes("problem-statement"),
+								isActive: path === "problem-statement" || path.startsWith("problem-statement/"),
 								items: source.artifacts.problems
 							}
 						]
@@ -176,7 +176,7 @@
 								title: "Ideas",
 								icon: Lightbulb,
 								prefix: "ideas",
-								isActive: path.includes("ideas"),
+								isActive: path === "ideas" || path.startsWith("ideas/"),
 								items: source.artifacts.ideas
 							}
 						]
@@ -188,7 +188,7 @@
 								title: "Task Board",
 								icon: ClipboardList,
 								prefix: "tasks",
-								isActive: path.includes("tasks"),
+								isActive: path === "tasks" || path.startsWith("tasks/"),
 								items: source.artifacts.tasks
 							}
 						]
@@ -200,7 +200,7 @@
 								title: "Feedback",
 								icon: MessageSquareQuote,
 								prefix: "feedback",
-								isActive: path.includes("feedback"),
+								isActive: path === "feedback" || path.startsWith("feedback/"),
 								items: source.artifacts.feedback
 							}
 						]
@@ -213,19 +213,19 @@
 						title: "Calendar",
 						url: `/project/${projectId}/calendar`,
 						icon: Calendar,
-						isActive: path.includes("calendar")
+						isActive: path === "calendar" || path.startsWith("calendar/")
 					},
 					resources: {
 						title: "Resources",
 						url: `/project/${projectId}/resources`,
 						icon: Folder,
-						isActive: path.includes("resources")
+						isActive: path === "resources" || path.startsWith("resources/")
 					},
 					pages: {
 						title: "Pages",
 						prefix: "pages",
 						icon: NotepadText,
-						isActive: path.includes("pages"),
+						isActive: path === "pages" || path.startsWith("pages/"),
 						items: source.artifacts.pages
 					}
 				}
@@ -238,14 +238,14 @@
 								url: `/project/${projectId}/team/members`,
 								icon: Users,
 								tooltip: "Manage Members",
-								isActive: path.includes("members")
+								isActive: path === "team/members" || path.startsWith("team/members/")
 							},
 							{
 								name: "Roles",
 								url: `/project/${projectId}/team/roles`,
 								icon: UserLock,
 								tooltip: "Manage Roles & Access",
-								isActive: path.includes("roles")
+								isActive: path === "team/roles" || path.startsWith("team/roles/")
 							}
 						]
 					: []),
@@ -256,7 +256,7 @@
 								url: `/project/${projectId}/settings`,
 								icon: Settings,
 								tooltip: "Project Settings",
-								isActive: path.includes("settings")
+								isActive: path === "settings" || path.startsWith("settings/")
 							}
 						]
 					: [])

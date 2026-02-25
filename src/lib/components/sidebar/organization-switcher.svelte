@@ -9,7 +9,7 @@
 	let { organizations }: { organizations: { name: string; logo: Component; plan: string }[] } = $props();
 	const sidebar = useSidebar();
 
-	let activeOrganization = $derived(organizations[0]);
+	let activeOrganization = $state(organizations[0]);
 </script>
 
 <Sidebar.Menu>
@@ -47,14 +47,13 @@
 						sideOffset={4}
 					>
 						<DropdownMenu.Label class="text-muted-foreground text-xs">Organizations</DropdownMenu.Label>
-						{#each organizations as organization, index (organization.name)}
+						{#each organizations as organization, index (index)}
 							<DropdownMenu.Item onSelect={() => (activeOrganization = organization)} class="gap-2 p-2 hover:scale-101">
 								<div class="flex size-6 items-center justify-center rounded-md border">
 									<organization.logo class="size-3.5 shrink-0" />
 								</div>
 								{organization.name}
-								<DropdownMenu.Shortcut>⌘{index + 1}</DropdownMenu.Shortcut>
-							</DropdownMenu.Item>
+								</DropdownMenu.Item>
 						{/each}
 						<DropdownMenu.Separator />
 						<DropdownMenu.Item class="gap-2 p-2">

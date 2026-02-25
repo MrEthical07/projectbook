@@ -6,9 +6,10 @@
 	import BadgeCheckIcon from "@lucide/svelte/icons/badge-check";
 	import BellIcon from "@lucide/svelte/icons/bell";
 	import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
-	import Mail from "@lucide/svelte/icons/credit-card";
+	import Mail from "@lucide/svelte/icons/mail";
 	import LogOutIcon from "@lucide/svelte/icons/log-out";
 	import SparklesIcon from "@lucide/svelte/icons/sparkles";
+	import { goto } from "$app/navigation";
 
 	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
 	const sidebar = useSidebar();
@@ -25,8 +26,8 @@
 						{...props}
 					>
 						<Avatar.Root class="size-8 rounded-lg">
-							<!-- <Avatar.Image src={user.avatar} alt={user.name} /> -->
-							<Avatar.Fallback class="rounded-lg">CN</Avatar.Fallback>
+							<Avatar.Image src={user.avatar} alt={user.name} />
+							<Avatar.Fallback class="rounded-lg">{user.name ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "??"}</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-start text-sm leading-tight">
 							<span class="truncate font-medium">{user.name}</span>
@@ -46,7 +47,7 @@
 					<div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
 						<Avatar.Root class="size-8 rounded-lg">
 							<Avatar.Image src={user.avatar} alt={user.name} />
-							<Avatar.Fallback class="rounded-lg">CN</Avatar.Fallback>
+							<Avatar.Fallback class="rounded-lg">{user.name ? user.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "??"}</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="grid flex-1 text-start text-sm leading-tight">
 							<span class="truncate font-medium">{user.name}</span>
@@ -63,31 +64,23 @@
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
-					<DropdownMenu.Item>
-						<a href="/my-account" class="flex flex-row gap-2 items-center">
-							<BadgeCheckIcon />
-							Account
-						</a>
+					<DropdownMenu.Item onSelect={() => goto("/my-account")} class="gap-2 items-center">
+						<BadgeCheckIcon class="h-4 w-4" />
+						Account
 					</DropdownMenu.Item>
-					<DropdownMenu.Item>
-						<a href="/invites" class="flex flex-row gap-2 items-center">
-						<Mail />
+					<DropdownMenu.Item onSelect={() => goto("/invites")} class="gap-2 items-center">
+						<Mail class="h-4 w-4" />
 						Invites
-						</a>
 					</DropdownMenu.Item>
-					<DropdownMenu.Item>
-						<a href="/notifications" class="flex flex-row gap-2 items-center">
-						<BellIcon />
+					<DropdownMenu.Item onSelect={() => goto("/notifications")} class="gap-2 items-center">
+						<BellIcon class="h-4 w-4" />
 						Notifications
-						</a>
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Item>
-						<a href="/logout" class="flex flex-row gap-2 items-center">
-						<LogOutIcon />
-						Log out
-						</a>
+				<DropdownMenu.Item onSelect={() => goto("/logout")} class="gap-2 items-center">
+					<LogOutIcon class="h-4 w-4" />
+					Log out
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>

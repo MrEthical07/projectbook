@@ -80,7 +80,6 @@
 										<project.icon class="size-3.5 shrink-0" />
 									</div>
 									{project.name}
-									<DropdownMenu.Shortcut>Ctrl{index + 1}</DropdownMenu.Shortcut>
 								</DropdownMenu.Item>
 							{/each}
 						{/if}
