@@ -6,6 +6,10 @@ import {
 	storyAddOnCatalogData,
 	storyDraftTemplateData
 } from "$lib/server/data/stories.data";
+import {
+	storyDetailsByKey,
+	storyDetailKey
+} from "$lib/server/data/story-cache";
 
 type StoryPageInput = {
 	projectId: string;
@@ -31,7 +35,7 @@ const createStorySchema = z.object({
 const updateStorySchema = z.object({
 	projectId: z.string().min(1),
 	storyId: z.string().min(1),
-	story: z.unknown()
+	story: z.record(z.string(), z.unknown())
 });
 
 const inProjectScope = (projectId: string, itemProjectId?: string) =>
@@ -113,19 +117,17 @@ const canCreateStory = (permissions: EffectivePermissions) =>
 	permissions?.story?.create === true;
 const canEditStory = (permissions: EffectivePermissions) =>
 	permissions?.story?.edit === true;
+const canChangeStoryStatus = (permissions: EffectivePermissions) =>
+	permissions?.story?.statusChange === true;
 
-const storyDetailsByKey = new Map<string, typeof storyDraftTemplateData>();
-const detailKey = (projectId: string, storyId: string) =>
-	`${projectId}:${storyId}`;
-
-export const getStories = query("unchecked", (projectId: string) => {
+export const getStories = query("unchecked", (projectId: string): StoryRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
 	return datastore.stories.filter((item) => inProjectScope(scopedProjectId, item.projectId));
 });
 
 export const getStoryPageData = query("unchecked", (input: StoryPageInput) => {
 	const scopedProjectId = requireProjectId(input.projectId);
-	const key = detailKey(scopedProjectId, input.slug);
+	const key = storyDetailKey(scopedProjectId, input.slug);
 	const cached = storyDetailsByKey.get(key);
 	const row = datastore.stories.find(
 		(item) => item.id === input.slug && inProjectScope(scopedProjectId, item.projectId)
@@ -246,13 +248,7 @@ export const updateStory = command(
 			return { success: false, error: "Story not found" };
 		}
 
-		const candidate =
-			parsed.data.story && typeof parsed.data.story === "object"
-				? (parsed.data.story as Record<string, unknown>)
-				: null;
-		if (!candidate) {
-			return { success: false, error: "Invalid input" };
-		}
+		const candidate = parsed.data.story;
 
 		const persona =
 			candidate.persona && typeof candidate.persona === "object"
@@ -272,21 +268,35 @@ export const updateStory = command(
 		row.problemHypothesesCount = hypothesis.filter((item) => String(item ?? "").trim().length > 0).length;
 		if ("status" in candidate) {
 			const rawStatus = String(candidate.status).trim().toLowerCase();
-			if (rawStatus !== "draft" && rawStatus !== "locked" && rawStatus !== "archived") {
-				return { success: false, error: "Invalid story status." };
+			const currentStatus = row.status.toLowerCase();
+			if (rawStatus !== currentStatus) {
+				if (!canChangeStoryStatus(permissions)) {
+					return { success: false, error: "Permission denied: cannot change story status." };
+				}
+				if (rawStatus !== "draft" && rawStatus !== "locked" && rawStatus !== "archived") {
+					return { success: false, error: "Invalid story status." };
+				}
+				row.status =
+					rawStatus === "locked" ? "Locked" : rawStatus === "archived" ? "Archived" : "Draft";
 			}
-			row.status =
-				rawStatus === "locked" ? "Locked" : rawStatus === "archived" ? "Archived" : "Draft";
 		}
 		row.lastUpdated = new Date().toISOString().slice(0, 10);
 
+		const templateKeys = Object.keys(storyDraftTemplateData);
+		const safeCandidate = Object.fromEntries(
+			Object.entries(candidate).filter(([key]) => templateKeys.includes(key))
+		);
 		const normalizedStory: typeof storyDraftTemplateData = {
 			...storyDraftTemplateData,
-			...(candidate as Partial<typeof storyDraftTemplateData>),
+			...safeCandidate,
 			title: row.title,
 			status: row.status.toLowerCase()
 		};
-		storyDetailsByKey.set(detailKey(projectId, parsed.data.storyId), structuredClone(normalizedStory));
+		const addOnSections = Array.isArray(candidate.addOnSections)
+			? structuredClone(candidate.addOnSections)
+			: [];
+		const cacheEntry = { ...normalizedStory, addOnSections } as typeof storyDraftTemplateData & { addOnSections: unknown[] };
+		storyDetailsByKey.set(storyDetailKey(projectId, parsed.data.storyId), structuredClone(cacheEntry) as typeof storyDraftTemplateData);
 
 		return { success: true, data: row };
 	}

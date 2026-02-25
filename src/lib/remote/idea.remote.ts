@@ -2,7 +2,8 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
-import { ideasDetailData } from "$lib/server/data/ideas.data";
+import { getStoryCachedDetail } from "$lib/server/data/story-cache";
+import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
 
 type IdeaPageInput = {
 	projectId: string;
@@ -39,7 +40,7 @@ const updateIdeaStatusSchema = z.object({
 const updateIdeaSchema = z.object({
 	projectId: z.string().min(1),
 	ideaId: z.string().min(1),
-	state: z.unknown()
+	state: z.record(z.string(), z.unknown())
 });
 
 const statusTransitions: Record<IdeaRow["status"], IdeaRow["status"][]> = {
@@ -116,7 +117,7 @@ const ideaDetailsByKey = new Map<string, IdeaEditorState>();
 const detailKey = (projectId: string, ideaId: string) =>
 	`${projectId}:${ideaId}`;
 
-export const getIdeas = query("unchecked", (projectId: string) => {
+export const getIdeas = query("unchecked", (projectId: string): IdeaRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
 	return datastore.ideas.filter((item) => inProjectScope(scopedProjectId, item.projectId));
 });
@@ -156,12 +157,75 @@ export const getIdeaPageData = query("unchecked", (input: IdeaPageInput) => {
 		risks: resolvedDetails.moduleContent.risks ?? "",
 		assumptions: resolvedDetails.moduleContent.assumptions ?? ""
 	};
+
+	const problemOptions = datastore.problems
+		.filter((p) => inProjectScope(scopedProjectId, p.projectId) && p.status === "Locked")
+		.map((p) => ({
+			id: p.id,
+			title: p.statement,
+			phase: "Define" as const,
+			href: `/project/${scopedProjectId}/problem-statement/${p.id}`,
+			status: p.status as "Locked" | "Draft"
+		}));
+
+	const selectedProblem = resolvedDetails.selectedProblemId
+		? datastore.problems.find(
+				(p) => p.id === resolvedDetails.selectedProblemId && inProjectScope(scopedProjectId, p.projectId)
+			)
+		: null;
+
+	const linkedStories: Array<{ id: string; title: string; phase: string; href: string }> = [];
+	const derivedPersonas: string[] = [];
+
+	if (selectedProblem) {
+		const problemLinkedStoryTitles = selectedProblem.linkedStories ?? [];
+		const problemLinkedJourneyTitles = selectedProblem.linkedJourneys ?? [];
+
+		for (const story of datastore.stories.filter((s) => inProjectScope(scopedProjectId, s.projectId))) {
+			if (problemLinkedStoryTitles.includes(story.title)) {
+				linkedStories.push({
+					id: story.id,
+					title: story.title,
+					phase: "Empathize",
+					href: `/project/${scopedProjectId}/stories/${story.id}`
+				});
+				const cached = getStoryCachedDetail(scopedProjectId, story.id);
+				const personaName = cached?.persona ?? story.linkedPersonas?.[0] ?? "";
+				if (personaName && !derivedPersonas.includes(personaName)) {
+					derivedPersonas.push(personaName);
+				}
+			}
+		}
+
+		for (const journey of datastore.journeys.filter((j) => inProjectScope(scopedProjectId, j.projectId))) {
+			if (problemLinkedJourneyTitles.includes(journey.title)) {
+				linkedStories.push({
+					id: journey.id,
+					title: journey.title,
+					phase: "Empathize",
+					href: `/project/${scopedProjectId}/journeys/${journey.id}`
+				});
+				const cached = getJourneyCachedDetail(scopedProjectId, journey.id);
+				const personaName = cached?.persona?.name ?? journey.linkedPersonas?.[0] ?? "";
+				if (personaName && !derivedPersonas.includes(personaName)) {
+					derivedPersonas.push(personaName);
+				}
+			}
+		}
+	}
+
 	return {
-		...ideasDetailData,
+		problemOptions,
+		linkedStories,
+		derivedPersonas,
 		idea: {
 			title: resolvedTitle,
 			description: resolvedDetails.description,
 			status: resolvedStatus
+		},
+		metadata: {
+			owner: row.owner,
+			lastUpdated: row.lastUpdated
 		},
 		selectedProblemId: resolvedDetails.selectedProblemId,
 		activeModules: resolvedDetails.activeModules,
@@ -249,13 +313,7 @@ export const updateIdea = command(
 			return { success: false, error: "Idea not found" };
 		}
 
-		const state =
-			parsed.data.state && typeof parsed.data.state === "object"
-				? (parsed.data.state as Record<string, unknown>)
-				: null;
-		if (!state) {
-			return { success: false, error: "Invalid input" };
-		}
+		const state = parsed.data.state;
 
 		const key = detailKey(projectId, parsed.data.ideaId);
 		const existingDetails = ideaDetailsByKey.get(key);
@@ -263,6 +321,9 @@ export const updateIdea = command(
 			row.status === "Selected" || row.status === "Rejected" ? row.status : "Considered";
 		let ideaStatus: "Considered" | "Selected" | "Rejected" = currentIdeaStatus;
 		if ("ideaStatus" in state) {
+			if (!canChangeIdeaStatus(permissions)) {
+				return { success: false, error: "Permission denied: cannot change idea status." };
+			}
 			const ideaStatusRaw = String(state.ideaStatus).trim();
 			if (
 				ideaStatusRaw !== "Considered" &&
@@ -278,6 +339,9 @@ export const updateIdea = command(
 			if (typeof state.isArchived !== "boolean") {
 				return { success: false, error: "Invalid archive flag." };
 			}
+			if (state.isArchived !== isArchived && !canChangeIdeaStatus(permissions)) {
+				return { success: false, error: "Permission denied: cannot change idea status." };
+			}
 			isArchived = state.isArchived;
 		}
 		const nextRowStatus: IdeaRow["status"] = isArchived ? "Archived" : ideaStatus;
@@ -285,8 +349,10 @@ export const updateIdea = command(
 		const selectedProblemId = hasSelectedProblem
 			? String(state.selectedProblemId).trim()
 			: (existingDetails?.selectedProblemId ?? "");
-		const matchedProblem = hasSelectedProblem
-			? ideasDetailData.problemOptions.find((problem) => problem.id === selectedProblemId)
+		const matchedProblem = hasSelectedProblem && selectedProblemId
+			? datastore.problems.find(
+					(p) => p.id === selectedProblemId && inProjectScope(projectId, p.projectId) && p.status === "Locked"
+				)
 			: null;
 
 		if ("title" in state) {
@@ -306,7 +372,7 @@ export const updateIdea = command(
 				if (!matchedProblem) {
 					return { success: false, error: "Linked problem statement was not found." };
 				}
-				row.linkedProblemStatement = matchedProblem.title;
+				row.linkedProblemStatement = matchedProblem.statement;
 				row.linkedProblemLocked = matchedProblem.status === "Locked";
 				row.isOrphan = false;
 			}

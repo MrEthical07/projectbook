@@ -28,7 +28,7 @@ const createFeedbackSchema = z.object({
 const updateFeedbackSchema = z.object({
 	projectId: z.string().min(1),
 	feedbackId: z.string().min(1),
-	state: z.unknown()
+	state: z.record(z.string(), z.unknown())
 });
 
 const inProjectScope = (projectId: string, itemProjectId?: string) =>
@@ -104,7 +104,7 @@ const feedbackDetailsByKey = new Map<string, FeedbackEditorState>();
 const detailKey = (projectId: string, feedbackId: string) =>
 	`${projectId}:${feedbackId}`;
 
-export const getFeedback = query("unchecked", (projectId: string) => {
+export const getFeedback = query("unchecked", (projectId: string): FeedbackRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
 	return datastore.feedback.filter((item) => inProjectScope(scopedProjectId, item.projectId));
 });
@@ -118,13 +118,6 @@ export const getFeedbackPageData = query("unchecked", (input: FeedbackPageInput)
 	);
 	if (!row) {
 		error(404, "Feedback not found.");
-	}
-	if (
-		row.outcome !== "Validated" &&
-		row.outcome !== "Invalidated" &&
-		row.outcome !== "Needs Iteration"
-	) {
-		error(500, "Feedback outcome is invalid in datastore.");
 	}
 	const feedback = {
 		title: row.title,
@@ -234,24 +227,9 @@ export const updateFeedback = command(
 			return { success: false, error: "Feedback not found" };
 		}
 
-		const state =
-			parsed.data.state && typeof parsed.data.state === "object"
-				? (parsed.data.state as Record<string, unknown>)
-				: null;
-		if (!state) {
-			return { success: false, error: "Invalid input" };
-		}
+		const state = parsed.data.state;
 
-		let outcome: "Validated" | "Invalidated" | "Needs Iteration";
-		if (
-			row.outcome === "Validated" ||
-			row.outcome === "Invalidated" ||
-			row.outcome === "Needs Iteration"
-		) {
-			outcome = row.outcome;
-		} else {
-			return { success: false, error: "Feedback outcome is invalid in datastore." };
-		}
+		let outcome: FeedbackOutcome = row.outcome;
 		if ("outcome" in state) {
 			const outcomeRaw = String(state.outcome).trim();
 			if (
@@ -313,7 +291,6 @@ export const updateFeedback = command(
 		row.linkedArtifacts = linkedArtifacts.map((item) => `${item.type}: ${item.title}`);
 		row.linkedTaskOrIdea = linkedPrimary ? `${linkedPrimary.type}: ${linkedPrimary.title}` : "";
 		row.hasTaskLink = linkedArtifacts.some((item) => item.type === "Task");
-		row.createdDate = new Date().toISOString().slice(0, 10);
 
 		const activeModules = Array.isArray(state.activeModules)
 			? state.activeModules.map((item) => String(item))

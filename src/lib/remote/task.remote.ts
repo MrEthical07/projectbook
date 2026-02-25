@@ -2,7 +2,8 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
-import { taskDetailData } from "$lib/server/data/tasks.data";
+import { getStoryCachedDetail } from "$lib/server/data/story-cache";
+import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
 
 type TaskPageInput = {
 	projectId: string;
@@ -34,7 +35,7 @@ const updateTaskStatusSchema = z.object({
 const updateTaskSchema = z.object({
 	projectId: z.string().min(1),
 	taskId: z.string().min(1),
-	state: z.unknown()
+	state: z.record(z.string(), z.unknown())
 });
 
 const statusTransitions: Record<TaskRow["status"], TaskRow["status"][]> = {
@@ -98,7 +99,7 @@ const canTransition = (current: TaskRow["status"], next: TaskRow["status"]) =>
 const taskDetailsByKey = new Map<string, Record<string, unknown>>();
 const detailKey = (projectId: string, taskId: string) => `${projectId}:${taskId}`;
 
-export const getTasks = query("unchecked", (projectId: string) => {
+export const getTasks = query("unchecked", (projectId: string): TaskRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
 	return datastore.tasks.filter((item) => inProjectScope(scopedProjectId, item.projectId));
 });
@@ -115,10 +116,7 @@ export const getTaskPageData = query("unchecked", (input: TaskPageInput) => {
 	const cached = taskDetailsByKey.get(key);
 	const fallbackTask = {
 		title: row.title,
-		status:
-			row.status === "Blocked"
-				? "In Progress"
-				: (row.status as "Planned" | "In Progress" | "Completed" | "Abandoned"),
+		status: row.status as "Planned" | "In Progress" | "Completed" | "Abandoned" | "Blocked",
 		assignedToId: "",
 		selectedIdeaId: "",
 		deadline: row.deadline,
@@ -137,13 +135,115 @@ export const getTaskPageData = query("unchecked", (input: TaskPageInput) => {
 	task.title = row.title;
 	task.deadline = row.deadline;
 	task.hasFeedback = row.hasFeedback;
-	task.status =
-		row.status === "Blocked"
-			? "In Progress"
-			: (row.status as "Planned" | "In Progress" | "Completed" | "Abandoned");
+	task.status = row.status as "Planned" | "In Progress" | "Completed" | "Abandoned" | "Blocked";
+
+	const assigneeOptions = datastore.team.members
+		.filter((m) => inProjectScope(scopedProjectId, m.projectId))
+		.map((m) => ({ id: m.id, name: m.name, role: m.role }));
+
+	const ideaOptions = datastore.ideas
+		.filter((idea) =>
+			inProjectScope(scopedProjectId, idea.projectId) &&
+			(idea.status === "Selected" || idea.status === "Considered")
+		)
+		.map((idea) => {
+			const linkedProblem = idea.linkedProblemStatement
+				? datastore.problems.find(
+						(p) =>
+							inProjectScope(scopedProjectId, p.projectId) &&
+							p.statement === idea.linkedProblemStatement
+					)
+				: null;
+
+			const problem = linkedProblem
+				? {
+						id: linkedProblem.id,
+						title: linkedProblem.statement,
+						phase: "Define" as const,
+						href: `/project/${scopedProjectId}/problem-statement/${linkedProblem.id}`,
+						status: linkedProblem.status as "Locked" | "Archived"
+					}
+				: {
+						id: "",
+						title: "No linked problem",
+						phase: "Define" as const,
+						href: "",
+						status: "Draft" as "Locked" | "Archived"
+					};
+
+			let context: {
+				type: "Persona" | "User Journey";
+				title: string;
+				detail: string;
+				phase: "Empathize";
+				href: string;
+				status: "Active" | "Archived";
+			} = {
+				type: "Persona",
+				title: idea.persona || "Unknown",
+				detail: "",
+				phase: "Empathize",
+				href: "",
+				status: "Active"
+			};
+
+			if (linkedProblem) {
+				const storyTitles = linkedProblem.linkedStories ?? [];
+				for (const story of datastore.stories.filter((s) => inProjectScope(scopedProjectId, s.projectId))) {
+					if (storyTitles.includes(story.title)) {
+						const cached = getStoryCachedDetail(scopedProjectId, story.id);
+						const personaName = cached?.persona?.name ?? story.linkedPersonas?.[0] ?? "";
+						context = {
+							type: "Persona",
+							title: personaName || story.title,
+							detail: cached?.context ?? "",
+							phase: "Empathize",
+							href: `/project/${scopedProjectId}/stories/${story.id}`,
+							status: story.status === "Archived" ? "Archived" : "Active"
+						};
+						break;
+					}
+				}
+
+				const journeyTitles = linkedProblem.linkedJourneys ?? [];
+				if (!context.href) {
+					for (const journey of datastore.journeys.filter((j) => inProjectScope(scopedProjectId, j.projectId))) {
+						if (journeyTitles.includes(journey.title)) {
+							const cached = getJourneyCachedDetail(scopedProjectId, journey.id);
+							const personaName = cached?.persona?.name ?? journey.linkedPersonas?.[0] ?? "";
+							context = {
+								type: "User Journey",
+								title: personaName || journey.title,
+								detail: cached?.context ?? "",
+								phase: "Empathize",
+								href: `/project/${scopedProjectId}/journeys/${journey.id}`,
+								status: journey.status === "Archived" ? "Archived" : "Active"
+							};
+							break;
+						}
+					}
+				}
+			}
+
+			return {
+				id: idea.id,
+				title: idea.title,
+				phase: "Ideate" as const,
+				href: `/project/${scopedProjectId}/ideas/${idea.id}`,
+				status: idea.status === "Selected" ? ("Active" as const) : ("Active" as const),
+				problem,
+				context
+			};
+		});
+
 	return {
-		...taskDetailData,
-		task
+		assigneeOptions,
+		ideaOptions,
+		task,
+		metadata: {
+			owner: row.owner,
+			lastUpdated: row.lastUpdated
+		}
 	};
 });
 
@@ -254,13 +354,7 @@ export const updateTask = command(
 			return { success: false, error: "Task not found" };
 		}
 
-		const candidate =
-			parsed.data.state && typeof parsed.data.state === "object"
-				? (parsed.data.state as Record<string, unknown>)
-				: null;
-		if (!candidate) {
-			return { success: false, error: "Invalid input" };
-		}
+		const candidate = parsed.data.state;
 
 		if ("title" in candidate) {
 			const title = String(candidate.title).trim();
@@ -278,13 +372,21 @@ export const updateTask = command(
 				row.persona = "";
 				row.isOrphan = true;
 			} else {
-				const linkedIdea = taskDetailData.ideaOptions.find((item) => item.id === selectedIdeaId);
-				if (!linkedIdea) {
+				const linkedIdeaRow = datastore.ideas.find(
+					(item) => item.id === selectedIdeaId && inProjectScope(projectId, item.projectId) &&
+						(item.status === "Selected" || item.status === "Considered")
+				);
+				if (!linkedIdeaRow) {
 					return { success: false, error: "Selected idea was not found." };
 				}
-				row.linkedIdea = linkedIdea.title;
-				row.linkedProblemStatement = linkedIdea.problem.title;
-				row.persona = linkedIdea.context.title;
+				const linkedProblem = linkedIdeaRow.linkedProblemStatement
+					? datastore.problems.find(
+							(p) => inProjectScope(projectId, p.projectId) && p.statement === linkedIdeaRow.linkedProblemStatement
+						)
+					: null;
+				row.linkedIdea = linkedIdeaRow.title;
+				row.linkedProblemStatement = linkedProblem?.statement ?? "";
+				row.persona = linkedIdeaRow.persona || "";
 				row.isOrphan = false;
 			}
 		}

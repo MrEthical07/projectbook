@@ -32,7 +32,7 @@ const createResourceSchema = z.object({
 const updateResourceSchema = z.object({
 	projectId: z.string().min(1),
 	resourceId: z.string().min(1),
-	state: z.unknown()
+	state: z.record(z.string(), z.unknown())
 });
 
 const updateResourceStatusSchema = z.object({
@@ -222,13 +222,7 @@ export const updateResource = command(
 			return { success: false, error: "Resource not found" };
 		}
 
-		const state =
-			parsed.data.state && typeof parsed.data.state === "object"
-				? (parsed.data.state as Record<string, unknown>)
-				: null;
-		if (!state) {
-			return { success: false, error: "Invalid input" };
-		}
+		const state = parsed.data.state;
 
 		const key = detailKey(projectId, parsed.data.resourceId);
 		const existingState = resourceDetailsByKey.get(key);
@@ -346,6 +340,9 @@ export const updateResource = command(
 	}
 );
 
+const canChangeResourceStatus = (permissions: EffectivePermissions) =>
+	permissions?.resource?.statusChange === true;
+
 export const updateResourceStatus = command(
 	"unchecked",
 	({
@@ -355,7 +352,7 @@ export const updateResourceStatus = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<ResourceRow> => {
-		if (!canEditResource(permissions)) {
+		if (!canChangeResourceStatus(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateResourceStatusSchema.safeParse(input);

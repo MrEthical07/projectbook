@@ -177,6 +177,11 @@ export const createWorkspaceProject = command(
 			name,
 			status: "Active"
 		});
+		// Create default role permissions for the new project
+		const defaultRoleConfig = Object.values(datastore.team.rolePermissions)[0];
+		if (defaultRoleConfig) {
+			datastore.team.rolePermissions[projectId] = structuredClone(defaultRoleConfig);
+		}
 		return { success: true, data: { projectId, project } };
 	}
 );
@@ -240,6 +245,9 @@ export const declineWorkspaceInvite = command(
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
+		if (parsed.data.actorId !== datastore.workspace.user.id) {
+			return { success: false, error: "Permission denied" };
+		}
 		const inviteIndex = datastore.workspace.invites.findIndex(
 			(item) => item.id === parsed.data.inviteId
 		);
@@ -282,7 +290,6 @@ export const updateAccountSettings = command(
 			parsed.data.settings.emailNotifications ?? accountSettingsData.emailNotifications;
 
 		datastore.workspace.user.name = nextName;
-		datastore.workspace.user.email = accountSettingsData.email;
 
 		return { success: true, data: { updatedAt: new Date().toISOString() } };
 	}
@@ -306,6 +313,12 @@ export const sendWorkspaceProjectInvites = command(
 		if (!hasProject) {
 			return { success: false, error: "Project not found" };
 		}
+		const memberRole = datastore.team.members.find(
+			(m) => m.id === datastore.workspace.user.id && m.projectId === parsed.data.projectId
+		);
+		if (!memberRole || !["Owner", "Admin"].includes(memberRole.role)) {
+			return { success: false, error: "Permission denied: insufficient role on target project." };
+		}
 		if (!parsed.data.invites.length) {
 			return { success: false, error: "No invites to send" };
 		}
@@ -321,7 +334,8 @@ export const sendWorkspaceProjectInvites = command(
 				email,
 				role: invite.role,
 				sentDate: new Date().toISOString().slice(0, 10),
-				status: "pending" as const
+				status: "pending" as const,
+				projectId: parsed.data.projectId
 			};
 			datastore.team.invites.unshift(created);
 			invited.push({ email, role: invite.role });

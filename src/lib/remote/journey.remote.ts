@@ -6,6 +6,10 @@ import {
 	journeyDraftTemplateData,
 	journeyEmotionsData
 } from "$lib/server/data/journeys.data";
+import {
+	journeyDetailsByKey,
+	journeyDetailKey
+} from "$lib/server/data/journey-cache";
 
 type JourneyPageInput = {
 	projectId: string;
@@ -31,7 +35,7 @@ const createJourneySchema = z.object({
 const updateJourneySchema = z.object({
 	projectId: z.string().min(1),
 	journeyId: z.string().min(1),
-	journey: z.unknown()
+	journey: z.record(z.string(), z.unknown())
 });
 
 const inProjectScope = (projectId: string, itemProjectId?: string) =>
@@ -83,19 +87,17 @@ const canCreateJourney = (permissions: EffectivePermissions) =>
 	permissions?.story?.create === true;
 const canEditJourney = (permissions: EffectivePermissions) =>
 	permissions?.story?.edit === true;
+const canChangeJourneyStatus = (permissions: EffectivePermissions) =>
+	permissions?.story?.statusChange === true;
 
-const journeyDetailsByKey = new Map<string, typeof journeyDraftTemplateData>();
-const detailKey = (projectId: string, journeyId: string) =>
-	`${projectId}:${journeyId}`;
-
-export const getJourneys = query("unchecked", (projectId: string) => {
+export const getJourneys = query("unchecked", (projectId: string): JourneyRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
 	return datastore.journeys.filter((item) => inProjectScope(scopedProjectId, item.projectId));
 });
 
 export const getJourneyPageData = query("unchecked", (input: JourneyPageInput) => {
 	const scopedProjectId = requireProjectId(input.projectId);
-	const key = detailKey(scopedProjectId, input.slug);
+	const key = journeyDetailKey(scopedProjectId, input.slug);
 	const cached = journeyDetailsByKey.get(key);
 	const row = datastore.journeys.find(
 		(item) => item.id === input.slug && inProjectScope(scopedProjectId, item.projectId)
@@ -203,13 +205,7 @@ export const updateJourney = command(
 			return { success: false, error: "Journey not found" };
 		}
 
-		const candidate =
-			parsed.data.journey && typeof parsed.data.journey === "object"
-				? (parsed.data.journey as Record<string, unknown>)
-				: null;
-		if (!candidate) {
-			return { success: false, error: "Invalid input" };
-		}
+		const candidate = parsed.data.journey;
 
 		const persona =
 			candidate.persona && typeof candidate.persona === "object"
@@ -236,21 +232,31 @@ export const updateJourney = command(
 		row.painPointsCount = painPointsCount;
 		if ("status" in candidate) {
 			const rawStatus = String(candidate.status).trim().toLowerCase();
-			if (rawStatus !== "draft" && rawStatus !== "archived") {
-				return { success: false, error: "Invalid journey status." };
+			const currentStatus = row.status.toLowerCase();
+			if (rawStatus !== currentStatus) {
+				if (!canChangeJourneyStatus(permissions)) {
+					return { success: false, error: "Permission denied: cannot change journey status." };
+				}
+				if (rawStatus !== "draft" && rawStatus !== "archived") {
+					return { success: false, error: "Invalid journey status." };
+				}
+				row.status = rawStatus === "archived" ? "Archived" : "Draft";
 			}
-			row.status = rawStatus === "archived" ? "Archived" : "Draft";
 		}
 		row.lastUpdated = new Date().toISOString().slice(0, 10);
 
+		const templateKeys = Object.keys(journeyDraftTemplateData);
+		const safeCandidate = Object.fromEntries(
+			Object.entries(candidate).filter(([key]) => templateKeys.includes(key))
+		);
 		const normalizedJourney: typeof journeyDraftTemplateData = {
 			...journeyDraftTemplateData,
-			...(candidate as Partial<typeof journeyDraftTemplateData>),
+			...safeCandidate,
 			title: row.title,
 			status: row.status.toLowerCase()
 		};
 		journeyDetailsByKey.set(
-			detailKey(projectId, parsed.data.journeyId),
+			journeyDetailKey(projectId, parsed.data.journeyId),
 			structuredClone(normalizedJourney)
 		);
 

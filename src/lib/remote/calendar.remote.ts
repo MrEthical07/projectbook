@@ -43,7 +43,7 @@ const createEventSchema = z.object({
 const updateEventSchema = z.object({
 	projectId: z.string().min(1),
 	eventId: z.string().min(1),
-	state: z.unknown()
+	state: z.record(z.string(), z.unknown())
 });
 
 const deleteEventSchema = z.object({
@@ -117,14 +117,14 @@ export const getCalendarEventData = query("unchecked", (input: CalendarEventInpu
 			type: event.type,
 			date: event.start,
 			allDay: event.allDay,
-			eventKind: requiredString(event.eventKind, "event.eventKind"),
-			description: requiredString(event.description, "event.description"),
-			location: requiredString(event.location, "event.location"),
-			linkedArtifacts: requiredStringArray(event.linkedArtifacts, "event.linkedArtifacts"),
-			tags: requiredStringArray(event.tags, "event.tags"),
+			eventKind: typeof event.eventKind === "string" ? event.eventKind : "",
+			description: typeof event.description === "string" ? event.description : "",
+			location: typeof event.location === "string" ? event.location : "",
+			linkedArtifacts: Array.isArray(event.linkedArtifacts) ? event.linkedArtifacts : [],
+			tags: Array.isArray(event.tags) ? event.tags : [],
 			owner: event.owner,
 			createdAt: event.createdAt,
-			lastEdited: event.createdAt
+			lastEdited: event.lastEdited ?? event.createdAt
 		},
 		reference: calendarReferenceData
 	};
@@ -152,7 +152,7 @@ export const createCalendarEvent = command(
 		}
 		const projectId = requireProjectId(parsed.data.projectId);
 		const created: CalendarEvent = {
-			id: `evt-${Date.now()}`,
+			id: `evt-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
 			projectId,
 			title: parsed.data.title.trim(),
 			type: "Manual",
@@ -204,13 +204,7 @@ export const updateCalendarEvent = command(
 			return { success: false, error: "Derived events are read-only" };
 		}
 
-		const state =
-			parsed.data.state && typeof parsed.data.state === "object"
-				? (parsed.data.state as Record<string, unknown>)
-				: null;
-		if (!state) {
-			return { success: false, error: "Invalid input" };
-		}
+		const state = parsed.data.state;
 
 		if ("title" in state) {
 			const title = String(state.title).trim();
@@ -287,7 +281,7 @@ export const updateCalendarEvent = command(
 			const tags = state.tags.map((item) => String(item));
 			event.tags = tags;
 		}
-		event.createdAt = new Date().toISOString().slice(0, 10);
+		event.lastEdited = new Date().toISOString().slice(0, 10);
 
 		return { success: true, data: event };
 	}

@@ -118,7 +118,8 @@ const canProjectEdit = (permissions: EffectivePermissions) => permissions?.proje
 
 export const getProjectDashboard = query("unchecked", (projectId: string) => {
 	const scopedProjectId = requireProjectId(projectId);
-	const project = datastore.projects.find((item) => item.id === scopedProjectId);
+	const project = datastore.projects.find((item) => item.id === scopedProjectId)
+		?? datastore.workspace.projects.find((item) => item.id === scopedProjectId);
 	if (!project) {
 		error(404, "Project not found.");
 	}
@@ -169,7 +170,7 @@ export const getProjectTeamMembers = query("unchecked", (projectId: string) => {
 	const scopedProjectId = requireProjectId(projectId);
 	return {
 		members: datastore.team.members.filter((member) => inProjectScope(scopedProjectId, member.projectId)),
-		invites: datastore.team.invites
+		invites: datastore.team.invites.filter((inv) => inv.projectId === scopedProjectId)
 	};
 });
 
@@ -240,8 +241,9 @@ export const createProjectInvite = command(
 			return { success: false, error: "Invalid input" };
 		}
 		requireProjectId(parsed.data.projectId);
+		const scopedProjectId = parsed.data.projectId.trim();
 		const inviteExists = datastore.team.invites.some(
-			(item) => item.email.toLowerCase() === parsed.data.email.toLowerCase() && item.status === "pending"
+			(item) => item.email.toLowerCase() === parsed.data.email.toLowerCase() && item.status === "pending" && item.projectId === scopedProjectId
 		);
 		if (inviteExists) {
 			return { success: false, error: "Pending invite already exists" };
@@ -250,7 +252,8 @@ export const createProjectInvite = command(
 			email: parsed.data.email.toLowerCase(),
 			role: parsed.data.role,
 			sentDate: new Date().toISOString().slice(0, 10),
-			status: "pending" as const
+			status: "pending" as const,
+			projectId: scopedProjectId
 		};
 		datastore.team.invites.unshift(created);
 		return { success: true, data: created };
@@ -274,8 +277,9 @@ export const cancelProjectInvite = command(
 			return { success: false, error: "Invalid input" };
 		}
 		requireProjectId(parsed.data.projectId);
+		const scopedProjectId = parsed.data.projectId.trim();
 		const index = datastore.team.invites.findIndex(
-			(item) => item.email.toLowerCase() === parsed.data.email.toLowerCase()
+			(item) => item.email.toLowerCase() === parsed.data.email.toLowerCase() && item.projectId === scopedProjectId
 		);
 		if (index < 0) {
 			return { success: false, error: "Invite not found" };
@@ -303,6 +307,9 @@ export const updateProjectRolePermissions = command(
 		const parsed = updateRolePermissionsSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
+		}
+		if (parsed.data.role === "Owner") {
+			return { success: false, error: "Owner permissions cannot be modified." };
 		}
 		const scopedProjectId = requireProjectId(parsed.data.projectId);
 		const rolePermissions = datastore.team.rolePermissions[scopedProjectId];
@@ -337,6 +344,9 @@ export const updateProjectMemberRole = command(
 		const parsed = updateMemberRoleSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
+		}
+		if (parsed.data.role === "Owner") {
+			return { success: false, error: "Cannot assign Owner role." };
 		}
 		const scopedProjectId = requireProjectId(parsed.data.projectId);
 		const member = datastore.team.members.find(
@@ -415,6 +425,9 @@ export const updateProjectSettings = command(
 				workspaceProject.name = nextName;
 				workspaceProject.status = parsed.data.settings.projectStatus;
 				workspaceProject.lastUpdatedAt = new Date().toISOString();
+				if (parsed.data.settings.projectDescription !== undefined) {
+					workspaceProject.description = parsed.data.settings.projectDescription.trim();
+				}
 			}
 		}
 

@@ -1,6 +1,5 @@
 import { query } from "$app/server";
 import { error } from "@sveltejs/kit";
-import { dev } from "$app/environment";
 import { datastore } from "$lib/server/data/datastore";
 
 const resolveRoleFromWorkspace = (projectId: string): ProjectRole | null => {
@@ -53,8 +52,7 @@ export const getProjectAccess = query("unchecked", (projectId: string): ProjectA
 	const actorId = datastore.workspace.user.id;
 	const actor = datastore.workspace.user;
 	const resolvedRole = resolveRoleFromWorkspace(scopedProjectId) ?? resolveRoleFromTeam(actorId, scopedProjectId);
-	const devAdminOverride = dev && actorId === datastore.workspace.user.id;
-	const role: ProjectRole | null = devAdminOverride ? "Admin" : resolvedRole;
+	const role: ProjectRole | null = resolvedRole;
 	if (!role) {
 		error(403, "No project membership was found for the active user.");
 	}

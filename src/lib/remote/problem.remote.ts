@@ -2,7 +2,10 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
-import { problemDetailData } from "$lib/server/data/problems.data";
+import { getStoryCachedDetail } from "$lib/server/data/story-cache";
+import { storyDraftTemplateData } from "$lib/server/data/stories.data";
+import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
+import { journeyDraftTemplateData } from "$lib/server/data/journeys.data";
 
 type ProblemPageInput = {
 	projectId: string;
@@ -39,7 +42,7 @@ const updateProblemStatusSchema = z.object({
 const updateProblemSchema = z.object({
 	projectId: z.string().min(1),
 	problemId: z.string().min(1),
-	state: z.unknown()
+	state: z.record(z.string(), z.unknown())
 });
 
 const statusTransitions: Record<ProblemRow["status"], ProblemRow["status"][]> = {
@@ -116,7 +119,7 @@ const problemDetailsByKey = new Map<string, ProblemEditorState>();
 const detailKey = (projectId: string, problemId: string) =>
 	`${projectId}:${problemId}`;
 
-export const getProblems = query("unchecked", (projectId: string) => {
+export const getProblems = query("unchecked", (projectId: string): ProblemRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
 	return datastore.problems.filter((item) => inProjectScope(scopedProjectId, item.projectId));
 });
@@ -148,16 +151,169 @@ export const getProblemPageData = query("unchecked", (input: ProblemPageInput) =
 		success: resolvedDetails.moduleContent.success ?? "",
 		assumptions: resolvedDetails.moduleContent.assumptions ?? ""
 	};
+
+	// Dynamic story options from the datastore
+	const storyOptions = datastore.stories
+		.filter((s) => inProjectScope(scopedProjectId, s.projectId))
+		.map((s) => ({
+			id: s.id,
+			title: s.title,
+			phase: "Empathize" as const,
+			href: `/project/${scopedProjectId}/stories/${s.id}`
+		}));
+
+	// Dynamic journey options from the datastore
+	const journeyOptions = datastore.journeys
+		.filter((j) => inProjectScope(scopedProjectId, j.projectId))
+		.map((j) => ({
+			id: j.id,
+			title: j.title,
+			phase: "Empathize" as const,
+			href: `/project/${scopedProjectId}/journeys/${j.id}`
+		}));
+
+	// Compute source insights and pain points from linked sources
+	// When no cached linked sources exist, use defaults matching the page's default linking logic
+	let linkedSourcesForInsights = resolvedDetails.linkedSources;
+	if (linkedSourcesForInsights.length === 0) {
+		const defaults: typeof linkedSourcesForInsights = [];
+		if (storyOptions[0]) {
+			defaults.push({
+				id: storyOptions[0].id,
+				title: storyOptions[0].title,
+				type: "User Story",
+				phase: "Empathize",
+				href: storyOptions[0].href
+			});
+		}
+		if (journeyOptions[0]) {
+			defaults.push({
+				id: journeyOptions[0].id,
+				title: journeyOptions[0].title,
+				type: "User Journey",
+				phase: "Empathize",
+				href: journeyOptions[0].href
+			});
+		}
+		linkedSourcesForInsights = defaults;
+	}
+	const sourceInsights: {
+		personas: Array<{ name: string; description: string }>;
+		context: string;
+		painPoints: Array<{ text: string; sourceLabel: string }>;
+		journeyPainPoints: Array<{ text: string; journeyName: string; stageName: string }>;
+	} = {
+		personas: [],
+		context: "",
+		painPoints: [],
+		journeyPainPoints: []
+	};
+
+	const computedSourcePainPoints: Array<{ id: string; text: string; sourceLabel: string }> = [];
+	let painPointCounter = 0;
+	const contextParts: string[] = [];
+
+	for (const source of linkedSourcesForInsights) {
+		if (source.type === "User Story") {
+			const storyRow = datastore.stories.find(
+				(s) => s.id === source.id && inProjectScope(scopedProjectId, s.projectId)
+			);
+			if (storyRow) {
+				const cachedStory = getStoryCachedDetail(scopedProjectId, storyRow.id);
+				const detail = cachedStory ?? {
+					...storyDraftTemplateData,
+					title: storyRow.title,
+					persona: { ...storyDraftTemplateData.persona, name: storyRow.personaName }
+				};
+				if (detail.persona.name) {
+					sourceInsights.personas.push({
+						name: detail.persona.name,
+						description: detail.persona.bio || detail.persona.role || ""
+					});
+				}
+				if (detail.context) {
+					contextParts.push(detail.context);
+				}
+				for (const point of detail.painPoints) {
+					const text = String(point ?? "").trim();
+					if (text) {
+						painPointCounter++;
+						computedSourcePainPoints.push({
+							id: `pain-${painPointCounter}`,
+							text,
+							sourceLabel: `User Story - ${detail.persona.name || storyRow.title}`
+						});
+						sourceInsights.painPoints.push({
+							text,
+							sourceLabel: `User Story - ${detail.persona.name || storyRow.title}`
+						});
+					}
+				}
+			}
+		} else if (source.type === "User Journey") {
+			const journeyRow = datastore.journeys.find(
+				(j) => j.id === source.id && inProjectScope(scopedProjectId, j.projectId)
+			);
+			if (journeyRow) {
+				const cachedJourney = getJourneyCachedDetail(scopedProjectId, journeyRow.id);
+				const detail = cachedJourney ?? {
+					...journeyDraftTemplateData,
+					title: journeyRow.title,
+					persona: { ...journeyDraftTemplateData.persona, name: journeyRow.linkedPersonas[0] ?? "" }
+				};
+				if (detail.persona.name) {
+					const existing = sourceInsights.personas.find((p) => p.name === detail.persona.name);
+					if (!existing) {
+						sourceInsights.personas.push({
+							name: detail.persona.name,
+							description: detail.persona.bio || detail.persona.role || ""
+						});
+					}
+				}
+				if (detail.context) {
+					contextParts.push(detail.context);
+				}
+				for (const stage of detail.stages) {
+					for (const point of stage.painPoints) {
+						const text = String(point ?? "").trim();
+						if (text) {
+							painPointCounter++;
+							computedSourcePainPoints.push({
+								id: `pain-${painPointCounter}`,
+								text,
+								sourceLabel: `User Journey - ${detail.title || journeyRow.title} / ${stage.name}`
+							});
+							sourceInsights.journeyPainPoints.push({
+								text,
+								journeyName: detail.title || journeyRow.title,
+								stageName: stage.name
+							});
+						}
+					}
+				}
+			}
+		}
+	}
+	sourceInsights.context = contextParts.join(" ");
+
 	return {
-		...problemDetailData,
+		storyOptions,
+		journeyOptions,
+		sourcePainPoints: computedSourcePainPoints,
+		sourceInsights,
 		linkedSources: resolvedDetails.linkedSources,
 		selectedPainPoints: resolvedDetails.selectedPainPoints,
 		activeModules: resolvedDetails.activeModules,
 		moduleContent: resolvedModuleContent,
 		notesText: resolvedDetails.notesText,
+		metadata: {
+			owner: row.owner,
+			lastUpdated: row.lastUpdated
+		},
 		problem: {
 			title: resolvedProblemTitle,
-			status: row.status
+			status: row.status,
+			finalStatement: resolvedDetails.finalStatement
 		}
 	};
 });
@@ -237,13 +393,7 @@ export const updateProblem = command(
 			return { success: false, error: "Problem not found" };
 		}
 
-		const state =
-			parsed.data.state && typeof parsed.data.state === "object"
-				? (parsed.data.state as Record<string, unknown>)
-				: null;
-		if (!state) {
-			return { success: false, error: "Invalid input" };
-		}
+		const state = parsed.data.state;
 
 		const linkedSources: Array<{
 			id: string;
@@ -286,6 +436,9 @@ export const updateProblem = command(
 				: {};
 		let nextStatus: ProblemRow["status"] = row.status;
 		if ("status" in state) {
+			if (!canChangeProblemStatus(permissions)) {
+				return { success: false, error: "Permission denied: cannot change problem status." };
+			}
 			const nextStatusRaw = String(state.status).trim();
 			if (nextStatusRaw !== "Draft" && nextStatusRaw !== "Locked" && nextStatusRaw !== "Archived") {
 				return { success: false, error: "Invalid problem status." };

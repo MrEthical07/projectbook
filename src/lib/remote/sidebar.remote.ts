@@ -1,6 +1,7 @@
 import { command, query } from "$app/server";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getProjectAccess } from "$lib/remote/access.remote";
 import "$lib/server/data/workspace.data";
 import "$lib/server/data/project.data";
 import "$lib/server/data/stories.data";
@@ -427,7 +428,6 @@ const renameArtifact = (
 			);
 			if (!row) return null;
 			row.title = nextTitle;
-			row.createdDate = new Date().toISOString().slice(0, 10);
 			return { id: row.id, title: row.title };
 		}
 		case "pages": {
