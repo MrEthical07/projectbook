@@ -58,11 +58,11 @@ export const getProjectAccess = query("unchecked", (projectId: string): ProjectA
 	}
 	const rolePermissions = rolePermissionsForProject(scopedProjectId);
 	if (!rolePermissions) {
-		error(500, "Role permissions are not configured for this project.");
+		error(404, "Project is unavailable.");
 	}
 	const roleAccess = rolePermissions[role];
 	if (!roleAccess) {
-		error(500, `Role permissions are missing for role '${role}'.`);
+		error(404, "Project is unavailable.");
 	}
 
 	return {

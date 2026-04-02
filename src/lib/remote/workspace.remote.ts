@@ -1,6 +1,7 @@
 import { command, query } from "$app/server";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { isDemoAccount } from "../server/demo/account-scope";
 import {
 	accountSettingsData,
 	addProjectReferenceData,
@@ -98,6 +99,8 @@ const iconForProjectName = (name: string): ProjectIconKey => {
 	return projectIconKeys[hash % projectIconKeys.length] ?? defaultProjectIconKey;
 };
 
+const isDemoWorkspaceUser = (): boolean => isDemoAccount(datastore.workspace.user.email);
+
 export type WorkspaceSidebarData = {
 	user: {
 		name: string;
@@ -130,16 +133,30 @@ export const getWorkspaceProjects = query(() => {
 	return datastore.workspace.projects;
 });
 
+const visibleWorkspaceProjectIds = () => new Set(datastore.workspace.projects.map((item) => item.id));
+
+const visibleWorkspaceProjectNames = () =>
+	new Set(datastore.workspace.projects.map((item) => item.name));
+
 export const getWorkspaceInvitesPage = query(() => {
 	return datastore.workspace.invites;
 });
 
 export const getWorkspaceNotificationsPage = query(() => {
-	return notificationsInboxData;
+	const names = visibleWorkspaceProjectNames();
+	return notificationsInboxData.filter((item) => !item.project || names.has(item.project));
 });
 
 export const getWorkspaceActivityPage = query(() => {
-	return workspaceActivityPageData;
+	const ids = visibleWorkspaceProjectIds();
+	const names = visibleWorkspaceProjectNames();
+
+	return workspaceActivityPageData.filter((item) => {
+		if (item.projectId) {
+			return ids.has(item.projectId);
+		}
+		return names.has(item.projectName);
+	});
 });
 
 export const getAddProjectReference = query(() => {
@@ -163,6 +180,12 @@ export const createWorkspaceProject = command(
 		}
 		if (parsed.data.actorId !== datastore.workspace.user.id) {
 			return { success: false, error: "Permission denied" };
+		}
+		if (isDemoWorkspaceUser()) {
+			return {
+				success: false,
+				error: "Demo account is read-only and cannot create new projects."
+			};
 		}
 		const name = parsed.data.name.trim();
 		const duplicate = datastore.workspace.projects.some(
@@ -229,6 +252,12 @@ export const acceptWorkspaceInvite = command(
 		}
 		if (parsed.data.actorId !== datastore.workspace.user.id) {
 			return { success: false, error: "Permission denied" };
+		}
+		if (isDemoWorkspaceUser()) {
+			return {
+				success: false,
+				error: "Demo account cannot join additional projects."
+			};
 		}
 		const inviteIndex = datastore.workspace.invites.findIndex(
 			(item) => item.id === parsed.data.inviteId

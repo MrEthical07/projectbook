@@ -9,6 +9,12 @@ import {
 	getSessionCookie,
 	setSessionCookie
 } from "$lib/server/auth/cookies";
+import {
+	DEMO_EMAIL,
+	DEMO_PASSWORD,
+	SUPERADMIN_EMAIL,
+	SUPERADMIN_PASSWORD
+} from "$lib/server/auth/constants";
 import { authService } from "$lib/server/auth/service";
 import { checkRateLimit, withFormError } from "$lib/server/auth/rate-limit";
 
@@ -35,7 +41,23 @@ export const load: PageServerLoad = async ({ cookies }) => {
 	const notice = consumeAuthNoticeCookie(cookies);
 	const { loginForm, signupForm } = await loadForms();
 
-	return { loginForm, signupForm, notice };
+	return {
+		loginForm,
+		signupForm,
+		notice,
+		accountOptions: {
+			superadmin: {
+				email: SUPERADMIN_EMAIL,
+				password: SUPERADMIN_PASSWORD,
+				access: "Full access"
+			},
+			demo: {
+				email: DEMO_EMAIL,
+				password: DEMO_PASSWORD,
+				access: "Restricted demo access"
+			}
+		}
+	};
 };
 
 export const actions: Actions = {

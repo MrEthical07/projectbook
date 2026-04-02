@@ -10,3 +10,9 @@ export const REMEMBER_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const SUPERADMIN_EMAIL = "admin@projectbook.com";
 export const SUPERADMIN_PASSWORD = "admin";
 export const SUPERADMIN_NAME = "Super Admin";
+export const SUPERADMIN_ID = "user-superadmin";
+
+export const DEMO_EMAIL = "demo@projectbook.com";
+export const DEMO_PASSWORD = "demo";
+export const DEMO_NAME = "Demo Account";
+export const DEMO_ID = "user-demo";

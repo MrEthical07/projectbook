@@ -1,8 +1,13 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
+	DEMO_ID,
+	DEMO_EMAIL,
+	DEMO_NAME,
+	DEMO_PASSWORD,
 	DEFAULT_SESSION_TTL_MS,
 	PASSWORD_RESET_TOKEN_TTL_MS,
 	REMEMBER_SESSION_TTL_MS,
+	SUPERADMIN_ID,
 	SUPERADMIN_EMAIL,
 	SUPERADMIN_NAME,
 	SUPERADMIN_PASSWORD,
@@ -13,7 +18,6 @@ import { sendPasswordResetEmail, sendVerificationEmail } from "./email";
 import { hashPassword, verifyPassword } from "./password";
 import { authStore } from "./store";
 import type {
-	AuthSession,
 	AuthUser,
 	IssuedSession,
 	LoginResult,
@@ -26,6 +30,66 @@ import type {
 } from "./types";
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
+const SESSION_SIGNING_SECRET = "projectbook-session-v1";
+
+type StatelessSessionPayload = {
+	userId: string;
+	expiresAt: number;
+	issuedAt: number;
+	nonce: string;
+};
+
+const signSessionPayload = (encodedPayload: string): string =>
+	createHash("sha256")
+		.update(`${encodedPayload}.${SESSION_SIGNING_SECRET}`)
+		.digest("hex");
+
+const createStatelessSessionToken = (payload: StatelessSessionPayload): string => {
+	const encodedPayload = encodeURIComponent(JSON.stringify(payload));
+	const signature = signSessionPayload(encodedPayload);
+	return `${encodedPayload}.${signature}`;
+};
+
+const parseStatelessSessionToken = (token: string): StatelessSessionPayload | null => {
+	const separatorIndex = token.lastIndexOf(".");
+	if (separatorIndex <= 0 || separatorIndex === token.length - 1) {
+		return null;
+	}
+
+	const encodedPayload = token.slice(0, separatorIndex);
+	const providedSignature = token.slice(separatorIndex + 1);
+	const expectedSignature = signSessionPayload(encodedPayload);
+	if (expectedSignature !== providedSignature) {
+		return null;
+	}
+
+	try {
+		const decoded = decodeURIComponent(encodedPayload);
+		const parsed = JSON.parse(decoded) as Partial<StatelessSessionPayload>;
+		if (
+			typeof parsed.userId !== "string" ||
+			typeof parsed.expiresAt !== "number" ||
+			typeof parsed.issuedAt !== "number" ||
+			typeof parsed.nonce !== "string"
+		) {
+			return null;
+		}
+
+		if (parsed.expiresAt <= Date.now()) {
+			return null;
+		}
+
+		return {
+			userId: parsed.userId,
+			expiresAt: parsed.expiresAt,
+			issuedAt: parsed.issuedAt,
+			nonce: parsed.nonce
+		};
+	} catch {
+		return null;
+	}
+};
 
 const isExpired = (expiresAt: Date, now = Date.now()): boolean => expiresAt.getTime() <= now;
 
@@ -160,28 +224,25 @@ export const authService = {
 	},
 
 	createSession(userId: string, remember = false): IssuedSession {
-		pruneExpiredSessions();
-
 		const createdAt = new Date();
 		const ttl = remember ? REMEMBER_SESSION_TTL_MS : DEFAULT_SESSION_TTL_MS;
 		const expiresAt = new Date(createdAt.getTime() + ttl);
-		const token = generateSecureToken(32);
-
-		const session: AuthSession = {
-			id: randomUUID(),
+		const token = createStatelessSessionToken({
 			userId,
-			tokenHash: hashToken(token),
-			expiresAt,
-			createdAt,
-			revokedAt: null
-		};
-
-		authStore.sessions.push(session);
+			expiresAt: expiresAt.getTime(),
+			issuedAt: createdAt.getTime(),
+			nonce: generateSecureToken(8)
+		});
 
 		return { token, expiresAt };
 	},
 
 	getUserBySessionToken(token: string): AuthUser | null {
+		const statelessPayload = parseStatelessSessionToken(token);
+		if (statelessPayload) {
+			return authStore.users.find((user) => user.id === statelessPayload.userId) ?? null;
+		}
+
 		pruneExpiredSessions();
 		const hashedToken = hashToken(token);
 		const session = authStore.sessions.find(
@@ -194,6 +255,11 @@ export const authService = {
 	},
 
 	invalidateSessionByToken(token: string): void {
+		const statelessPayload = parseStatelessSessionToken(token);
+		if (statelessPayload) {
+			return;
+		}
+
 		const hash = hashToken(token);
 		const session = authStore.sessions.find((entry) => entry.tokenHash === hash);
 		if (session && !session.revokedAt) {
@@ -293,12 +359,16 @@ export const authService = {
 	async seedSuperAdmin(): Promise<void> {
 		const existing = findUserByEmail(SUPERADMIN_EMAIL);
 		if (existing) {
+			existing.id = SUPERADMIN_ID;
+			existing.name = SUPERADMIN_NAME;
+			existing.email = normalizeEmail(SUPERADMIN_EMAIL);
+			existing.isEmailVerified = true;
 			return;
 		}
 
 		const createdAt = new Date();
 		const user: AuthUser = {
-			id: randomUUID(),
+			id: SUPERADMIN_ID,
 			name: SUPERADMIN_NAME,
 			email: normalizeEmail(SUPERADMIN_EMAIL),
 			passwordHash: await hashPassword(SUPERADMIN_PASSWORD),
@@ -310,5 +380,31 @@ export const authService = {
 
 		authStore.users.push(user);
 		console.info(`[auth] superadmin account seeded: ${SUPERADMIN_EMAIL}`);
+	},
+
+	async seedDemoAccount(): Promise<void> {
+		const existing = findUserByEmail(DEMO_EMAIL);
+		if (existing) {
+			existing.id = DEMO_ID;
+			existing.name = DEMO_NAME;
+			existing.email = normalizeEmail(DEMO_EMAIL);
+			existing.isEmailVerified = true;
+			return;
+		}
+
+		const createdAt = new Date();
+		const user: AuthUser = {
+			id: DEMO_ID,
+			name: DEMO_NAME,
+			email: normalizeEmail(DEMO_EMAIL),
+			passwordHash: await hashPassword(DEMO_PASSWORD),
+			isEmailVerified: true,
+			createdAt,
+			updatedAt: createdAt,
+			lastLoginAt: null
+		};
+
+		authStore.users.push(user);
+		console.info(`[auth] demo account seeded: ${DEMO_EMAIL}`);
 	}
 };

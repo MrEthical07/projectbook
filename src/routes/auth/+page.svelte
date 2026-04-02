@@ -3,17 +3,38 @@
 	import * as Card from "$lib/components/ui/card";
 	import { Input } from "$lib/components/ui/input";
 	import { Label } from "$lib/components/ui/label";
+	import * as Alert from "$lib/components/ui/alert";
 	import { Separator } from "$lib/components/ui/separator";
 	import * as Tabs from "$lib/components/ui/tabs";
-	import { BookOpen, CheckCircle2, LoaderCircle } from "@lucide/svelte";
+	import { BookOpen, CheckCircle2, LoaderCircle, ShieldCheck } from "@lucide/svelte";
 	import { superForm } from "sveltekit-superforms";
 	import { zod4Client } from "sveltekit-superforms/adapters";
 	import { signInSchema, signUpSchema } from "$lib/schemas/auth.schema";
 	import type { ActionData, PageProps } from "./$types";
 
 	type AuthTab = "signin" | "signup";
+	type LoginProfile = "superadmin" | "demo";
+	type AccountOption = { email: string; password: string; access: string };
+	type AccountOptions = { superadmin: AccountOption; demo: AccountOption };
 
 	let { data, form }: PageProps = $props();
+	const accountOptions = $derived.by(() => {
+		const options = (data as PageProps["data"] & { accountOptions?: AccountOptions }).accountOptions;
+
+		return {
+			superadmin: {
+				email: options?.superadmin.email ?? "admin@projectbook.com",
+				password: options?.superadmin.password ?? "admin",
+				access: options?.superadmin.access ?? "Full access"
+			},
+			demo: {
+				email: options?.demo.email ?? "demo@projectbook.com",
+				password: options?.demo.password ?? "demo",
+				access: options?.demo.access ?? "Restricted demo access"
+			}
+		};
+	});
+	let selectedLoginProfile = $state<LoginProfile>("superadmin");
 	let activeTab = $state<AuthTab>("signin");
 
 	const resolveLoginFormState = () => (form as ActionData | null)?.loginForm ?? data.loginForm;
@@ -50,6 +71,22 @@
 		submitting: loginSubmitting,
 		enhance: enhanceLogin
 	} = loginSuperForm;
+
+	const applyLoginProfile = (profile: LoginProfile) => {
+		selectedLoginProfile = profile;
+		const preset = accountOptions[profile];
+		loginForm.update((current) => ({
+			...current,
+			email: preset.email,
+			password: preset.password,
+			remember: true
+		}));
+	};
+
+	const profileButtonClass = (profile: LoginProfile): string =>
+		selectedLoginProfile === profile
+			? "h-auto justify-start border-primary/60 bg-primary/10 px-3 py-2 text-left flex-col items-start gap-0.5"
+			: "h-auto justify-start px-3 py-2 text-left flex-col items-start gap-0.5";
 
 	const {
 		form: signupForm,
@@ -155,6 +192,47 @@
 						{data.notice}
 					</div>
 				{/if}
+
+				<Alert.Root class="border-primary/35 bg-primary/10">
+					<Alert.Title class="flex items-center gap-2 text-primary">
+						<ShieldCheck class="size-4" />
+						<span>Select Login Profile</span>
+					</Alert.Title>
+					<Alert.Description class="text-xs text-muted-foreground">
+						Pick the account type before signing in. Superadmin retains full capabilities, while
+						demo is restricted to a scoped project experience.
+					</Alert.Description>
+					<div class="col-start-2 mt-3 grid w-full gap-2 sm:grid-cols-2">
+						<Button
+							type="button"
+							variant="outline"
+							class={profileButtonClass("superadmin")}
+							onclick={() => applyLoginProfile("superadmin")}
+						>
+							<span class="text-sm font-semibold">Superadmin</span>
+							<span class="text-xs text-muted-foreground">{accountOptions.superadmin.access}</span>
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							class={profileButtonClass("demo")}
+							onclick={() => applyLoginProfile("demo")}
+						>
+							<span class="text-sm font-semibold">Demo</span>
+							<span class="text-xs text-muted-foreground">{accountOptions.demo.access}</span>
+						</Button>
+					</div>
+					<div class="col-start-2 mt-2 space-y-1 text-[11px] text-muted-foreground">
+						<p>
+							Superadmin: <span class="font-medium text-foreground">{accountOptions.superadmin.email}</span>
+							/ <span class="font-medium text-foreground">{accountOptions.superadmin.password}</span>
+						</p>
+						<p>
+							Demo: <span class="font-medium text-foreground">{accountOptions.demo.email}</span> /
+							<span class="font-medium text-foreground">{accountOptions.demo.password}</span>
+						</p>
+					</div>
+				</Alert.Root>
 
 				<Card.Root>
 					<Card.Header class="space-y-2">

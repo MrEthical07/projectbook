@@ -50,6 +50,14 @@
 		return value.trim();
 	};
 
+	const optionalString = (value: unknown, fallback: string): string => {
+		if (typeof value !== "string") {
+			return fallback;
+		}
+		const normalized = value.trim();
+		return normalized.length > 0 ? normalized : fallback;
+	};
+
 	const requiredRole = (value: unknown, path: string): MemberRole => {
 		if (!roleValues.includes(value as MemberRole)) {
 			throw new Error(`Invalid '${path}'.`);
@@ -120,8 +128,8 @@
 					row.joinedAt,
 					`members[${index}].joinedDate`
 				),
-				team: requiredString(row.team, `members[${index}].team`),
-				location: requiredString(row.location, `members[${index}].location`)
+				team: optionalString(row.team, "Unassigned"),
+				location: optionalString(row.location, "Unknown")
 			};
 		});
 	});
