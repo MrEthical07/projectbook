@@ -117,6 +117,31 @@ const ideaDetailsByKey = new Map<string, IdeaEditorState>();
 const detailKey = (projectId: string, ideaId: string) =>
 	`${projectId}:${ideaId}`;
 
+const sourceMatchesTitle = (
+	linkedSources: string[],
+	title: string,
+	type: "story" | "journey"
+) => {
+	const normalizedTitle = title.trim().toLowerCase();
+	if (!normalizedTitle) return false;
+	const candidates =
+		type === "story"
+			? [
+					normalizedTitle,
+					`story: ${normalizedTitle}`,
+					`user story: ${normalizedTitle}`
+				]
+			: [
+					normalizedTitle,
+					`journey: ${normalizedTitle}`,
+					`user journey: ${normalizedTitle}`
+				];
+
+	return linkedSources.some((source) =>
+		candidates.includes(source.trim().toLowerCase())
+	);
+};
+
 export const getIdeas = query("unchecked", (projectId: string): IdeaRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
 	return datastore.ideas.filter((item) => inProjectScope(scopedProjectId, item.projectId));
@@ -178,11 +203,10 @@ export const getIdeaPageData = query("unchecked", (input: IdeaPageInput) => {
 	const derivedPersonas: string[] = [];
 
 	if (selectedProblem) {
-		const problemLinkedStoryTitles = selectedProblem.linkedStories ?? [];
-		const problemLinkedJourneyTitles = selectedProblem.linkedJourneys ?? [];
+		const linkedSources = selectedProblem.linkedSources ?? [];
 
 		for (const story of datastore.stories.filter((s) => inProjectScope(scopedProjectId, s.projectId))) {
-			if (problemLinkedStoryTitles.includes(story.title)) {
+			if (sourceMatchesTitle(linkedSources, story.title, "story")) {
 				linkedStories.push({
 					id: story.id,
 					title: story.title,
@@ -190,7 +214,7 @@ export const getIdeaPageData = query("unchecked", (input: IdeaPageInput) => {
 					href: `/project/${scopedProjectId}/stories/${story.id}`
 				});
 				const cached = getStoryCachedDetail(scopedProjectId, story.id);
-				const personaName = cached?.persona ?? story.linkedPersonas?.[0] ?? "";
+				const personaName = cached?.persona?.name ?? story.personaName ?? "";
 				if (personaName && !derivedPersonas.includes(personaName)) {
 					derivedPersonas.push(personaName);
 				}
@@ -198,7 +222,7 @@ export const getIdeaPageData = query("unchecked", (input: IdeaPageInput) => {
 		}
 
 		for (const journey of datastore.journeys.filter((j) => inProjectScope(scopedProjectId, j.projectId))) {
-			if (problemLinkedJourneyTitles.includes(journey.title)) {
+			if (sourceMatchesTitle(linkedSources, journey.title, "journey")) {
 				linkedStories.push({
 					id: journey.id,
 					title: journey.title,

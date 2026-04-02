@@ -57,14 +57,7 @@
 				</DropdownMenu.Label>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
-					<DropdownMenu.Item>
-						<SparklesIcon />
-						Upgrade to Pro
-					</DropdownMenu.Item>
-				</DropdownMenu.Group>
-				<DropdownMenu.Separator />
-				<DropdownMenu.Group>
-					<DropdownMenu.Item onSelect={() => goto("/my-account")} class="gap-2 items-center">
+					<DropdownMenu.Item onSelect={() => goto("/account")} class="gap-2 items-center">
 						<BadgeCheckIcon class="h-4 w-4" />
 						Account
 					</DropdownMenu.Item>

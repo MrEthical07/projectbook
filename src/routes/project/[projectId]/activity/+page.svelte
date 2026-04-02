@@ -50,8 +50,10 @@
 		if (action.includes("created")) return "Artifact created";
 		return "Artifact updated";
 	};
-	let items = $state<ActivityItem[]>(
-		(structuredClone(data.items) as Array<{
+	let items = $state<ActivityItem[]>([]);
+
+	$effect(() => {
+		items = (structuredClone(data.items) as Array<{
 			id: string;
 			user: string;
 			initials: string;
@@ -69,8 +71,10 @@
 			path: item.href,
 			at: item.at,
 			details: `${item.action} ${item.artifact}`
-		}))
-	);
+		}));
+		selectedItemId = "";
+		detailOpen = false;
+	});
 
 	let users = $derived(["All", ...new Set(items.map((item) => item.user))]);
 	let selectedItem = $derived(items.find((item) => item.id === selectedItemId) ?? null);

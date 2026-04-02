@@ -323,6 +323,7 @@ const createArtifact = (
 				persona: "",
 				owner,
 				deadline: new Date().toISOString().slice(0, 10),
+				lastUpdated: new Date().toISOString().slice(0, 10),
 				status: "Planned",
 				ideaRejected: false,
 				hasFeedback: false,
@@ -420,6 +421,7 @@ const renameArtifact = (
 			);
 			if (!row) return null;
 			row.title = nextTitle;
+			row.lastUpdated = new Date().toISOString().slice(0, 10);
 			return { id: row.id, title: row.title };
 		}
 		case "feedback": {

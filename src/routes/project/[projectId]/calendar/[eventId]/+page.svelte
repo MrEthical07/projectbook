@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, untrack } from "svelte";
 	import { Calendar as CalendarPicker } from "$lib/components/ui/calendar";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
@@ -53,24 +53,29 @@
 	const permissions = access?.permissions;
 	const canEditCalendar = can(permissions, "calendar", "edit");
 	const canDeleteCalendar = can(permissions, "calendar", "delete");
-	const manualKinds: ManualEventKind[] = structuredClone(
-		data.eventData.reference.manualKinds
-	) as ManualEventKind[];
-	const linkedArtifactOptions = structuredClone(data.eventData.reference.linkedArtifactOptions) as string[];
+	let manualKinds = $state<ManualEventKind[]>([]);
+	let linkedArtifactOptions = $state<string[]>([]);
 
 	const today = new Date().toISOString().split("T")[0];
-	const incomingEvent = required(data.eventData.event as CalendarEvent | undefined, "eventData.event");
-	let event = $state<CalendarEvent>(
-		{
-			...structuredClone(incomingEvent),
-			date: required(incomingEvent.date, "event.date"),
-			createdAt: required(incomingEvent.createdAt, "event.createdAt"),
-			lastEdited: required(incomingEvent.lastEdited, "event.lastEdited")
-		} as CalendarEvent
-	);
+	let event = $state<CalendarEvent>({
+		id: "",
+		title: "",
+		type: "Manual",
+		date: today,
+		allDay: true,
+		owner: "",
+		eventKind: "Meeting",
+		tags: [],
+		description: "",
+		location: "",
+		linkedArtifacts: [],
+		createdAt: today,
+		lastEdited: today,
+		sourceTitle: ""
+	});
 
 	let deleteOpen = $state(false);
-	let eventDateValue = $state<DateValue>(parseDate(event.date));
+	let eventDateValue = $state<DateValue>(parseDate(today));
 	let tagsInput = $state("");
 	let eventKindSelection = $state<ManualEventKind>("Meeting");
 	let customEventKind = $state("");
@@ -80,6 +85,7 @@
 	let savedSignature = $state("");
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+	let saveReady = $state(false);
 
 	let eventDateString = $derived.by(() => eventDateValue.toString());
 	let parsedTags = $derived.by(() => parseTags(tagsInput));
@@ -94,7 +100,7 @@
 			tags: parsedTags,
 		})
 	);
-	let isDirty = $derived(currentSignature !== savedSignature);
+	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 	let isReadOnly = $derived(event.type === "Derived" || !canEditCalendar);
 	let saveIndicator = $derived.by(() => {
 		if (savePhase === "saving") {
@@ -204,11 +210,31 @@
 		}
 	};
 
-	onMount(() => {
-		eventDateValue = parseDate(event.date);
-		tagsInput = (event.tags ?? []).join(", ");
-		applyKindFromEvent();
-		savedSignature = currentSignature;
+	$effect(() => {
+		const d = data;
+		untrack(() => {
+			manualKinds = structuredClone(d.eventData.reference.manualKinds) as ManualEventKind[];
+			linkedArtifactOptions = structuredClone(d.eventData.reference.linkedArtifactOptions) as string[];
+			const incomingEvent = required(d.eventData.event as CalendarEvent | undefined, "eventData.event");
+			event = {
+				...structuredClone(incomingEvent),
+				date: required(incomingEvent.date, "event.date"),
+				createdAt: required(incomingEvent.createdAt, "event.createdAt"),
+				lastEdited: required(incomingEvent.lastEdited, "event.lastEdited")
+			} as CalendarEvent;
+			eventDateValue = parseDate(event.date);
+			tagsInput = (event.tags ?? []).join(", ");
+			applyKindFromEvent();
+			deleteOpen = false;
+			savePhase = "idle";
+			savedSignature = JSON.stringify({
+				...event,
+				date: event.date,
+				eventKind: event.eventKind?.trim() ?? "",
+				tags: event.tags ?? []
+			});
+			saveReady = true;
+		});
 	});
 </script>
 

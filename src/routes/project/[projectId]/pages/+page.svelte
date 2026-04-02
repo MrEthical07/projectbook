@@ -34,7 +34,11 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $state<PageRow[]>(structuredClone(data.rows) as PageRow[]);
+	let rows = $state<PageRow[]>([]);
+
+	$effect(() => {
+		rows = structuredClone(data.rows) as PageRow[];
+	});
 
 	let statusFilter = $state<PageStatus | "All">("All");
 	let ownerFilter = $state("All");
@@ -46,7 +50,6 @@
 
 	let createOpen = $state(false);
 	let createTitle = $state("");
-	let createDescription = $state("");
 	let mutationError = $state("");
 
 	let editingId = $state("");
@@ -126,7 +129,6 @@
 		const created = result.data;
 		rows = [created as PageRow, ...rows];
 		createTitle = "";
-		createDescription = "";
 		createOpen = false;
 		await goto(`/project/${page.params.projectId}/pages/${created.id}`);
 	};
@@ -206,10 +208,6 @@
 							<div class="grid gap-2">
 								<Label for="page-title">Title</Label>
 								<Input id="page-title" bind:value={createTitle} placeholder="Page title" />
-							</div>
-							<div class="grid gap-2">
-								<Label for="page-description">Short Description</Label>
-								<Input id="page-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
 							{#if mutationError}
 								<p class="text-xs text-destructive">{mutationError}</p>

@@ -54,77 +54,123 @@
 		links: Record<PhaseSeriesKey, string>;
 	};
 
-	const projectId = page.params.projectId;
-	const project = data.dashboard.project;
-	const me = data.dashboard.me;
-	const now = new Date(data.dashboard.now);
-	const stories = data.dashboard.stories;
-	const journeys = data.dashboard.journeys;
-	const problems = data.dashboard.problems;
-	const ideas = data.dashboard.ideas;
-	const tasks: Task[] = data.dashboard.tasks as Task[];
-	const feedback = data.dashboard.feedback;
-	const events = data.dashboard.events;
-	const activity = data.dashboard.activity;
-	const recentEdits = data.dashboard.recentEdits;
+	let projectId = $derived(page.params.projectId);
+	let project = $derived(data.dashboard.project);
+	let me = $derived(data.dashboard.me);
+	let now = $derived.by(() => new Date(data.dashboard.now));
+	let stories = $derived(data.dashboard.stories);
+	let journeys = $derived(data.dashboard.journeys);
+	let problems = $derived(data.dashboard.problems);
+	let ideas = $derived(data.dashboard.ideas);
+	let tasks = $derived(data.dashboard.tasks as Task[]);
+	let feedback = $derived(data.dashboard.feedback);
+	let events = $derived(data.dashboard.events);
+	let activity = $derived(data.dashboard.activity);
+	let recentEdits = $derived(data.dashboard.recentEdits);
 
-	const openTasks = tasks.filter((t) => t.status !== "Completed" && t.status !== "Abandoned");
-	const overdueTasks = tasks.filter(
-		(t) => t.status !== "Completed" && t.status !== "Abandoned" && new Date(t.deadline) < now
+	let openTasks = $derived.by(() =>
+		tasks.filter((t) => t.status !== "Completed" && t.status !== "Abandoned")
 	);
-	const lockedProblems = problems.filter((p) => p.status === "Locked");
-	const selectedIdeas = ideas.filter((i) => i.status === "Selected");
+	let overdueTasks = $derived.by(() =>
+		tasks.filter(
+			(t) => t.status !== "Completed" && t.status !== "Abandoned" && new Date(t.deadline) < now
+		)
+	);
+	let lockedProblems = $derived.by(() => problems.filter((p) => p.status === "Locked"));
+	let selectedIdeas = $derived.by(() => ideas.filter((i) => i.status === "Selected"));
 
-	const stats = [
-		{
-			label: "Total Artifacts",
-			value: stories.length + journeys.length + problems.length + ideas.length + tasks.length + feedback.length,
-			description: "Across Design Thinking phases",
-			href: `/project/${projectId}/pages`,
-			icon: FolderOpen,
-			tone: "normal"
-		},
-		{
-			label: "Open Tasks",
-			value: openTasks.length,
-			description: "Not completed or abandoned",
-			href: `/project/${projectId}/tasks?status=open`,
-			icon: ListChecks,
-			tone: overdueTasks.length > 0 ? "warning" : "normal"
-		},
-		{
-			label: "Locked Problems",
-			value: lockedProblems.length,
-			description: "Ready for execution",
-			href: `/project/${projectId}/problem-statement?status=locked`,
-			icon: LockKeyhole,
-			tone: "normal"
-		},
-		{
-			label: "Selected Ideas",
-			value: selectedIdeas.length,
-			description: "Chosen for prototype",
-			href: `/project/${projectId}/ideas?status=selected`,
-			icon: Lightbulb,
-			tone: selectedIdeas.some((i) => i.tasksCount === 0) ? "warning" : "normal"
-		},
-		{
-			label: "Feedback Entries",
-			value: feedback.length,
-			description: "Signals from testing",
-			href: `/project/${projectId}/feedback`,
-			icon: CalendarClock,
-			tone: feedback.some((f) => f.outcome === "Needs Iteration") ? "warning" : "normal"
-		}
-	] as const;
+	let stats = $derived.by(
+		() =>
+			[
+				{
+					label: "Total Artifacts",
+					value:
+						stories.length +
+						journeys.length +
+						problems.length +
+						ideas.length +
+						tasks.length +
+						feedback.length,
+					description: "Across Design Thinking phases",
+					href: `/project/${projectId}/pages`,
+					icon: FolderOpen,
+					tone: "normal"
+				},
+				{
+					label: "Open Tasks",
+					value: openTasks.length,
+					description: "Not completed or abandoned",
+					href: `/project/${projectId}/tasks?status=open`,
+					icon: ListChecks,
+					tone: overdueTasks.length > 0 ? "warning" : "normal"
+				},
+				{
+					label: "Locked Problems",
+					value: lockedProblems.length,
+					description: "Ready for execution",
+					href: `/project/${projectId}/problem-statement?status=locked`,
+					icon: LockKeyhole,
+					tone: "normal"
+				},
+				{
+					label: "Selected Ideas",
+					value: selectedIdeas.length,
+					description: "Chosen for prototype",
+					href: `/project/${projectId}/ideas?status=selected`,
+					icon: Lightbulb,
+					tone: selectedIdeas.some((i) => i.tasksCount === 0) ? "warning" : "normal"
+				},
+				{
+					label: "Feedback Entries",
+					value: feedback.length,
+					description: "Signals from testing",
+					href: `/project/${projectId}/feedback`,
+					icon: CalendarClock,
+					tone: feedback.some((f) => f.outcome === "Needs Iteration") ? "warning" : "normal"
+				}
+			] as const
+	);
 
-	const phaseRows = [
-		{ name: "Empathize", total: stories.length + journeys.length, descriptor: `${stories.length} Stories, ${journeys.length} Journeys`, readiness: "Coverage is strong across core personas.", href: `/project/${projectId}/stories` },
-		{ name: "Define", total: problems.length, descriptor: `${problems.length} Problems (${lockedProblems.length} Locked)`, readiness: "Locked statements are ready to execute.", href: `/project/${projectId}/problem-statement` },
-		{ name: "Ideate", total: ideas.length, descriptor: `${ideas.length} Ideas (${selectedIdeas.length} Selected)`, readiness: "Selected concepts need fuller task conversion.", href: `/project/${projectId}/ideas` },
-		{ name: "Prototype", total: tasks.length, descriptor: `${tasks.length} Tasks (${tasks.filter((t) => t.status === "Completed").length} Completed)`, readiness: "Delivery is active with a small blocked queue.", href: `/project/${projectId}/tasks` },
-		{ name: "Test", total: feedback.length, descriptor: `${feedback.length} Feedback (${feedback.filter((f) => f.outcome === "Needs Iteration").length} Needs Iteration)`, readiness: "Validation loop is running with open outcomes.", href: `/project/${projectId}/feedback` }
-	] as const;
+	let phaseRows = $derived.by(
+		() =>
+			[
+				{
+					name: "Empathize",
+					total: stories.length + journeys.length,
+					descriptor: `${stories.length} Stories, ${journeys.length} Journeys`,
+					readiness: "Coverage is strong across core personas.",
+					href: `/project/${projectId}/stories`
+				},
+				{
+					name: "Define",
+					total: problems.length,
+					descriptor: `${problems.length} Problems (${lockedProblems.length} Locked)`,
+					readiness: "Locked statements are ready to execute.",
+					href: `/project/${projectId}/problem-statement`
+				},
+				{
+					name: "Ideate",
+					total: ideas.length,
+					descriptor: `${ideas.length} Ideas (${selectedIdeas.length} Selected)`,
+					readiness: "Selected concepts need fuller task conversion.",
+					href: `/project/${projectId}/ideas`
+				},
+				{
+					name: "Prototype",
+					total: tasks.length,
+					descriptor: `${tasks.length} Tasks (${tasks.filter((t) => t.status === "Completed").length} Completed)`,
+					readiness: "Delivery is active with a small blocked queue.",
+					href: `/project/${projectId}/tasks`
+				},
+				{
+					name: "Test",
+					total: feedback.length,
+					descriptor: `${feedback.length} Feedback (${feedback.filter((f) => f.outcome === "Needs Iteration").length} Needs Iteration)`,
+					readiness: "Validation loop is running with open outcomes.",
+					href: `/project/${projectId}/feedback`
+				}
+			] as const
+	);
 
 	const phaseChartConfig = {
 		stories: { label: "Stories", color: "hsl(204 94% 56%)" },
@@ -149,158 +195,178 @@
 		label: series.label
 	}));
 
-	const phaseChartData: PhaseChartDatum[] = [
-		{
-			phase: "Empathize",
-			phaseHref: `/project/${projectId}/stories`,
-			stories: stories.length,
-			journeys: journeys.length,
-			problems: 0,
-			ideas: 0,
-			tasks: 0,
-			feedback: 0,
-			links: {
-				stories: `/project/${projectId}/stories`,
-				journeys: `/project/${projectId}/journeys`,
-				problems: `/project/${projectId}/problem-statement`,
-				ideas: `/project/${projectId}/ideas`,
-				tasks: `/project/${projectId}/tasks`,
-				feedback: `/project/${projectId}/feedback`
+	let phaseChartData = $derived.by(
+		(): PhaseChartDatum[] => [
+			{
+				phase: "Empathize",
+				phaseHref: `/project/${projectId}/stories`,
+				stories: stories.length,
+				journeys: journeys.length,
+				problems: 0,
+				ideas: 0,
+				tasks: 0,
+				feedback: 0,
+				links: {
+					stories: `/project/${projectId}/stories`,
+					journeys: `/project/${projectId}/journeys`,
+					problems: `/project/${projectId}/problem-statement`,
+					ideas: `/project/${projectId}/ideas`,
+					tasks: `/project/${projectId}/tasks`,
+					feedback: `/project/${projectId}/feedback`
+				}
+			},
+			{
+				phase: "Define",
+				phaseHref: `/project/${projectId}/problem-statement`,
+				stories: 0,
+				journeys: 0,
+				problems: problems.length,
+				ideas: 0,
+				tasks: 0,
+				feedback: 0,
+				links: {
+					stories: `/project/${projectId}/stories`,
+					journeys: `/project/${projectId}/journeys`,
+					problems: `/project/${projectId}/problem-statement`,
+					ideas: `/project/${projectId}/ideas`,
+					tasks: `/project/${projectId}/tasks`,
+					feedback: `/project/${projectId}/feedback`
+				}
+			},
+			{
+				phase: "Ideate",
+				phaseHref: `/project/${projectId}/ideas`,
+				stories: 0,
+				journeys: 0,
+				problems: 0,
+				ideas: ideas.length,
+				tasks: 0,
+				feedback: 0,
+				links: {
+					stories: `/project/${projectId}/stories`,
+					journeys: `/project/${projectId}/journeys`,
+					problems: `/project/${projectId}/problem-statement`,
+					ideas: `/project/${projectId}/ideas`,
+					tasks: `/project/${projectId}/tasks`,
+					feedback: `/project/${projectId}/feedback`
+				}
+			},
+			{
+				phase: "Prototype",
+				phaseHref: `/project/${projectId}/tasks`,
+				stories: 0,
+				journeys: 0,
+				problems: 0,
+				ideas: 0,
+				tasks: tasks.length,
+				feedback: 0,
+				links: {
+					stories: `/project/${projectId}/stories`,
+					journeys: `/project/${projectId}/journeys`,
+					problems: `/project/${projectId}/problem-statement`,
+					ideas: `/project/${projectId}/ideas`,
+					tasks: `/project/${projectId}/tasks`,
+					feedback: `/project/${projectId}/feedback`
+				}
+			},
+			{
+				phase: "Test",
+				phaseHref: `/project/${projectId}/feedback`,
+				stories: 0,
+				journeys: 0,
+				problems: 0,
+				ideas: 0,
+				tasks: 0,
+				feedback: feedback.length,
+				links: {
+					stories: `/project/${projectId}/stories`,
+					journeys: `/project/${projectId}/journeys`,
+					problems: `/project/${projectId}/problem-statement`,
+					ideas: `/project/${projectId}/ideas`,
+					tasks: `/project/${projectId}/tasks`,
+					feedback: `/project/${projectId}/feedback`
+				}
 			}
-		},
-		{
-			phase: "Define",
-			phaseHref: `/project/${projectId}/problem-statement`,
-			stories: 0,
-			journeys: 0,
-			problems: problems.length,
-			ideas: 0,
-			tasks: 0,
-			feedback: 0,
-			links: {
-				stories: `/project/${projectId}/stories`,
-				journeys: `/project/${projectId}/journeys`,
-				problems: `/project/${projectId}/problem-statement`,
-				ideas: `/project/${projectId}/ideas`,
-				tasks: `/project/${projectId}/tasks`,
-				feedback: `/project/${projectId}/feedback`
-			}
-		},
-		{
-			phase: "Ideate",
-			phaseHref: `/project/${projectId}/ideas`,
-			stories: 0,
-			journeys: 0,
-			problems: 0,
-			ideas: ideas.length,
-			tasks: 0,
-			feedback: 0,
-			links: {
-				stories: `/project/${projectId}/stories`,
-				journeys: `/project/${projectId}/journeys`,
-				problems: `/project/${projectId}/problem-statement`,
-				ideas: `/project/${projectId}/ideas`,
-				tasks: `/project/${projectId}/tasks`,
-				feedback: `/project/${projectId}/feedback`
-			}
-		},
-		{
-			phase: "Prototype",
-			phaseHref: `/project/${projectId}/tasks`,
-			stories: 0,
-			journeys: 0,
-			problems: 0,
-			ideas: 0,
-			tasks: tasks.length,
-			feedback: 0,
-			links: {
-				stories: `/project/${projectId}/stories`,
-				journeys: `/project/${projectId}/journeys`,
-				problems: `/project/${projectId}/problem-statement`,
-				ideas: `/project/${projectId}/ideas`,
-				tasks: `/project/${projectId}/tasks`,
-				feedback: `/project/${projectId}/feedback`
-			}
-		},
-		{
-			phase: "Test",
-			phaseHref: `/project/${projectId}/feedback`,
-			stories: 0,
-			journeys: 0,
-			problems: 0,
-			ideas: 0,
-			tasks: 0,
-			feedback: feedback.length,
-			links: {
-				stories: `/project/${projectId}/stories`,
-				journeys: `/project/${projectId}/journeys`,
-				problems: `/project/${projectId}/problem-statement`,
-				ideas: `/project/${projectId}/ideas`,
-				tasks: `/project/${projectId}/tasks`,
-				feedback: `/project/${projectId}/feedback`
-			}
-		}
-	];
+		]
+	);
 
-	const myTasks = tasks
-		.filter((t) => t.owner === me.name)
-		.slice()
-		.sort((a, b) => +new Date(a.deadline) - +new Date(b.deadline))
-		.slice(0, 5);
-	const myFeedback = feedback.filter((f) => f.owner === me.name).slice(0, 5);
-	const myEdits = recentEdits.slice().sort((a, b) => +new Date(b.at) - +new Date(a.at)).slice(0, 5);
+	let myTasks = $derived.by(() =>
+		tasks
+			.filter((t) => t.owner === me.name)
+			.slice()
+			.sort((a, b) => +new Date(a.deadline) - +new Date(b.deadline))
+			.slice(0, 5)
+	);
+	let myFeedback = $derived.by(() => feedback.filter((f) => f.owner === me.name).slice(0, 5));
+	let myEdits = $derived.by(() =>
+		recentEdits
+			.slice()
+			.sort((a, b) => +new Date(b.at) - +new Date(a.at))
+			.slice(0, 5)
+	);
 
-	const alerts = ([
-		{
-			label: "Orphan Artifacts",
-			count: stories.filter((s) => s.isOrphan).length + journeys.filter((j) => j.isOrphan).length,
-			description: "Artifacts not linked to downstream work.",
-			severity: "amber",
-			href: `/project/${projectId}/pages?filter=orphan`
-		},
-		{
-			label: "Overdue Tasks",
-			count: overdueTasks.length,
-			description: "Open tasks past due date.",
-			severity: "red",
-			href: `/project/${projectId}/tasks?status=overdue`
-		},
-		{
-			label: "Blocked / Abandoned Tasks",
-			count: tasks.filter((t) => t.status === "Blocked" || t.status === "Abandoned").length,
-			description: "Tasks that cannot progress.",
-			severity: "red",
-			href: `/project/${projectId}/tasks?status=blocked,abandoned`
-		},
-		{
-			label: "Problems With No Ideas",
-			count: problems.filter((p) => p.ideasCount === 0).length,
-			description: "Define phase gaps requiring ideation.",
-			severity: "amber",
-			href: `/project/${projectId}/problem-statement?filter=no-ideas`
-		},
-		{
-			label: "Selected Ideas With No Tasks",
-			count: ideas.filter((i) => i.status === "Selected" && i.tasksCount === 0).length,
-			description: "Chosen ideas missing implementation tasks.",
-			severity: "amber",
-			href: `/project/${projectId}/ideas?filter=no-tasks`
-		},
-		{
-			label: "Completed Tasks With No Feedback",
-			count: tasks.filter((t) => t.status === "Completed" && !t.hasFeedback).length,
-			description: "Completed work without test evidence.",
-			severity: "amber",
-			href: `/project/${projectId}/tasks?filter=completed-without-feedback`
-		}
-	] satisfies AlertItem[]).filter((a) => a.count > 0);
+	let alerts = $derived.by(() =>
+		([
+			{
+				label: "Orphan Artifacts",
+				count:
+					stories.filter((s) => s.isOrphan).length +
+					journeys.filter((j) => j.isOrphan).length,
+				description: "Artifacts not linked to downstream work.",
+				severity: "amber",
+				href: `/project/${projectId}/pages?filter=orphan`
+			},
+			{
+				label: "Overdue Tasks",
+				count: overdueTasks.length,
+				description: "Open tasks past due date.",
+				severity: "red",
+				href: `/project/${projectId}/tasks?status=overdue`
+			},
+			{
+				label: "Blocked / Abandoned Tasks",
+				count: tasks.filter((t) => t.status === "Blocked" || t.status === "Abandoned").length,
+				description: "Tasks that cannot progress.",
+				severity: "red",
+				href: `/project/${projectId}/tasks?status=blocked,abandoned`
+			},
+			{
+				label: "Problems With No Ideas",
+				count: problems.filter((p) => p.ideasCount === 0).length,
+				description: "Define phase gaps requiring ideation.",
+				severity: "amber",
+				href: `/project/${projectId}/problem-statement?filter=no-ideas`
+			},
+			{
+				label: "Selected Ideas With No Tasks",
+				count: ideas.filter((i) => i.status === "Selected" && i.tasksCount === 0).length,
+				description: "Chosen ideas missing implementation tasks.",
+				severity: "amber",
+				href: `/project/${projectId}/ideas?filter=no-tasks`
+			},
+			{
+				label: "Completed Tasks With No Feedback",
+				count: tasks.filter((t) => t.status === "Completed" && !t.hasFeedback).length,
+				description: "Completed work without test evidence.",
+				severity: "amber",
+				href: `/project/${projectId}/tasks?filter=completed-without-feedback`
+			}
+		] satisfies AlertItem[]).filter((a) => a.count > 0)
+	);
 
-	const upcomingEvents = events
-		.filter((e) => +new Date(e.startAt) >= +now)
-		.slice()
-		.sort((a, b) => +new Date(a.startAt) - +new Date(b.startAt))
-		.slice(0, 5);
-	const recentActivity = activity.slice().sort((a, b) => +new Date(b.at) - +new Date(a.at)).slice(0, 10);
+	let upcomingEvents = $derived.by(() =>
+		events
+			.filter((e) => +new Date(e.startAt) >= +now)
+			.slice()
+			.sort((a, b) => +new Date(a.startAt) - +new Date(b.startAt))
+			.slice(0, 5)
+	);
+	let recentActivity = $derived.by(() =>
+		activity
+			.slice()
+			.sort((a, b) => +new Date(b.at) - +new Date(a.at))
+			.slice(0, 10)
+	);
 
 	const toneCardClass = {
 		normal: "border-border bg-card",

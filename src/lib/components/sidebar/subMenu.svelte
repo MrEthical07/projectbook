@@ -53,7 +53,7 @@
 		onMutated?: () => Promise<void> | void;
 	} = $props();
 
-	let isOpen = $state(item.isActive ?? false);
+	let isOpen = $state(false);
 	$effect(() => {
 		isOpen = item.isActive ?? false;
 	});

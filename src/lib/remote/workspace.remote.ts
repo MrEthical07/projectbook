@@ -98,6 +98,24 @@ const iconForProjectName = (name: string): ProjectIconKey => {
 	return projectIconKeys[hash % projectIconKeys.length] ?? defaultProjectIconKey;
 };
 
+export type WorkspaceSidebarData = {
+	user: {
+		name: string;
+		email: string;
+		avatar: string;
+	};
+};
+
+export const getWorkspaceSidebarData = query((): WorkspaceSidebarData => {
+	return {
+		user: {
+			name: datastore.workspace.user.name,
+			email: datastore.workspace.user.email,
+			avatar: "/avatars/shadcn.jpg"
+		}
+	};
+});
+
 export const getWorkspaceDashboard = query(() => {
 	return {
 		user: datastore.workspace.user,
@@ -177,6 +195,22 @@ export const createWorkspaceProject = command(
 			name,
 			status: "Active"
 		});
+		if (
+			!datastore.team.members.some(
+				(item) => item.id === parsed.data.actorId && item.projectId === projectId
+			)
+		) {
+			datastore.team.members.unshift({
+				id: parsed.data.actorId,
+				projectId,
+				name: datastore.workspace.user.name,
+				email: datastore.workspace.user.email,
+				role: "Owner",
+				status: "Active",
+				joinedAt: new Date().toISOString().slice(0, 10),
+				updatedAt: new Date().toISOString().slice(0, 10)
+			});
+		}
 		// Create default role permissions for the new project
 		const defaultRoleConfig = Object.values(datastore.team.rolePermissions)[0];
 		if (defaultRoleConfig) {
@@ -316,7 +350,11 @@ export const sendWorkspaceProjectInvites = command(
 		const memberRole = datastore.team.members.find(
 			(m) => m.id === datastore.workspace.user.id && m.projectId === parsed.data.projectId
 		);
-		if (!memberRole || !["Owner", "Admin"].includes(memberRole.role)) {
+		const workspaceRole = datastore.workspace.projects.find(
+			(item) => item.id === parsed.data.projectId && item.id === parsed.data.projectId
+		)?.role;
+		const actorRole = memberRole?.role ?? workspaceRole;
+		if (!actorRole || !["Owner", "Admin"].includes(actorRole)) {
 			return { success: false, error: "Permission denied: insufficient role on target project." };
 		}
 		if (!parsed.data.invites.length) {

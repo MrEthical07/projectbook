@@ -45,10 +45,12 @@
 		status: "Active" | "Archived";
 	};
 
-	const docTypes: DocType[] = structuredClone(data.reference.docTypes) as DocType[];
-	const fileTypes: FileType[] = structuredClone(data.reference.fileTypes) as FileType[];
-	const owners = structuredClone(data.reference.owners) as string[];
-	const sortOptions: SortOption[] = structuredClone(data.reference.sortOptions) as SortOption[];
+	let docTypes = $derived.by(() => structuredClone(data.reference.docTypes) as DocType[]);
+	let fileTypes = $derived.by(() => structuredClone(data.reference.fileTypes) as FileType[]);
+	let owners = $derived.by(() => structuredClone(data.reference.owners) as string[]);
+	let sortOptions = $derived.by(
+		() => structuredClone(data.reference.sortOptions) as SortOption[]
+	);
 
 	let uploadOpen = $state(false);
 	let addSectionOpen = $state(false);
@@ -77,7 +79,11 @@
 	let isUploading = $state(false);
 	let isArchiving = $state(false);
 
-	let resources = $state<ResourceRow[]>(structuredClone(data.resources) as ResourceRow[]);
+	let resources = $state<ResourceRow[]>([]);
+
+	$effect(() => {
+		resources = structuredClone(data.resources) as ResourceRow[];
+	});
 
 	let filteredResources = $derived.by(() => {
 		return resources.filter((row) => {
@@ -103,10 +109,12 @@
 		return Array.from(new Set(all));
 	});
 
-	const storyOptions = structuredClone(data.reference.storyOptions) as string[];
-	const problemOptions = structuredClone(data.reference.problemOptions) as string[];
-	const ideaOptions = structuredClone(data.reference.ideaOptions) as string[];
-	const taskOptions = structuredClone(data.reference.taskOptions) as string[];
+	let storyOptions = $derived.by(() => structuredClone(data.reference.storyOptions) as string[]);
+	let problemOptions = $derived.by(
+		() => structuredClone(data.reference.problemOptions) as string[]
+	);
+	let ideaOptions = $derived.by(() => structuredClone(data.reference.ideaOptions) as string[]);
+	let taskOptions = $derived.by(() => structuredClone(data.reference.taskOptions) as string[]);
 
 	const requestArchive = (resourceId: string) => {
 		if (!canEditResource) return;

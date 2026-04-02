@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy, untrack } from "svelte";
 	import * as Alert from "$lib/components/ui/alert";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -46,17 +46,17 @@
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditResource = can(permissions, "resource", "edit");
-	let name = $state(required(data.resource.name, "resource.name"));
-	let fileType = $state(required(data.resource.fileType, "resource.fileType"));
-	let docType = $state(required(data.resource.docType, "resource.docType"));
-	let status = $state<ResourceStatus>(data.resource.status as ResourceStatus);
-	let description = $state(required(data.resource.description, "resource.description"));
-	let owner = $state(required(data.resource.owner, "resource.owner"));
-	let createdAt = $state(required(data.resource.createdAt, "resource.createdAt"));
-	let updatedAt = $state(required(data.resource.updatedAt, "resource.updatedAt"));
-	let fileSize = $state(required(data.resource.fileSize, "resource.fileSize"));
+	let name = $state("");
+	let fileType = $state("");
+	let docType = $state("");
+	let status = $state<ResourceStatus>("Active");
+	let description = $state("");
+	let owner = $state("");
+	let createdAt = $state("");
+	let updatedAt = $state("");
+	let fileSize = $state("");
 
-	let notesText = $state(required(data.resource.notesText, "resource.notesText"));
+	let notesText = $state("");
 	let versionDialogOpen = $state(false);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
@@ -67,11 +67,9 @@
 	let newVersionLabel = $state("v4");
 	let addSectionOpen = $state(false);
 
-	let linkedArtifacts = $state<LinkedArtifact[]>(
-		structuredClone(data.resource.linkedArtifacts) as LinkedArtifact[]
-	);
+	let linkedArtifacts = $state<LinkedArtifact[]>([]);
 
-	let versions = $state<VersionRow[]>(structuredClone(data.resource.versions) as VersionRow[]);
+	let versions = $state<VersionRow[]>([]);
 
 	type SavePhase = "idle" | "saving" | "saved";
 	let savePhase = $state<SavePhase>("idle");
@@ -191,9 +189,39 @@
 		}
 	});
 
-	onMount(() => {
-		savedSignature = currentSignature;
-		saveReady = true;
+	$effect(() => {
+		const d = data;
+		untrack(() => {
+			const resource = required(d.resource, "resource");
+			name = required(resource.name, "resource.name");
+			fileType = required(resource.fileType, "resource.fileType");
+			docType = required(resource.docType, "resource.docType");
+			status = resource.status as ResourceStatus;
+			description = required(resource.description, "resource.description");
+			owner = required(resource.owner, "resource.owner");
+			createdAt = required(resource.createdAt, "resource.createdAt");
+			updatedAt = required(resource.updatedAt, "resource.updatedAt");
+			fileSize = required(resource.fileSize, "resource.fileSize");
+			notesText = required(resource.notesText, "resource.notesText");
+			linkedArtifacts = structuredClone(resource.linkedArtifacts) as LinkedArtifact[];
+			versions = structuredClone(resource.versions) as VersionRow[];
+			versionDialogOpen = false;
+			archiveDialogOpen = false;
+			unarchiveDialogOpen = false;
+			statusConfirmOpen = false;
+			pendingStatus = null;
+			savePhase = "idle";
+			savedSignature = JSON.stringify({
+				name,
+				docType,
+				status,
+				description,
+				notesText,
+				linkedArtifacts,
+				versions
+			});
+			saveReady = true;
+		});
 	});
 </script>
 

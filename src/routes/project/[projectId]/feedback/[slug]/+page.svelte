@@ -44,20 +44,18 @@
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditFeedback = can(permissions, "feedback", "edit");
-	let taskOptions = $state<LinkedArtifact[]>(structuredClone(data.taskOptions) as LinkedArtifact[]);
-
-	let ideaOptions = $state<LinkedArtifact[]>(structuredClone(data.ideaOptions) as LinkedArtifact[]);
-
-	let problemOptions = $state<LinkedArtifact[]>(structuredClone(data.problemOptions) as LinkedArtifact[]);
+	let taskOptions = $state<LinkedArtifact[]>([]);
+	let ideaOptions = $state<LinkedArtifact[]>([]);
+	let problemOptions = $state<LinkedArtifact[]>([]);
 
 	const optionalModules: OptionalModuleKey[] = ["evidence", "nextSteps"];
 
-	let title = $state(required(data.feedback.title, "feedback.title"));
-	let outcome = $state<OutcomeStatus>(required(data.feedback.outcome as OutcomeStatus, "feedback.outcome"));
-	let isArchived = $state(Boolean(required(data.isArchived, "isArchived")));
-	let observation = $state(required(data.observation, "observation"));
-	let interpretation = $state(required(data.interpretation, "interpretation"));
-	let notesText = $state(required(data.notesText, "notesText"));
+	let title = $state("");
+	let outcome = $state<OutcomeStatus>("Needs Iteration");
+	let isArchived = $state(false);
+	let observation = $state("");
+	let interpretation = $state("");
+	let notesText = $state("");
 
 	let addSectionOpen = $state(false);
 	let statusDialogOpen = $state(false);
@@ -65,30 +63,22 @@
 	let pendingOutcome = $state<OutcomeStatus | null>(null);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
-let metadataOpen = $state(false);
+	let metadataOpen = $state(false);
 
-	let activeModules = $state<OptionalModuleKey[]>(
-		(Array.isArray(data.activeModules)
-			? structuredClone(data.activeModules)
-			: []) as OptionalModuleKey[]
-	);
+	let activeModules = $state<OptionalModuleKey[]>([]);
 	let moduleOpen = $state<Record<OptionalModuleKey, boolean>>({
 		evidence: true,
 		nextSteps: true,
 	});
-	let evidenceText = $state(required(data.evidenceText, "evidenceText"));
-	let evidenceLocked = $state(Boolean(required(data.evidenceLocked, "evidenceLocked")));
-	let nextStepsText = $state(required(data.nextStepsText, "nextStepsText"));
+	let evidenceText = $state("");
+	let evidenceLocked = $state(false);
+	let nextStepsText = $state("");
 
 	let selectedTaskId = $state("");
 	let selectedIdeaId = $state("");
 	let selectedProblemId = $state("");
 
-	let linkedArtifacts = $state<LinkedArtifact[]>(
-		(Array.isArray(data.linkedArtifacts)
-			? structuredClone(data.linkedArtifacts)
-			: []) as LinkedArtifact[]
-	);
+	let linkedArtifacts = $state<LinkedArtifact[]>([]);
 
 	type SavePhase = "idle" | "saving" | "saved";
 	let savePhase = $state<SavePhase>("idle");

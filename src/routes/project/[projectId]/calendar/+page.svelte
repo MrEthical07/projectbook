@@ -61,9 +61,15 @@
 		createdAt: string;
 	};
 
-	const phaseChoices: PhaseOption[] = structuredClone(data.reference.phaseChoices) as PhaseOption[];
-	const manualKinds: ManualEventKind[] = structuredClone(data.reference.manualKinds) as ManualEventKind[];
-	const linkedArtifactOptions = structuredClone(data.reference.linkedArtifactOptions) as string[];
+	let phaseChoices = $derived.by(
+		() => structuredClone(data.reference.phaseChoices) as PhaseOption[]
+	);
+	let manualKinds = $derived.by(
+		() => structuredClone(data.reference.manualKinds) as ManualEventKind[]
+	);
+	let linkedArtifactOptions = $derived.by(
+		() => structuredClone(data.reference.linkedArtifactOptions) as string[]
+	);
 
 	const today = new Date().toISOString().split("T")[0];
 	const addDays = (date: string, amount: number) => {
@@ -79,7 +85,11 @@
 	let filterOwner = $state<string | "All">("All");
 	let filterPhase = $state<PhaseOption | "All">("All");
 
-	let events = $state<CalendarEvent[]>(structuredClone(data.events) as CalendarEvent[]);
+	let events = $state<CalendarEvent[]>([]);
+
+	$effect(() => {
+		events = structuredClone(data.events) as CalendarEvent[];
+	});
 
 	let addEventOpen = $state(false);
 	let eventDetailsOpen = $state(false);

@@ -19,11 +19,18 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
-	import { ClipboardList, CircleDashed, LoaderCircle, CircleCheckBig, ArchiveX } from "@lucide/svelte";
+	import {
+		AlertTriangle,
+		ClipboardList,
+		CircleDashed,
+		LoaderCircle,
+		CircleCheckBig,
+		ArchiveX
+	} from "@lucide/svelte";
 
 	let { data } = $props();
 
-	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
+	type TaskStatus = "Planned" | "In Progress" | "Blocked" | "Completed" | "Abandoned";
 	type ViewMode = "Table" | "Kanban";
 	type TaskRow = {
 		id: string;
@@ -33,19 +40,20 @@
 		persona: string;
 		owner: string;
 		deadline: string;
+		lastUpdated: string;
 		status: TaskStatus;
 		ideaRejected: boolean;
 		hasFeedback: boolean;
 		isOrphan: boolean;
 	};
 
-	const statusOrder: TaskStatus[] = ["Planned", "In Progress", "Completed", "Abandoned"];
+	const statusOrder: TaskStatus[] = ["Planned", "In Progress", "Blocked", "Completed", "Abandoned"];
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canCreateTask = can(permissions, "task", "create");
 	const canChangeTaskStatus = can(permissions, "task", "statusChange");
 
-	let rows = $state<TaskRow[]>(structuredClone(data.rows) as TaskRow[]);
+	let rows = $derived.by(() => structuredClone(data.rows) as TaskRow[]);
 
 	let viewMode = $state<ViewMode>("Table");
 	let statusFilter = $state<TaskStatus | "All">("All");
@@ -56,7 +64,6 @@
 
 	let createOpen = $state(false);
 	let createTitle = $state("");
-	let createDescription = $state("");
 	let createError = $state("");
 
 	let draggingTaskId = $state("");
@@ -66,6 +73,7 @@
 		total: rows.length,
 		planned: rows.filter((row) => row.status === "Planned").length,
 		inProgress: rows.filter((row) => row.status === "In Progress").length,
+		blocked: rows.filter((row) => row.status === "Blocked").length,
 		completed: rows.filter((row) => row.status === "Completed").length,
 		abandoned: rows.filter((row) => row.status === "Abandoned").length,
 	});
@@ -75,8 +83,8 @@
 			if (statusFilter !== "All" && row.status !== statusFilter) return false;
 			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
 			if (orphanOnly && !row.isOrphan) return false;
-			if (updatedFrom && row.deadline < updatedFrom) return false;
-			if (updatedTo && row.deadline > updatedTo) return false;
+			if (updatedFrom && row.lastUpdated < updatedFrom) return false;
+			if (updatedTo && row.lastUpdated > updatedTo) return false;
 			return true;
 		});
 	});
@@ -84,6 +92,7 @@
 	const statusClass = (status: TaskStatus) => {
 		if (status === "Planned") return "bg-blue-50 text-blue-700 border-blue-200";
 		if (status === "In Progress") return "bg-indigo-50 text-indigo-700 border-indigo-200";
+		if (status === "Blocked") return "bg-amber-50 text-amber-700 border-amber-200";
 		if (status === "Completed") return "bg-emerald-50 text-emerald-700 border-emerald-200";
 		return "bg-slate-100 text-slate-700 border-slate-300";
 	};
@@ -109,6 +118,7 @@
 		const result: Record<TaskStatus, TaskRow[]> = {
 			Planned: [],
 			"In Progress": [],
+			Blocked: [],
 			Completed: [],
 			Abandoned: [],
 		};
@@ -164,7 +174,6 @@
 		}
 		const created = result.data as { id: string };
 		createTitle = "";
-		createDescription = "";
 		createOpen = false;
 		await goto(`/project/${page.params.projectId}/tasks/${created.id}`);
 	};
@@ -207,10 +216,6 @@
 								<Label for="task-title">Title</Label>
 								<Input id="task-title" bind:value={createTitle} />
 							</div>
-							<div class="grid gap-2">
-								<Label for="task-description">Short Description</Label>
-								<Input id="task-description" bind:value={createDescription} placeholder="Optional" />
-							</div>
 							{#if createError}
 								<p class="text-xs text-destructive">{createError}</p>
 							{/if}
@@ -225,7 +230,7 @@
 			</div>
 		</section>
 
-		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-5">
+		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-6">
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
 				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Tasks</span><ClipboardList class="size-4" /></div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
@@ -237,6 +242,10 @@
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("In Progress")}>
 				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>In Progress</span><LoaderCircle class="size-4" /></div>
 				<div class="text-2xl font-semibold text-indigo-700">{stats.inProgress}</div>
+			</button>
+			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Blocked")}>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Blocked</span><AlertTriangle class="size-4" /></div>
+				<div class="text-2xl font-semibold text-amber-700">{stats.blocked}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Completed")}>
 				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Completed</span><CircleCheckBig class="size-4" /></div>

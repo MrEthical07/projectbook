@@ -32,7 +32,11 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $state<StoryRow[]>(structuredClone(data.rows) as StoryRow[]);
+	let rows = $state<StoryRow[]>([]);
+
+	$effect(() => {
+		rows = structuredClone(data.rows) as StoryRow[];
+	});
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canCreateStory = can(permissions, "story", "create");
@@ -46,7 +50,6 @@
 
 	let createOpen = $state(false);
 	let createTitle = $state("");
-	let createDescription = $state("");
 	let createError = $state("");
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
@@ -122,7 +125,6 @@
 		const created = result.data as { id: string };
 		createOpen = false;
 		createTitle = "";
-		createDescription = "";
 		await goto(`/project/${projectId}/stories/${created.id}`);
 	};
 </script>
@@ -165,10 +167,6 @@
 							<div class="grid gap-2">
 								<Label for="story-title">Title</Label>
 								<Input id="story-title" bind:value={createTitle} placeholder="Story title" />
-							</div>
-							<div class="grid gap-2">
-								<Label for="story-description">Short Description</Label>
-								<Input id="story-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
 							{#if createError}
 								<p class="text-xs text-destructive">{createError}</p>

@@ -1,6 +1,6 @@
-<script lang="ts">		
-    import { page } from "$app/state";
-	import NavUser from "$lib/components/homeSidebar/nav-user.svelte";
+<script lang="ts">
+	import { page } from "$app/state";
+	import NavUser from "$lib/components/sidebar/nav-user.svelte";
 	import * as Badge from "$lib/components/ui/badge";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import type { ComponentProps } from "svelte";
@@ -24,18 +24,35 @@
 		badge?: string;
 	};
 
+	type HomeSidebarData = {
+		user: {
+			name: string;
+			email: string;
+			avatar: string;
+		};
+	};
+
 	let pathname = $derived(page.url.pathname);
-	const activeClass = "bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary";
+	const activeClass =
+		"bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary";
 
 	let {
-		user = { name: "User", email: "", avatar: "" },
+		homeSidebarData,
 		ref = $bindable(null),
 		collapsible = "icon",
 		...restProps
-	}: ComponentProps<typeof Sidebar.Root> & { user?: { name: string; email: string; avatar: string } } = $props();
-	
+	}: ComponentProps<typeof Sidebar.Root> & {
+		homeSidebarData?: HomeSidebarData | null;
+	} = $props();
+
+	let sidebarError = $derived.by(() => {
+		if (!homeSidebarData) return "Home sidebar data unavailable.";
+		if (!homeSidebarData.user) return "Home sidebar user is missing.";
+		return "";
+	});
+	let user = $derived.by(() => homeSidebarData?.user ?? null);
+
 	let data = $derived({
-		user: user,
 		branding: {
 			name: "ProjectBook",
 			plan: "Free"
@@ -177,7 +194,13 @@
 		</Sidebar.Group>
 	</Sidebar.Content>
 	<Sidebar.Footer>
-		<NavUser user={data.user} />
+		{#if user}
+			<NavUser user={user} />
+		{:else}
+			<div class="px-3 py-2">
+				<p class="text-xs text-destructive">{sidebarError}</p>
+			</div>
+		{/if}
 	</Sidebar.Footer>
 	<Sidebar.Rail />
 </Sidebar.Root>

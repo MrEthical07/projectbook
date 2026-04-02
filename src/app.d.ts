@@ -154,6 +154,7 @@ declare global {
 		persona: string;
 		owner: string;
 		deadline: string;
+		lastUpdated: string;
 		status: TaskStatus;
 		ideaRejected: boolean;
 		hasFeedback: boolean;

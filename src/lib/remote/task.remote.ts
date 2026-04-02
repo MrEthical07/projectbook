@@ -99,6 +99,31 @@ const canTransition = (current: TaskRow["status"], next: TaskRow["status"]) =>
 const taskDetailsByKey = new Map<string, Record<string, unknown>>();
 const detailKey = (projectId: string, taskId: string) => `${projectId}:${taskId}`;
 
+const sourceMatchesTitle = (
+	linkedSources: string[],
+	title: string,
+	type: "story" | "journey"
+) => {
+	const normalizedTitle = title.trim().toLowerCase();
+	if (!normalizedTitle) return false;
+	const candidates =
+		type === "story"
+			? [
+					normalizedTitle,
+					`story: ${normalizedTitle}`,
+					`user story: ${normalizedTitle}`
+				]
+			: [
+					normalizedTitle,
+					`journey: ${normalizedTitle}`,
+					`user journey: ${normalizedTitle}`
+				];
+
+	return linkedSources.some((source) =>
+		candidates.includes(source.trim().toLowerCase())
+	);
+};
+
 export const getTasks = query("unchecked", (projectId: string): TaskRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
 	return datastore.tasks.filter((item) => inProjectScope(scopedProjectId, item.projectId));
@@ -188,11 +213,11 @@ export const getTaskPageData = query("unchecked", (input: TaskPageInput) => {
 			};
 
 			if (linkedProblem) {
-				const storyTitles = linkedProblem.linkedStories ?? [];
+				const linkedSources = linkedProblem.linkedSources ?? [];
 				for (const story of datastore.stories.filter((s) => inProjectScope(scopedProjectId, s.projectId))) {
-					if (storyTitles.includes(story.title)) {
+					if (sourceMatchesTitle(linkedSources, story.title, "story")) {
 						const cached = getStoryCachedDetail(scopedProjectId, story.id);
-						const personaName = cached?.persona?.name ?? story.linkedPersonas?.[0] ?? "";
+						const personaName = cached?.persona?.name ?? story.personaName ?? "";
 						context = {
 							type: "Persona",
 							title: personaName || story.title,
@@ -205,10 +230,9 @@ export const getTaskPageData = query("unchecked", (input: TaskPageInput) => {
 					}
 				}
 
-				const journeyTitles = linkedProblem.linkedJourneys ?? [];
 				if (!context.href) {
 					for (const journey of datastore.journeys.filter((j) => inProjectScope(scopedProjectId, j.projectId))) {
-						if (journeyTitles.includes(journey.title)) {
+						if (sourceMatchesTitle(linkedSources, journey.title, "journey")) {
 							const cached = getJourneyCachedDetail(scopedProjectId, journey.id);
 							const personaName = cached?.persona?.name ?? journey.linkedPersonas?.[0] ?? "";
 							context = {
@@ -236,7 +260,7 @@ export const getTaskPageData = query("unchecked", (input: TaskPageInput) => {
 			};
 		});
 
-	return {
+		return {
 		assigneeOptions,
 		ideaOptions,
 		task,
@@ -289,6 +313,7 @@ export const createTask = command(
 			persona: "",
 			owner: actorName,
 			deadline: new Date().toISOString().slice(0, 10),
+			lastUpdated: new Date().toISOString().slice(0, 10),
 			status: "Planned",
 			ideaRejected: false,
 			hasFeedback: false,
@@ -326,6 +351,7 @@ export const updateTaskStatus = command(
 			return { success: false, error: "Invalid status transition" };
 		}
 		row.status = parsed.data.status;
+		row.lastUpdated = new Date().toISOString().slice(0, 10);
 		return { success: true, data: row };
 	}
 );
@@ -405,6 +431,7 @@ export const updateTask = command(
 			}
 			row.hasFeedback = candidate.hasFeedback;
 		}
+		row.lastUpdated = new Date().toISOString().slice(0, 10);
 
 		taskDetailsByKey.set(
 			detailKey(projectId, parsed.data.taskId),

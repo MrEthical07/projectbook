@@ -30,7 +30,12 @@
 
 	const pageSize = 12;
 
-	let activities = $state<ActivityItem[]>(structuredClone(data.activities) as ActivityItem[]);
+	let activities = $state<ActivityItem[]>([]);
+
+	$effect(() => {
+		activities = structuredClone(data.activities) as ActivityItem[];
+		currentPage = 1;
+	});
 
 	let projectFilter = $state("All Projects");
 	let typeFilter = $state<"All" | ActivityType>("All");

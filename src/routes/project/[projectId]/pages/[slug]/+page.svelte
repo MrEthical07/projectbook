@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onDestroy, onMount } from "svelte";
+	import { getContext, onDestroy } from "svelte";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -119,23 +119,20 @@
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditPage = can(permissions, "page", "edit");
-	const tagOptions = structuredClone(data.editor.tagOptions) as string[];
-	const linkedArtifactOptions = structuredClone(data.editor.linkedArtifactOptions) as string[];
+	const defaultView: View = { id: "view-default", name: "Document", type: "Document" };
+	let tagOptions = $derived.by(() => structuredClone(data.editor.tagOptions) as string[]);
+	let linkedArtifactOptions = $derived.by(
+		() => structuredClone(data.editor.linkedArtifactOptions) as string[]
+	);
 
-	let status = $state<PageStatus>(data.editor.defaultValues.status as PageStatus);
-	let title = $state(required(data.editor.defaultValues.title, "editor.defaultValues.title"));
-	let owner = $state(required(data.editor.defaultValues.owner, "editor.defaultValues.owner"));
-	let createdAt = $state(required(data.editor.defaultValues.createdAt, "editor.defaultValues.createdAt"));
-	let lastEdited = $state(required(data.editor.defaultValues.lastEdited, "editor.defaultValues.lastEdited"));
-	let description = $state(required(data.editor.defaultValues.description, "editor.defaultValues.description"));
-	if (!Array.isArray(data.editor.tags)) {
-		throw new Error("Page payload is missing 'editor.tags'.");
-	}
-	let tags = $state<string[]>(structuredClone(data.editor.tags) as string[]);
-	if (!Array.isArray(data.editor.linkedArtifacts)) {
-		throw new Error("Page payload is missing 'editor.linkedArtifacts'.");
-	}
-	let linkedArtifacts = $state<string[]>(structuredClone(data.editor.linkedArtifacts) as string[]);
+	let status = $state<PageStatus>("Draft");
+	let title = $state("");
+	let owner = $state("");
+	let createdAt = $state("");
+	let lastEdited = $state("");
+	let description = $state("");
+	let tags = $state<string[]>([]);
+	let linkedArtifacts = $state<string[]>([]);
 	let blockDialogOpen = $state(false);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
@@ -143,11 +140,8 @@
 	let readOnlyView = $state(false);
 	let fullWidth = $state(false);
 	let dragId = $state("");
-	if (!Array.isArray(data.editor.defaultViews)) {
-		throw new Error("Page payload is missing 'editor.defaultViews'.");
-	}
-	let views = $state<View[]>(structuredClone(data.editor.defaultViews) as View[]);
-	let activeViewId = $state(required(data.editor.activeViewId, "editor.activeViewId"));
+	let views = $state<View[]>([defaultView]);
+	let activeViewId = $state(defaultView.id);
 	let addViewOpen = $state(false);
 	let newViewName = $state("");
 	let newViewType = $state<PageContentType>("Table");
@@ -157,23 +151,12 @@
 	let renameColumnId = $state("");
 	let renameColumnValue = $state("");
 
-	let docHeading = $state(required(data.editor.docHeading, "editor.docHeading"));
-	let docBody = $state(required(data.editor.docBody, "editor.docBody"));
+	let docHeading = $state("");
+	let docBody = $state("");
 	let blocks = $state<PageBlock[]>([]);
-
-	if (!Array.isArray(data.editor.tableColumns)) {
-		throw new Error("Page payload is missing 'editor.tableColumns'.");
-	}
-	let tableColumns = $state<TableColumn[]>(structuredClone(data.editor.tableColumns) as TableColumn[]);
-
-	if (!Array.isArray(data.editor.tableRows)) {
-		throw new Error("Page payload is missing 'editor.tableRows'.");
-	}
-	let tableRows = $state<TableRow[]>(structuredClone(data.editor.tableRows) as TableRow[]);
-
-	let databaseItems = $state<DatabaseItem[]>(
-		structuredClone(data.editor.databaseItems) as DatabaseItem[]
-	);
+	let tableColumns = $state<TableColumn[]>([]);
+	let tableRows = $state<TableRow[]>([]);
+	let databaseItems = $state<DatabaseItem[]>([]);
 
 	type SavePhase = "idle" | "saving" | "saved";
 	let savePhase = $state<SavePhase>("idle");
@@ -574,8 +557,101 @@
 		}
 	});
 
-	onMount(() => {
-		savedSignature = currentSignature;
+	$effect(() => {
+		const editor = data.editor;
+		if (!Array.isArray(editor.tags)) {
+			throw new Error("Page payload is missing 'editor.tags'.");
+		}
+		if (!Array.isArray(editor.linkedArtifacts)) {
+			throw new Error("Page payload is missing 'editor.linkedArtifacts'.");
+		}
+		if (!Array.isArray(editor.defaultViews)) {
+			throw new Error("Page payload is missing 'editor.defaultViews'.");
+		}
+		if (!Array.isArray(editor.tableColumns)) {
+			throw new Error("Page payload is missing 'editor.tableColumns'.");
+		}
+		if (!Array.isArray(editor.tableRows)) {
+			throw new Error("Page payload is missing 'editor.tableRows'.");
+		}
+
+		const nextStatus = editor.defaultValues.status as PageStatus;
+		const nextTitle = required(editor.defaultValues.title, "editor.defaultValues.title");
+		const nextOwner = required(editor.defaultValues.owner, "editor.defaultValues.owner");
+		const nextCreatedAt = required(
+			editor.defaultValues.createdAt,
+			"editor.defaultValues.createdAt"
+		);
+		const nextLastEdited = required(
+			editor.defaultValues.lastEdited,
+			"editor.defaultValues.lastEdited"
+		);
+		const nextDescription = required(
+			editor.defaultValues.description,
+			"editor.defaultValues.description"
+		);
+		const nextTags = structuredClone(editor.tags) as string[];
+		const nextLinkedArtifacts = structuredClone(editor.linkedArtifacts) as string[];
+		const nextViews = structuredClone(editor.defaultViews) as View[];
+		const normalizedViews = nextViews.length > 0 ? nextViews : [defaultView];
+		const requestedViewId = required(editor.activeViewId, "editor.activeViewId");
+		const resolvedViewId = normalizedViews.some((view) => view.id === requestedViewId)
+			? requestedViewId
+			: normalizedViews[0].id;
+		const nextDocHeading = required(editor.docHeading, "editor.docHeading");
+		const nextDocBody = required(editor.docBody, "editor.docBody");
+		const nextTableColumns = structuredClone(editor.tableColumns) as TableColumn[];
+		const nextTableRows = structuredClone(editor.tableRows) as TableRow[];
+		const nextDatabaseItems = Array.isArray(editor.databaseItems)
+			? (structuredClone(editor.databaseItems) as DatabaseItem[])
+			: [];
+
+		status = nextStatus;
+		title = nextTitle;
+		owner = nextOwner;
+		createdAt = nextCreatedAt;
+		lastEdited = nextLastEdited;
+		description = nextDescription;
+		tags = nextTags;
+		linkedArtifacts = nextLinkedArtifacts;
+		blockDialogOpen = false;
+		archiveDialogOpen = false;
+		unarchiveDialogOpen = false;
+		deleteDialogOpen = false;
+		readOnlyView = false;
+		dragId = "";
+		views = normalizedViews;
+		activeViewId = resolvedViewId;
+		addViewOpen = false;
+		newViewName = "";
+		newViewType = "Table";
+		viewWarningOpen = false;
+		viewWarningMessage = "";
+		renameColumnOpen = false;
+		renameColumnId = "";
+		renameColumnValue = "";
+		docHeading = nextDocHeading;
+		docBody = nextDocBody;
+		blocks = [];
+		tableColumns = nextTableColumns;
+		tableRows = nextTableRows;
+		databaseItems = nextDatabaseItems;
+		savePhase = "idle";
+		savedSignature = JSON.stringify({
+			status: nextStatus,
+			title: nextTitle,
+			owner: nextOwner,
+			description: nextDescription,
+			tags: nextTags,
+			linkedArtifacts: nextLinkedArtifacts,
+			docHeading: nextDocHeading,
+			docBody: nextDocBody,
+			views: normalizedViews,
+			activeViewId: resolvedViewId,
+			tableColumns: nextTableColumns,
+			tableRows: nextTableRows,
+			databaseItems: nextDatabaseItems,
+		});
 		saveReady = true;
 	});
 </script>

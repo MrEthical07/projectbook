@@ -1,7 +1,7 @@
 # ProjectBook REST API Guidelines
 
-> **Version:** 1.0.0
-> **Last updated:** 2026-02-26
+> **Version:** 1.0.1
+> **Last updated:** 2026-03-28
 > **Status:** Draft
 
 ---
@@ -14,6 +14,7 @@
 4. [Error Codes Reference](#4-error-codes-reference)
 5. [Permission System](#5-permission-system)
 6. [API Endpoints](#6-api-endpoints)
+   - 6.0 [Remote Function Coverage](#60-remote-function-coverage)
    - 6.1 [Authentication](#61-authentication)
    - 6.2 [Workspace](#62-workspace)
    - 6.3 [Project](#63-project)
@@ -461,6 +462,128 @@ Permissions are checked server-side on every request:
 ---
 
 ## 6. API Endpoints
+
+### 6.0 Remote Function Coverage
+
+The Svelte remote layer is the canonical client/server boundary for the web app. Client-facing pages, components, and client actions should call only these remote functions. When the external API is connected, each remote function should delegate directly to the REST endpoint listed below, with no business logic left in the client.
+
+#### `workspace.remote`
+
+- `getWorkspaceDashboard` -> `GET /api/v1/workspace/dashboard`
+- `getWorkspaceProjects` -> `GET /api/v1/workspace/projects`
+- `getWorkspaceInvitesPage` -> `GET /api/v1/workspace/invites`
+- `getWorkspaceNotificationsPage` -> `GET /api/v1/workspace/notifications`
+- `getWorkspaceActivityPage` -> `GET /api/v1/workspace/activity`
+- `getAddProjectReference` -> `GET /api/v1/workspace/projects/reference`
+- `getDocsSections` -> `GET /api/v1/workspace/docs`
+- `getAccountSettings` -> `GET /api/v1/workspace/account`
+- `createWorkspaceProject` -> `POST /api/v1/workspace/projects`
+- `acceptWorkspaceInvite` -> `POST /api/v1/workspace/invites/{inviteId}/accept`
+- `declineWorkspaceInvite` -> `POST /api/v1/workspace/invites/{inviteId}/decline`
+- `updateAccountSettings` -> `PUT /api/v1/workspace/account`
+- `sendWorkspaceProjectInvites` -> `POST /api/v1/projects/{projectId}/team/invites/batch`
+
+#### `activity.remote`
+
+- `getWorkspaceActivity` -> `GET /api/v1/workspace/activity`
+- `getWorkspaceDashboardActivity` -> `GET /api/v1/workspace/dashboard-activity`
+- `getProjectActivity` -> `GET /api/v1/projects/{projectId}/activity`
+
+#### `access.remote`
+
+- `getProjectAccess` -> `GET /api/v1/projects/{projectId}/access`
+
+#### `project.remote`
+
+- `getProjectDashboard` -> `GET /api/v1/projects/{projectId}/dashboard`
+- `getProjectTeamMembers` -> `GET /api/v1/projects/{projectId}/team/members`
+- `getProjectTeamRoles` -> `GET /api/v1/projects/{projectId}/team/roles`
+- `getProjectSettings` -> `GET /api/v1/projects/{projectId}/settings`
+- `createProjectInvite` -> `POST /api/v1/projects/{projectId}/team/invites`
+- `cancelProjectInvite` -> `DELETE /api/v1/projects/{projectId}/team/invites/{email}`
+- `updateProjectRolePermissions` -> `PUT /api/v1/projects/{projectId}/team/roles/{role}/permissions`
+- `updateProjectMemberRole` -> `PUT /api/v1/projects/{projectId}/team/members/{memberId}/role`
+- `updateProjectSettings` -> `PUT /api/v1/projects/{projectId}/settings`
+- `archiveProject` -> `POST /api/v1/projects/{projectId}/archive`
+- `deleteProject` -> `DELETE /api/v1/projects/{projectId}`
+
+#### `sidebar.remote`
+
+- `getProjectSidebarData` -> `GET /api/v1/projects/{projectId}/sidebar`
+- `createSidebarArtifact` -> `POST /api/v1/projects/{projectId}/sidebar/artifacts`
+- `renameSidebarArtifact` -> `PUT /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename`
+- `deleteSidebarArtifact` -> `DELETE /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}`
+
+#### `story.remote`
+
+- `getStories` -> `GET /api/v1/projects/{projectId}/stories`
+- `getStoryPageData` -> `GET /api/v1/projects/{projectId}/stories/{slug}`
+- `createStory` -> `POST /api/v1/projects/{projectId}/stories`
+- `updateStory` -> `PUT /api/v1/projects/{projectId}/stories/{storyId}`
+
+#### `journey.remote`
+
+- `getJourneys` -> `GET /api/v1/projects/{projectId}/journeys`
+- `getJourneyPageData` -> `GET /api/v1/projects/{projectId}/journeys/{slug}`
+- `createJourney` -> `POST /api/v1/projects/{projectId}/journeys`
+- `updateJourney` -> `PUT /api/v1/projects/{projectId}/journeys/{journeyId}`
+
+#### `problem.remote`
+
+- `getProblems` -> `GET /api/v1/projects/{projectId}/problems`
+- `getProblemPageData` -> `GET /api/v1/projects/{projectId}/problems/{slug}`
+- `createProblem` -> `POST /api/v1/projects/{projectId}/problems`
+- `updateProblem` -> `PUT /api/v1/projects/{projectId}/problems/{problemId}`
+- `lockProblem` -> `POST /api/v1/projects/{projectId}/problems/{problemId}/lock`
+- `updateProblemStatus` -> `PUT /api/v1/projects/{projectId}/problems/{problemId}/status`
+
+#### `idea.remote`
+
+- `getIdeas` -> `GET /api/v1/projects/{projectId}/ideas`
+- `getIdeaPageData` -> `GET /api/v1/projects/{projectId}/ideas/{slug}`
+- `createIdea` -> `POST /api/v1/projects/{projectId}/ideas`
+- `updateIdea` -> `PUT /api/v1/projects/{projectId}/ideas/{ideaId}`
+- `selectIdea` -> `POST /api/v1/projects/{projectId}/ideas/{ideaId}/select`
+- `updateIdeaStatus` -> `PUT /api/v1/projects/{projectId}/ideas/{ideaId}/status`
+
+#### `task.remote`
+
+- `getTasks` -> `GET /api/v1/projects/{projectId}/tasks`
+- `getTaskPageData` -> `GET /api/v1/projects/{projectId}/tasks/{slug}`
+- `createTask` -> `POST /api/v1/projects/{projectId}/tasks`
+- `updateTaskStatus` -> `PUT /api/v1/projects/{projectId}/tasks/{taskId}/status`
+- `updateTask` -> `PUT /api/v1/projects/{projectId}/tasks/{taskId}`
+
+#### `feedback.remote`
+
+- `getFeedback` -> `GET /api/v1/projects/{projectId}/feedback`
+- `getFeedbackPageData` -> `GET /api/v1/projects/{projectId}/feedback/{slug}`
+- `createFeedback` -> `POST /api/v1/projects/{projectId}/feedback`
+- `updateFeedback` -> `PUT /api/v1/projects/{projectId}/feedback/{feedbackId}`
+
+#### `resource.remote`
+
+- `getResources` -> `GET /api/v1/projects/{projectId}/resources`
+- `getResourcePageData` -> `GET /api/v1/projects/{projectId}/resources/{resourceId}`
+- `createResource` -> `POST /api/v1/projects/{projectId}/resources`
+- `updateResource` -> `PUT /api/v1/projects/{projectId}/resources/{resourceId}`
+- `updateResourceStatus` -> `PUT /api/v1/projects/{projectId}/resources/{resourceId}/status`
+
+#### `page.remote`
+
+- `getPages` -> `GET /api/v1/projects/{projectId}/pages`
+- `getPageEditorData` -> `GET /api/v1/projects/{projectId}/pages/{slug}`
+- `createPage` -> `POST /api/v1/projects/{projectId}/pages`
+- `updatePageEditor` -> `PUT /api/v1/projects/{projectId}/pages/{pageId}`
+- `renamePage` -> `PUT /api/v1/projects/{projectId}/pages/{pageId}/rename`
+
+#### `calendar.remote`
+
+- `getCalendarData` -> `GET /api/v1/projects/{projectId}/calendar`
+- `getCalendarEventData` -> `GET /api/v1/projects/{projectId}/calendar/{eventId}`
+- `createCalendarEvent` -> `POST /api/v1/projects/{projectId}/calendar`
+- `updateCalendarEvent` -> `PUT /api/v1/projects/{projectId}/calendar/{eventId}`
+- `deleteCalendarEvent` -> `DELETE /api/v1/projects/{projectId}/calendar/{eventId}`
 
 ### 6.1 Authentication
 
@@ -1969,7 +2092,7 @@ Create a new user story.
     "owner": "Ayush",
     "lastUpdated": "2026-02-14",
     "status": "Draft",
-    "isOrphan": false
+    "isOrphan": true
   }
 }
 ```
@@ -2209,12 +2332,12 @@ Create a new journey.
     "id": "new-onboarding-journey",
     "title": "New onboarding journey",
     "linkedPersonas": [],
-    "stagesCount": 2,
-    "painPointsCount": 1,
+    "stagesCount": 0,
+    "painPointsCount": 0,
     "owner": "Ayush",
     "lastUpdated": "2026-02-14",
     "status": "Draft",
-    "isOrphan": false
+    "isOrphan": true
   }
 }
 ```
@@ -2463,7 +2586,7 @@ Create a new problem statement.
     "status": "Draft",
     "owner": "Ayush",
     "lastUpdated": "2026-02-14",
-    "isOrphan": false
+    "isOrphan": true
   }
 }
 ```
@@ -2805,7 +2928,7 @@ Create a new idea.
     "owner": "Ayush",
     "lastUpdated": "2026-02-14",
     "linkedProblemLocked": false,
-    "isOrphan": false
+    "isOrphan": true
   }
 }
 ```
@@ -3092,6 +3215,7 @@ List all tasks in the project.
       "persona": "Avery Patel",
       "owner": "Avery Patel",
       "deadline": "2026-02-09",
+      "lastUpdated": "2026-02-10",
       "status": "In Progress",
       "ideaRejected": false,
       "hasFeedback": false,
@@ -3138,11 +3262,12 @@ Create a new task.
     "linkedProblemStatement": "",
     "persona": "",
     "owner": "Ayush",
-    "deadline": "",
+    "deadline": "2026-02-14",
+    "lastUpdated": "2026-02-14",
     "status": "Planned",
     "ideaRejected": false,
     "hasFeedback": false,
-    "isOrphan": false
+    "isOrphan": true
   }
 }
 ```
@@ -3451,7 +3576,7 @@ Create a new feedback entry.
     "owner": "Ayush",
     "createdDate": "2026-02-14",
     "hasTaskLink": false,
-    "isOrphan": false
+    "isOrphan": true
   }
 }
 ```
@@ -4000,7 +4125,7 @@ Create a new page.
     "lastEdited": "2026-02-14",
     "linkedArtifactsCount": 0,
     "status": "Draft",
-    "isOrphan": false
+    "isOrphan": true
   }
 }
 ```
@@ -5019,6 +5144,7 @@ This section provides a complete reference of all entity types used in the API.
   persona: string
   owner: string
   deadline: string             // ISO date
+  lastUpdated: string          // ISO date
   status: TaskStatus
   ideaRejected: boolean
   hasFeedback: boolean

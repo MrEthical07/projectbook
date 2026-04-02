@@ -14,7 +14,7 @@
 	import { page } from "$app/state";
 	import { updateJourney } from "$lib/remote/journey.remote";
 	import { can } from "$lib/utils/permission";
-	import { getContext, onDestroy, untrack } from "svelte";
+    import { getContext, onDestroy, untrack } from "svelte";
 	import { toast } from "svelte-sonner";
 
     let { data } = $props();
@@ -26,9 +26,46 @@
     const canChangeJourneyStatus = can(permissions, "story", "statusChange");
     const statusOptions = ["draft", "archived"] as const;
     type JourneyStatus = typeof statusOptions[number];
-    let journey = $state(structuredClone(data.journey));
+    type JourneyStage = {
+        name: string;
+        actions: string[];
+        emotion: string;
+        painPoints: string[];
+    };
+    type JourneyDraft = {
+        title: string;
+        description: string;
+        status: JourneyStatus;
+        persona: {
+            name: string;
+            bio: string;
+            role: string;
+            age: number;
+            job: string;
+            edu: string;
+        };
+        context: string;
+        stages: JourneyStage[];
+        notes: string;
+    };
+    let journey = $state<JourneyDraft>({
+        title: "",
+        description: "",
+        status: "draft",
+        persona: {
+            name: "",
+            bio: "",
+            role: "",
+            age: 0,
+            job: "",
+            edu: ""
+        },
+        context: "",
+        stages: [],
+        notes: ""
+    });
     const isReadOnly = $derived(journey.status === "archived" || !canEditJourney);
-    let emotions = $state<string[]>(structuredClone(data.emotions) as string[]);
+    let emotions = $state<string[]>([]);
 
     let isAddingStage = $state(false);
     let metadataOpen = $state(false);
@@ -178,7 +215,7 @@
     $effect(() => {
         const d = data;
         untrack(() => {
-            const j = structuredClone(d.journey);
+            const j = structuredClone(d.journey) as JourneyDraft;
             journey = j;
             emotions = structuredClone(d.emotions) as string[];
             savePhase = "idle";

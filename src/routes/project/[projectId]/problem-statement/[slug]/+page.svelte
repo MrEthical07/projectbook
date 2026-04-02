@@ -66,28 +66,11 @@
 	const canChangeProblemStatus = can(permissions, "problem", "statusChange");
 	const statusOptions: ProblemStatus[] = ["Draft", "Locked", "Archived"];
 
-	let storyOptions = $state<SourceOption[]>(structuredClone(data.storyOptions) as SourceOption[]);
-	let journeyOptions = $state<SourceOption[]>(structuredClone(data.journeyOptions) as SourceOption[]);
-	let linkedSources = $state<LinkedSource[]>(
-		(Array.isArray(data.linkedSources) && data.linkedSources.length > 0
-			? (structuredClone(data.linkedSources) as LinkedSource[])
-			: [
-					storyOptions[0]
-						? {
-								...storyOptions[0],
-								type: "User Story" as const
-							}
-						: null,
-					journeyOptions[0]
-						? {
-								...journeyOptions[0],
-								type: "User Journey" as const
-							}
-						: null
-				].filter(Boolean)) as LinkedSource[]
-	);
-	let sourcePainPoints = $state<SourcePainPoint[]>(structuredClone(data.sourcePainPoints) as SourcePainPoint[]);
-	let sourceInsights = $state<SourceInsight>((data.sourceInsights as SourceInsight) ?? {
+	let storyOptions = $state<SourceOption[]>([]);
+	let journeyOptions = $state<SourceOption[]>([]);
+	let linkedSources = $state<LinkedSource[]>([]);
+	let sourcePainPoints = $state<SourcePainPoint[]>([]);
+	let sourceInsights = $state<SourceInsight>({
 		personas: [],
 		context: "",
 		painPoints: [],
@@ -126,13 +109,11 @@
 		},
 	];
 
-	let status = $state<ProblemStatus>(data.problem.status as ProblemStatus);
-	let title = $state(required(data.problem.title, "problem.title"));
-	let finalStatement = $state(data.problem.finalStatement ?? data.problem.title ?? "");
+	let status = $state<ProblemStatus>("Draft");
+	let title = $state("");
+	let finalStatement = $state("");
 	let orphanAcknowledged = $state(false);
-	let selectedPainPoints = $state<string[]>(
-		Array.isArray(data.selectedPainPoints) ? (structuredClone(data.selectedPainPoints) as string[]) : []
-	);
+	let selectedPainPoints = $state<string[]>([]);
 	let addSectionOpen = $state(false);
 	let linkStoryOpen = $state(false);
 	let linkJourneyOpen = $state(false);
@@ -144,29 +125,21 @@
 	let sourceToRemove = $state<LinkedSource | null>(null);
 	let selectedStoryId = $state("");
 	let selectedJourneyId = $state("");
-	let activeModules = $state<OptionalModuleKey[]>(
-		Array.isArray(data.activeModules) && data.activeModules.length > 0
-			? (structuredClone(data.activeModules) as OptionalModuleKey[])
-			: ["why"]
-	);
-	const moduleContentPayload = required(
-		data.moduleContent as Record<OptionalModuleKey, string> | undefined,
-		"moduleContent"
-	);
+	let activeModules = $state<OptionalModuleKey[]>(["why"]);
 	let moduleContent = $state<Record<OptionalModuleKey, string>>({
-		why: moduleContentPayload.why,
-		constraints: moduleContentPayload.constraints,
-		success: moduleContentPayload.success,
-		assumptions: moduleContentPayload.assumptions
+		why: "",
+		constraints: "",
+		success: "",
+		assumptions: ""
 	});
-	let notesText = $state(required(data.notesText, "notesText"));
-let metadataOpen = $state(false);
-type SavePhase = "idle" | "saving" | "saved";
-let savePhase = $state<SavePhase>("idle");
-let savedSignature = $state("");
-let saveReady = $state(false);
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
-let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+	let notesText = $state("");
+	let metadataOpen = $state(false);
+	type SavePhase = "idle" | "saving" | "saved";
+	let savePhase = $state<SavePhase>("idle");
+	let savedSignature = $state("");
+	let saveReady = $state(false);
+	let saveTimer: ReturnType<typeof setTimeout> | null = null;
+	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const isDraft = (currentStatus: ProblemStatus) => currentStatus === "Draft";
 	let isLocked = $derived(status === "Locked" || status === "Archived");

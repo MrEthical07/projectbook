@@ -33,7 +33,7 @@
 		expired?: boolean;
 	};
 
-	let invites = $state<Invite[]>(structuredClone(data.invites) as Invite[]);
+	let invites = $state<Invite[]>([]);
 	$effect(() => {
 		invites = structuredClone(data.invites) as Invite[];
 	});

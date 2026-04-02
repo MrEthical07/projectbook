@@ -33,7 +33,11 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $state<IdeaRow[]>(structuredClone(data.rows) as IdeaRow[]);
+	let rows = $state<IdeaRow[]>([]);
+
+	$effect(() => {
+		rows = structuredClone(data.rows) as IdeaRow[];
+	});
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canCreateIdea = can(permissions, "idea", "create");
@@ -46,7 +50,6 @@
 
 	let createOpen = $state(false);
 	let createTitle = $state("");
-	let createDescription = $state("");
 	let createError = $state("");
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
@@ -108,7 +111,6 @@
 		}
 		const created = result.data as { id: string };
 		createTitle = "";
-		createDescription = "";
 		createOpen = false;
 		await goto(`/project/${page.params.projectId}/ideas/${created.id}`);
 	};
@@ -150,10 +152,6 @@
 							<div class="grid gap-2">
 								<Label for="idea-title">Title</Label>
 								<Input id="idea-title" bind:value={createTitle} />
-							</div>
-							<div class="grid gap-2">
-								<Label for="idea-description">Short Description</Label>
-								<Input id="idea-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
 							{#if createError}
 								<p class="text-xs text-destructive">{createError}</p>

@@ -46,7 +46,6 @@
 
 	let createOpen = $state(false);
 	let createTitle = $state("");
-	let createDescription = $state("");
 	let createError = $state("");
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
@@ -112,7 +111,6 @@
 		}
 		const created = result.data as { id: string };
 		createTitle = "";
-		createDescription = "";
 		createOpen = false;
 		await goto(`/project/${projectId}/journeys/${created.id}`);
 	};
@@ -154,10 +152,6 @@
 								<div class="grid gap-2">
 									<Label for="journey-title">Title</Label>
 									<Input id="journey-title" bind:value={createTitle} />
-								</div>
-								<div class="grid gap-2">
-									<Label for="journey-description">Short Description</Label>
-									<Input id="journey-description" bind:value={createDescription} placeholder="Optional" />
 								</div>
 								{#if createError}
 									<p class="text-xs text-destructive">{createError}</p>

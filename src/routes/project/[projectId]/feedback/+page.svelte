@@ -32,7 +32,11 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $state<FeedbackRow[]>(structuredClone(data.rows) as FeedbackRow[]);
+	let rows = $state<FeedbackRow[]>([]);
+
+	$effect(() => {
+		rows = structuredClone(data.rows) as FeedbackRow[];
+	});
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canCreateFeedback = can(permissions, "feedback", "create");
@@ -45,7 +49,6 @@
 
 	let createOpen = $state(false);
 	let createTitle = $state("");
-	let createDescription = $state("");
 	let createError = $state("");
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
@@ -106,7 +109,6 @@
 		}
 		const created = result.data as { id: string };
 		createTitle = "";
-		createDescription = "";
 		createOpen = false;
 		await goto(`/project/${page.params.projectId}/feedback/${created.id}`);
 	};
@@ -148,10 +150,6 @@
 							<div class="grid gap-2">
 								<Label for="feedback-title">Title</Label>
 								<Input id="feedback-title" bind:value={createTitle} />
-							</div>
-							<div class="grid gap-2">
-								<Label for="feedback-description">Short Description</Label>
-								<Input id="feedback-description" bind:value={createDescription} placeholder="Optional" />
 							</div>
 							{#if createError}
 								<p class="text-xs text-destructive">{createError}</p>

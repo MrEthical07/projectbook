@@ -90,20 +90,17 @@
 	const canEditIdea = can(permissions, "idea", "edit");
 	const canChangeIdeaStatus = can(permissions, "idea", "statusChange");
 	const canArchiveIdea = can(permissions, "idea", "archive");
-	let problemOptions = $state<LinkedProblemStatement[]>(structuredClone(data.problemOptions) as LinkedProblemStatement[]);
-
-	let linkedStories = $state<LinkedStory[]>(structuredClone(data.linkedStories) as LinkedStory[]);
-
-	let derivedPersonas = $state<string[]>(structuredClone(data.derivedPersonas) as string[]);
-
-	let title = $state(required(data.idea.title, "idea.title"));
-	let description = $state(required(data.idea.description, "idea.description"));
-	let ideaStatus = $state<IdeaStatus>(required(data.idea.status as IdeaStatus, "idea.status"));
-	let isArchived = $state(Boolean(required(data.isArchived, "isArchived")));
-	let summaryTitle = $state(required(data.summaryTitle, "summaryTitle"));
-	let summaryDescription = $state(required(data.summaryDescription, "summaryDescription"));
-	let notesText = $state(required(data.notesText, "notesText"));
-	let selectedProblemId = $state(required(data.selectedProblemId, "selectedProblemId"));
+	let problemOptions = $state<LinkedProblemStatement[]>([]);
+	let linkedStories = $state<LinkedStory[]>([]);
+	let derivedPersonas = $state<string[]>([]);
+	let title = $state("");
+	let description = $state("");
+	let ideaStatus = $state<IdeaStatus>("Considered");
+	let isArchived = $state(false);
+	let summaryTitle = $state("");
+	let summaryDescription = $state("");
+	let notesText = $state("");
+	let selectedProblemId = $state("");
 	let pendingProblemId = $state("");
 	let addSectionOpen = $state(false);
 	let statusDialogOpen = $state(false);
@@ -112,23 +109,15 @@
 	let unarchiveDialogOpen = $state(false);
 	let linkProblemOpen = $state(false);
 	let derivedOpen = $state(true);
-	let activeModules = $state<OptionalModuleKey[]>(
-		(Array.isArray(data.activeModules)
-			? structuredClone(data.activeModules)
-			: []) as OptionalModuleKey[]
-	);
+	let activeModules = $state<OptionalModuleKey[]>([]);
 	let pendingStatus = $state<IdeaStatus | null>(null);
-let metadataOpen = $state(false);
-	const moduleContentPayload = required(
-		data.moduleContent as Record<OptionalModuleKey, string> | undefined,
-		"moduleContent"
-	);
+	let metadataOpen = $state(false);
 	let moduleContent = $state<Record<OptionalModuleKey, string>>({
-		approach: moduleContentPayload.approach,
-		alternatives: moduleContentPayload.alternatives,
-		tradeoffs: moduleContentPayload.tradeoffs,
-		risks: moduleContentPayload.risks,
-		assumptions: moduleContentPayload.assumptions
+		approach: "",
+		alternatives: "",
+		tradeoffs: "",
+		risks: "",
+		assumptions: ""
 	});
 	let moduleOpen = $state<Record<OptionalModuleKey, boolean>>({
 		approach: true,
@@ -439,7 +428,7 @@ let metadataOpen = $state(false);
 				bind:value={title}
 				class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3"
 				placeholder="Idea Title"
-				disabled={isArchived}
+				disabled={isReadOnly}
 			/>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="flex flex-wrap items-center gap-2">
@@ -838,7 +827,7 @@ let metadataOpen = $state(false);
 				<Dialog.Root bind:open={addSectionOpen}>
 					<Dialog.Trigger
 						class={buttonVariants({ variant: "outline" })}
-						disabled={isArchived}
+						disabled={isReadOnly}
 					>
 						+ Add Section
 					</Dialog.Trigger>
@@ -856,7 +845,7 @@ let metadataOpen = $state(false);
 										variant="outline"
 										size="sm"
 										onclick={() => addModule(moduleKey)}
-										disabled={activeModules.includes(moduleKey) || isArchived}
+										disabled={activeModules.includes(moduleKey) || isReadOnly}
 									>
 										{activeModules.includes(moduleKey) ? "Added" : "Add"}
 									</Button>
@@ -893,20 +882,20 @@ let metadataOpen = $state(false);
 											</span>
 										</button>
 										<Button
-											variant="ghost"
-											size="icon"
-											class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
-											onclick={() => removeModule(moduleKey)}
-											disabled={isArchived}
-										>
-											<X class="h-4 w-4" />
-										</Button>
+										variant="ghost"
+										size="icon"
+										class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+										onclick={() => removeModule(moduleKey)}
+										disabled={isReadOnly}
+									>
+										<X class="h-4 w-4" />
+									</Button>
 									</div>
 									{#if moduleOpen[moduleKey]}
 										<Textarea
 											placeholder={moduleDetails[moduleKey].placeholder}
 											bind:value={moduleContent[moduleKey]}
-											disabled={isArchived}
+											disabled={isReadOnly}
 										/>
 									{/if}
 								</div>

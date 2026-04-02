@@ -43,18 +43,37 @@
     const canChangeStoryStatus = can(permissions, "story", "statusChange");
     const statusOptions = ["draft", "locked", "archived"] as const;
     type StoryStatus = typeof statusOptions[number];
-    const addOnCatalog = structuredClone(data.addOnCatalog) as Array<{
+    let addOnCatalog = $state<Array<{
         type: AddOnType;
         name: string;
         description: string;
         tag: string;
-    }>;
-
-    let story = $state(structuredClone(data.story));
+    }>>([]);
+    let story = $state({
+        title: "",
+        description: "",
+        status: "draft",
+        persona: {
+            name: "",
+            bio: "",
+            role: "",
+            age: 0,
+            job: "",
+            edu: ""
+        },
+        context: "",
+        empathyMap: {
+            says: "",
+            thinks: "",
+            does: "",
+            feels: ""
+        },
+        painPoints: [""],
+        hypothesis: [""],
+        notes: ""
+    });
     const isReadOnly = $derived(story.status === "locked" || story.status === "archived" || !canEditStory);
-    let addOnSections = $state<AddOnSection[]>(
-        structuredClone(data.addOnSections) as AddOnSection[]
-    );
+    let addOnSections = $state<AddOnSection[]>([]);
     let addSectionOpen = $state(false);
     let removeSectionOpen = $state(false);
     let removeTarget = $state<AddOnSection | null>(null);
@@ -276,6 +295,12 @@
         untrack(() => {
             const s = structuredClone(d.story);
             const a = structuredClone(d.addOnSections ?? []) as AddOnSection[];
+            addOnCatalog = structuredClone(d.addOnCatalog) as Array<{
+                type: AddOnType;
+                name: string;
+                description: string;
+                tag: string;
+            }>;
             story = s;
             addOnSections = a;
             savePhase = "idle";

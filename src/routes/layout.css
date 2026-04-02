@@ -136,3 +136,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* width of entire scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* track (background) */
+::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: 8px;
+}
+
+/* thumb (draggable part) */
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 10px;
+}
+
+/* thumb on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

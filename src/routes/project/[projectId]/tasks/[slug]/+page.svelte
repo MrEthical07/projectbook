@@ -39,7 +39,7 @@
 	const canChangeTaskStatus = can(permissions, "task", "statusChange");
 	const canEditTask = can(permissions, "task", "edit");
 
-	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
+	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned" | "Blocked";
 	type OptionalModuleKey = "plan" | "execution";
 
 	type LinkedProblem = {
@@ -75,12 +75,10 @@
 		role: string;
 	};
 
-	const initialTask = required(data.task as Record<string, unknown> | undefined, "task");
-	const statusOptions: TaskStatus[] = ["Planned", "In Progress", "Completed", "Abandoned"];
+	const statusOptions: TaskStatus[] = ["Planned", "In Progress", "Blocked", "Completed", "Abandoned"];
 
-	let assigneeOptions = $state<AssigneeOption[]>(structuredClone(data.assigneeOptions) as AssigneeOption[]);
-
-	let ideaOptions = $state<LinkedIdea[]>(structuredClone(data.ideaOptions) as LinkedIdea[]);
+	let assigneeOptions = $state<AssigneeOption[]>([]);
+	let ideaOptions = $state<LinkedIdea[]>([]);
 
 	const moduleDetails: Record<OptionalModuleKey, { title: string; placeholder?: string }> = {
 		plan: {
@@ -96,29 +94,15 @@
 
 	const optionalModules: OptionalModuleKey[] = ["plan", "execution"];
 
-	let status = $state<TaskStatus>(required(initialTask.status as TaskStatus | undefined, "task.status"));
-	let title = $state(required(initialTask.title as string | undefined, "task.title"));
-	let assignedToId = $state(
-		"assignedToId" in initialTask ? String(initialTask.assignedToId) : ""
-	);
-	let deadlineDate = $state<CalendarDate | undefined>(
-		(() => {
-			const raw = String(required(initialTask.deadline as string | undefined, "task.deadline")).trim();
-			if (!raw) return undefined;
-			try {
-				return parseDate(raw);
-			} catch {
-				return undefined;
-			}
-		})()
-	);
-	let hypothesis = $state("hypothesis" in initialTask ? String(initialTask.hypothesis) : "");
+	let status = $state<TaskStatus>("Planned");
+	let title = $state("");
+	let assignedToId = $state("");
+	let deadlineDate = $state<CalendarDate | undefined>(undefined);
+	let hypothesis = $state("");
 	let addSectionOpen = $state(false);
 	let statusDialogOpen = $state(false);
 	let metadataOpen = $state(false);
-	let selectedIdeaId = $state(
-		"selectedIdeaId" in initialTask ? String(initialTask.selectedIdeaId) : ""
-	);
+	let selectedIdeaId = $state("");
 
 	let selectedIdea = $derived(
 		ideaOptions.find((idea) => idea.id === selectedIdeaId) ?? null
@@ -136,32 +120,15 @@
 			: "Select date"
 	);
 
-	let planItems = $state<string[]>(
-		Array.isArray(initialTask.planItems) && initialTask.planItems.length
-			? (structuredClone(initialTask.planItems) as unknown[]).map((item) => String(item))
-			: [""]
-	);
-	let executionLinks = $state<string[]>(
-		Array.isArray(initialTask.executionLinks) && initialTask.executionLinks.length
-			? (structuredClone(initialTask.executionLinks) as unknown[]).map((item) => String(item))
-			: [""]
-	);
-	let notesText = $state("notesText" in initialTask ? String(initialTask.notesText) : "");
+	let planItems = $state<string[]>([""]);
+	let executionLinks = $state<string[]>([""]);
+	let notesText = $state("");
 
 	let planDragIndex = $state<number | null>(null);
 
-	let activeModules = $state<OptionalModuleKey[]>(
-		Array.isArray(initialTask.activeModules) && initialTask.activeModules.length
-			? (structuredClone(initialTask.activeModules) as OptionalModuleKey[])
-			: ["plan", "execution"]
-	);
-
-	let abandonReason = $state(
-		"abandonReason" in initialTask ? String(initialTask.abandonReason) : ""
-	);
-	let hasFeedback = $state(
-		Boolean(required(initialTask.hasFeedback as boolean | undefined, "task.hasFeedback"))
-	);
+	let activeModules = $state<OptionalModuleKey[]>(["plan", "execution"]);
+	let abandonReason = $state("");
+	let hasFeedback = $state(false);
 
 	let savePhase = $state<"idle" | "saving" | "saved">("idle");
 	let saveReady = $state(false);
@@ -949,10 +916,9 @@
 			<Dialog.Description>Read-only metadata for this task.</Dialog.Description>
 		</Dialog.Header>
 		<div class="grid gap-2 text-sm">
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Nia Clark</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-05 10:10</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Alex Morgan</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 12:00</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Owner</span><span>{data.metadata?.owner ?? "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Deadline</span><span>{normalizedDeadline(deadlineDate) || "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last updated</span><span>{data.metadata?.lastUpdated ?? "Unknown"}</span></div>
 			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{status}</span></div>
 		</div>
 		<Dialog.Footer>
