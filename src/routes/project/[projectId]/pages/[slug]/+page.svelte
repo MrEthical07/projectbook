@@ -656,6 +656,16 @@
 	});
 </script>
 
+<svelte:head>
+	<title>{title || "Page"} • Pages • ProjectBook</title>
+	<meta
+		name="description"
+		content="Edit this project page and linked content blocks."
+	/>
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <div class={`flex flex-col gap-2 p-2 bg-white border rounded-lg ${fullWidth ? "w-full" : "w-full"}`}>
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"

@@ -4,7 +4,17 @@
 	let sections = $derived(data.sections);
 </script>
 
-<main class="min-h-screen bg-gradient-to-b from-background to-muted/30 p-4 sm:p-8">
+<svelte:head>
+	<title>Docs • ProjectBook</title>
+	<meta
+		name="description"
+		content="Reference documentation for workflows, artifacts, and platform usage."
+	/>
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
+<main class="min-h-screen bg-background p-4 sm:p-8">
 	<div class="mx-auto grid w-full max-w-7xl gap-6 lg:grid-cols-[260px_1fr]">
 		<aside class="rounded-xl border border-border/70 bg-card p-4 lg:sticky lg:top-6 lg:h-fit">
 			<div class="space-y-1">

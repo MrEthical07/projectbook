@@ -396,6 +396,16 @@
 	});
 </script>
 
+<svelte:head>
+	<title>{title || "Idea"} • Ideas • ProjectBook</title>
+	<meta
+		name="description"
+		content="View and refine this idea, linked context, and decision notes."
+	/>
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 {#key page.params.slug}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
 	<header

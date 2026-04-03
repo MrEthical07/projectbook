@@ -108,6 +108,16 @@
 	};
 </script>
 
+<svelte:head>
+	<title>Activity • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
+	<meta
+		name="description"
+		content="Review activity across this project and its artifacts."
+	/>
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <div class="flex flex-col gap-4 rounded-lg bg-background p-4">
 	<header
 		class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"

@@ -249,6 +249,16 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Roles &amp; Permissions • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
+	<meta
+		name="description"
+		content="Configure role permissions and member access for this project."
+	/>
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <div class="flex flex-col gap-4 rounded-lg bg-background p-4">
 	<Toaster position="top-right" />
 	<header

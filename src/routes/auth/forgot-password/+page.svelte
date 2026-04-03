@@ -24,6 +24,16 @@
 	} = forgotPasswordForm;
 </script>
 
+<svelte:head>
+	<title>Forgot Password • ProjectBook</title>
+	<meta
+		name="description"
+		content="Request a password reset link for your ProjectBook account."
+	/>
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <main class="flex min-h-screen items-center justify-center p-4 sm:p-8">
 	<Card.Root class="w-full max-w-md">
 		<Card.Header class="space-y-2 text-center">

@@ -467,6 +467,16 @@ $effect(() => {
 });
 </script>
 
+<svelte:head>
+	<title>{finalStatement || title || "Problem Statement"} • Problem Statements • ProjectBook</title>
+	<meta
+		name="description"
+		content="View and refine this problem statement with linked evidence and context."
+	/>
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 {#key page.params.slug}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
 	<header
