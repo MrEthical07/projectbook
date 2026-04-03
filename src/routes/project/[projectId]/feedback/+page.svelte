@@ -114,6 +114,13 @@
 	};
 </script>
 
+<svelte:head>
+	<title>Feedback • {data.project?.name ?? "Project"} • ProjectBook</title>
+	<meta name="description" content="Capture feedback and learnings from testing and validation." />
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <div class="flex flex-col gap-2 rounded-lg border bg-white p-2">
 	<header
 		class="flex h-12 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"

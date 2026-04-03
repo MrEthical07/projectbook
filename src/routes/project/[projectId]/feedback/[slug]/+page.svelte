@@ -329,6 +329,13 @@
 	});
 </script>
 
+<svelte:head>
+	<title>{data.feedback?.title ?? "Feedback"} • Feedback • ProjectBook</title>
+	<meta name="description" content="Review and edit feedback insights, evidence, and linked artifacts." />
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 {#key page.params.slug}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
 	<header

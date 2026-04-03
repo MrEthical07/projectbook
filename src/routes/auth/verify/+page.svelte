@@ -25,6 +25,13 @@
 	} = resendVerificationForm;
 </script>
 
+<svelte:head>
+	<title>Verify Email • ProjectBook</title>
+	<meta name="description" content="Verify your email address and manage verification requests." />
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <main class="flex min-h-screen w-full items-center justify-center p-4 sm:p-8">
 	<Card.Root class="w-full max-w-md">
 		<Card.Header class="space-y-2 text-center">

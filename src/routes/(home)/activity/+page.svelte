@@ -100,6 +100,13 @@
 	};
 </script>
 
+<svelte:head>
+	<title>Activity • ProjectBook</title>
+	<meta name="description" content="Review recent workspace and project activity in one place." />
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <div class="flex flex-col gap-2 rounded-lg border bg-white p-2">
 	<header
 		class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"

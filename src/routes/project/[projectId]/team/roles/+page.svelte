@@ -249,6 +249,13 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Team Roles • {data.project?.name ?? "Project"} • ProjectBook</title>
+	<meta name="description" content="Configure team roles and permissions for project collaboration." />
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <div class="flex flex-col gap-4 rounded-lg bg-background p-4">
 	<Toaster position="top-right" />
 	<header

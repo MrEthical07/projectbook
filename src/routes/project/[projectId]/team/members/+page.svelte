@@ -254,6 +254,13 @@
 	let filteredMembers = $derived(filterMembers(searchQuery));
 </script>
 
+<svelte:head>
+	<title>Team Members • {data.project?.name ?? "Project"} • ProjectBook</title>
+	<meta name="description" content="Manage project members, invitations, and access." />
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <div class="flex flex-col gap-4 rounded-lg bg-background p-4">
 	<Toaster position="top-right" />
 	<header

@@ -129,6 +129,13 @@
 
 </script>
 
+<svelte:head>
+	<title>Login • ProjectBook</title>
+	<meta name="description" content="Sign in to ProjectBook or create a new account." />
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <main class="flex min-h-screen items-center justify-center p-4 sm:p-8">
 	<div
 		class="grid w-full max-w-6xl overflow-hidden rounded-2xl border border-border/70 bg-background/85 shadow-2xl backdrop-blur-sm md:grid-cols-2"

@@ -44,21 +44,21 @@
 	let sessions = $state<Session[]>([
 		{
 			id: "sess-1",
-			device: "MacBook Pro · Chrome",
+			device: "MacBook Pro Ã‚Â· Chrome",
 			location: "San Francisco, CA",
 			lastActive: "Active now",
 			current: true,
 		},
 		{
 			id: "sess-2",
-			device: "iPhone 15 · Safari",
+			device: "iPhone 15 Ã‚Â· Safari",
 			location: "San Francisco, CA",
 			lastActive: "2 hours ago",
 			current: false,
 		},
 		{
 			id: "sess-3",
-			device: "Windows PC · Edge",
+			device: "Windows PC Ã‚Â· Edge",
 			location: "Austin, TX",
 			lastActive: "2 days ago",
 			current: false,
@@ -127,6 +127,13 @@
 	});
 </script>
 
+<svelte:head>
+	<title>My Account • ProjectBook</title>
+	<meta name="description" content="Manage your personal profile, preferences, and account security settings." />
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -147,7 +154,7 @@
 	<div class="flex flex-col gap-5 py-2 md:px-20">
 		<div class="flex flex-col gap-2 rounded-lg bg-white p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
-				User account · Personal settings
+				User account Ã‚Â· Personal settings
 			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="flex flex-wrap items-center gap-3">
@@ -237,7 +244,7 @@
 					<div class="text-sm font-medium">Authentication methods</div>
 					<div class="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
 						<span class="rounded-full border border-border px-2 py-1">Password</span>
-						<span class="rounded-full border border-border px-2 py-1">OAuth · Google</span>
+						<span class="rounded-full border border-border px-2 py-1">OAuth Ã‚Â· Google</span>
 					</div>
 				</div>
 			</div>
@@ -325,7 +332,7 @@
 							<div>
 								<div class="text-sm font-medium">{session.device}</div>
 								<div class="text-xs text-muted-foreground">
-									{session.location} · {session.lastActive}
+									{session.location} Ã‚Â· {session.lastActive}
 								</div>
 							</div>
 						</div>
