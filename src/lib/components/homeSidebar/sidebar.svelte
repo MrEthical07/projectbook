@@ -1,5 +1,4 @@
 <script lang="ts">
-	import LegalLinks from "$lib/components/legal/legal-links.svelte";
 	import { page } from "$app/state";
 	import NavUser from "$lib/components/sidebar/nav-user.svelte";
 	import * as Badge from "$lib/components/ui/badge";
@@ -195,7 +194,6 @@
 		</Sidebar.Group>
 	</Sidebar.Content>
 	<Sidebar.Footer>
-		<LegalLinks tone="sidebar" class="px-1 group-data-[collapsible=icon]:hidden" />
 		{#if user}
 			<NavUser user={user} />
 		{:else}

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import LegalLinks from "$lib/components/legal/legal-links.svelte";
 	import SubMenu from "$lib/components/sidebar/subMenu.svelte";
 	import NavUser from "$lib/components/sidebar/nav-user.svelte";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
@@ -375,7 +374,6 @@
 		{/if}
 	</Sidebar.Content>
 	<Sidebar.Footer>
-		<LegalLinks tone="sidebar" class="px-1 group-data-[collapsible=icon]:hidden" />
 		{#if data}
 			<NavUser user={data.user} />
 		{/if}
