@@ -10,6 +10,7 @@
 	import { zod4Client } from "sveltekit-superforms/adapters";
 	import { signInSchema, signUpSchema } from "$lib/schemas/auth.schema";
 	import type { ActionData, PageProps } from "./$types";
+	import LegalLinks from "$lib/components/legal/legal-links.svelte";
 
 	type AuthTab = "signin" | "signup";
 
@@ -411,6 +412,7 @@
 						</Tabs.Root>
 					</Card.Content>
 				</Card.Root>
+				<LegalLinks class="justify-center" />
 			</div>
 		</section>
 	</div>
