@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import {
 	resourceDetailData,
 	resourcesReferenceData
@@ -156,6 +157,7 @@ export const createResource = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<ResourceRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreateResource(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -206,6 +208,7 @@ export const updateResource = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<ResourceRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditResource(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -352,6 +355,7 @@ export const updateResourceStatus = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<ResourceRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canChangeResourceStatus(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

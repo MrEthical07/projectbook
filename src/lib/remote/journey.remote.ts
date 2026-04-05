@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import {
 	journeyDraftTemplateData,
 	journeyEmotionsData
@@ -136,6 +137,7 @@ export const createJourney = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<JourneyRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreateJourney(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -189,6 +191,7 @@ export const updateJourney = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<JourneyRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditJourney(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import { pageDetailData } from "$lib/server/data/pages.data";
 
 type PageEditorInput = {
@@ -165,6 +166,7 @@ export const createPage = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<PageRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreatePage(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -213,6 +215,7 @@ export const updatePageEditor = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<PageRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditPage(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -315,6 +318,7 @@ export const renamePage = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<PageRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditPage(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

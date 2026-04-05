@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import { getStoryCachedDetail } from "$lib/server/data/story-cache";
 import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
 
@@ -270,6 +271,7 @@ export const createIdea = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<IdeaRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreateIdea(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -321,6 +323,7 @@ export const updateIdea = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<IdeaRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditIdea(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -454,6 +457,7 @@ export const selectIdea = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<IdeaRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canChangeIdeaStatus(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -497,6 +501,7 @@ export const updateIdeaStatus = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<IdeaRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canChangeIdeaStatus(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

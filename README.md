@@ -1,38 +1,68 @@
-# sv
+# ProjectBook
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A Design Thinking-first workspace for building people-centric projects without context fragmentation.
 
-## Creating a project
+## What It Is
 
-If you're seeing this, you've probably already done this step. Congrats!
+ProjectBook is a SvelteKit application for structuring product work from research to validation. It keeps artifacts connected so teams can follow decisions across the full workflow.
 
-```sh
-# create a new project in the current directory
-npx sv create
+## Problem It Solves
 
-# create a new project in my-app
-npx sv create my-app
+Teams lose context when work is split across documents, boards, and chat. ProjectBook reduces that fragmentation by keeping linked artifacts in one project flow.
+
+## Core Concept
+
+Design Thinking workflow:
+
+Empathize -> Define -> Ideate -> Prototype -> Test
+
+Artifact chain:
+
+Story -> Problem -> Idea -> Task -> Feedback
+
+## Key Features
+
+- Design Thinking phase-based workflow.
+- Linked artifacts with traceable context.
+- Explicit orphan-state visibility.
+- Role/permission-aware project workspace.
+
+## Tech Stack
+
+- SvelteKit + Svelte 5
+- TypeScript
+- Vite
+- Zod
+- Tailwind CSS and shadcn-svelte UI components
+
+## Getting Started
+
+```bash
+pnpm install
+pnpm run dev
 ```
 
-## Developing
+## Documentation
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+- Full docs: [docs](docs)
+- Architecture: [docs/architecture.md](docs/architecture.md)
+- Mental model: [docs/mental-model.md](docs/mental-model.md)
+- Development guide: [docs/development-guide.md](docs/development-guide.md)
 
-```sh
-npm run dev
+## Changelog
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+- Release history: [CHANGELOG.md](CHANGELOG.md)
 
-## Building
+## Architecture Summary
 
-To create a production version of your app:
+UI (`+page.svelte`) -> route load (`+page.ts`) -> remote functions (`src/lib/remote`) -> data modules (`src/lib/server/data`)
 
-```sh
-npm run build
-```
+No service layer and no command-pattern abstraction are used.
 
-You can preview the production build with `npm run preview`.
+## Contribution
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/contribution-guide.md](docs/contribution-guide.md).
+
+## License
+
+Licensed under Apache 2.0. See [LICENSE](LICENSE).

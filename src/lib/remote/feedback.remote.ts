@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import { feedbackDetailData } from "$lib/server/data/feedback.data";
 
 type FeedbackPageInput = {
@@ -160,6 +161,7 @@ export const createFeedback = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<FeedbackRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreateFeedback(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -210,6 +212,7 @@ export const updateFeedback = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<FeedbackRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditFeedback(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

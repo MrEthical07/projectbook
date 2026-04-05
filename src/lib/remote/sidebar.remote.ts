@@ -1,8 +1,9 @@
 import { command, query } from "$app/server";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import { getProjectAccess } from "$lib/remote/access.remote";
-import "$lib/server/data/workspace.data";
+import { workspaceProjectsData } from "../server/data/workspace.data";
 import "$lib/server/data/project.data";
 import "$lib/server/data/stories.data";
 import "$lib/server/data/journeys.data";
@@ -11,6 +12,8 @@ import "$lib/server/data/ideas.data";
 import "$lib/server/data/tasks.data";
 import "$lib/server/data/feedback.data";
 import "$lib/server/data/pages.data";
+
+void workspaceProjectsData;
 
 type SidebarPrefix =
 	| "stories"
@@ -526,6 +529,7 @@ export const createSidebarArtifact = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ id: string; title: string }> => {
+		permissions = getTrustedProjectPermissions(input);
 		const parsed = createSidebarArtifactSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
@@ -580,6 +584,7 @@ export const renameSidebarArtifact = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ id: string; title: string }> => {
+		permissions = getTrustedProjectPermissions(input);
 		const parsed = renameSidebarArtifactSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
@@ -630,6 +635,7 @@ export const deleteSidebarArtifact = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ id: string }> => {
+		permissions = getTrustedProjectPermissions(input);
 		const parsed = deleteSidebarArtifactSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };

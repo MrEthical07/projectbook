@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import { getStoryCachedDetail } from "$lib/server/data/story-cache";
 import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
 
@@ -280,6 +281,7 @@ export const createTask = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<TaskRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreateTask(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -333,6 +335,7 @@ export const updateTaskStatus = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<TaskRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canChangeTaskStatus(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -365,6 +368,7 @@ export const updateTask = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<TaskRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditTask(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

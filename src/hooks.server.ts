@@ -15,14 +15,7 @@ const PUBLIC_PATHS = [
 const isPublicPath = (pathname: string): boolean =>
 	PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
-let superAdminSeeded = false;
-
 export const handle: Handle = async ({ event, resolve }) => {
-	if (!superAdminSeeded) {
-		await authService.seedSuperAdmin();
-		superAdminSeeded = true;
-	}
-
 	event.locals.requestId = randomUUID();
 
 	const sessionToken = getSessionCookie(event.cookies);

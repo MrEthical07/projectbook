@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import "$lib/server/data/project.data";
 import "$lib/server/data/feedback.data";
 import "$lib/server/data/ideas.data";
@@ -233,6 +234,7 @@ export const createProjectInvite = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ email: string; role: string; sentDate: string; status: "pending" }> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canMemberCreate(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -269,6 +271,7 @@ export const cancelProjectInvite = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ email: string }> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canMemberDelete(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -301,6 +304,7 @@ export const updateProjectRolePermissions = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ role: ProjectRole; permissions: EffectivePermissions }> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canMemberEdit(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -338,6 +342,7 @@ export const updateProjectMemberRole = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ memberId: string; role: ProjectRole }> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canMemberEdit(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -376,6 +381,7 @@ export const updateProjectSettings = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ projectId: string }> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canProjectEdit(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -449,6 +455,7 @@ export const archiveProject = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ projectId: string; status: "Archived" }> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canProjectArchive(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -487,6 +494,7 @@ export const deleteProject = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ projectId: string; status: "Archived" }> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canProjectDelete(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

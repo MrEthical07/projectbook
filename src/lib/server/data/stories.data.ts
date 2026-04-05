@@ -2,36 +2,14 @@ import { datastore } from "./datastore";
 
 export const storiesData: StoryRow[] = [
 	{
-		id: "streamline-checkout",
-		title: "Streamline checkout for first-time users",
-		personaName: "Avery Patel",
-		painPointsCount: 3,
-		problemHypothesesCount: 2,
-		owner: "Avery Patel",
-		lastUpdated: "2026-02-05",
-		status: "Locked",
-		isOrphan: false
-	},
-	{
-		id: "creator-onboarding",
-		title: "Improve onboarding for new creators",
-		personaName: "Liam Gomez",
-		painPointsCount: 0,
+		id: "sample-story-1",
+		title: "Capture onboarding friction for new users",
+		personaName: "Participant 1",
+		painPointsCount: 1,
 		problemHypothesesCount: 1,
-		owner: "Nia Clark",
-		lastUpdated: "2026-02-02",
+		owner: "Workspace User",
+		lastUpdated: "2026-02-14",
 		status: "Draft",
-		isOrphan: false
-	},
-	{
-		id: "team-milestones",
-		title: "Surface progress milestones for teams",
-		personaName: "Priya Sharma",
-		painPointsCount: 2,
-		problemHypothesesCount: 0,
-		owner: "Dr. Ramos",
-		lastUpdated: "2026-01-27",
-		status: "Archived",
 		isOrphan: false
 	}
 ];

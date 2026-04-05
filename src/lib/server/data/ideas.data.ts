@@ -2,40 +2,16 @@ import { datastore } from "./datastore";
 
 export const ideasData: IdeaRow[] = [
 	{
-		id: "deadline-lane-view",
-		title: "Deadline lane view",
-		linkedProblemStatement: "Students need a clear way to track assignment deadlines.",
-		persona: "Avery Patel",
-		status: "Selected",
-		tasksCount: 2,
-		owner: "Avery Patel",
-		lastUpdated: "2026-02-06",
-		linkedProblemLocked: true,
-		isOrphan: false
-	},
-	{
-		id: "smart-reminder-bundles",
-		title: "Smart reminder bundles",
-		linkedProblemStatement: "New creators need confidence during setup.",
-		persona: "Liam Gomez",
+		id: "sample-idea-1",
+		title: "Progressive onboarding checklist",
+		linkedProblemStatement: "New users need clearer onboarding guidance.",
+		persona: "Participant 1",
 		status: "Considered",
-		tasksCount: 0,
-		owner: "Nia Clark",
-		lastUpdated: "2026-02-02",
+		tasksCount: 1,
+		owner: "Workspace User",
+		lastUpdated: "2026-02-14",
 		linkedProblemLocked: false,
 		isOrphan: false
-	},
-	{
-		id: "assistant-chat-coach",
-		title: "Assistant chat coach",
-		linkedProblemStatement: "",
-		persona: "Priya Sharma",
-		status: "Rejected",
-		tasksCount: 0,
-		owner: "Dr. Ramos",
-		lastUpdated: "2026-01-28",
-		linkedProblemLocked: false,
-		isOrphan: true
 	}
 ];
 
@@ -43,28 +19,21 @@ export const ideasDetailData = {
 	problemOptions: [
 		{
 			id: "problem-41",
-			title: "Students miss assignment requirements",
+			title: "New users need clearer onboarding guidance",
 			phase: "Define",
-			href: "/project/alpha/problem-statement/missed-requirements",
-			status: "Locked"
-		},
-		{
-			id: "problem-42",
-			title: "Deadline shifts create confusion",
-			phase: "Define",
-			href: "/project/alpha/problem-statement/deadline-shifts",
+			href: "/project/atlas-2026/problem-statement/sample-problem-1",
 			status: "Draft"
 		}
 	],
 	linkedStories: [
 		{
 			id: "story-7",
-			title: "Avery Patel - First-year student",
+			title: "Participant 1 - New user",
 			phase: "Empathize",
-			href: "/project/alpha/stories/avery-patel"
+			href: "/project/atlas-2026/stories/sample-story-1"
 		}
 	],
-	derivedPersonas: ["Avery Patel"]
+	derivedPersonas: ["Participant 1"]
 };
 
 for (const idea of ideasData) {

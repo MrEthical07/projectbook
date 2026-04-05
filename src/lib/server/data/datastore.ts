@@ -49,19 +49,16 @@ export interface DataStore {
 
 export const datastore: DataStore = {
 	workspace: {
-		user: { id: "u-1", name: "Ayush", email: "ayush@projectbook.dev" },
+		user: { id: "u-1", name: "Workspace User", email: "user@example.com" },
 		projects: [],
 		invites: [],
 		notifications: [],
 		activity: []
 	},
 	projects: [],
-	// NOTE: workspace.user.name is "Ayush" while projectDashboard.me.name is "Alex Morgan".
-	// These represent different contexts (workspace identity vs. project member display name)
-	// but in a real system they should be consistent or clearly differentiated.
 	projectDashboard: {
-		project: { id: "atlas-2026", name: "Northstar Checkout Revamp", status: "Active" },
-		me: { id: "u-1", name: "Alex Morgan", initials: "AM" },
+		project: { id: "atlas-2026", name: "Sample Project", status: "Active" },
+		me: { id: "u-1", name: "Workspace User", initials: "WU" },
 		events: [],
 		activity: [],
 		recentEdits: []
@@ -82,8 +79,8 @@ export const datastore: DataStore = {
 		rolePermissions: {}
 	},
 	settings: {
-		projectName: "Project Atlas",
-		projectDescription: "Core product research and prototype delivery.",
+		projectName: "Sample Project",
+		projectDescription: "Minimal neutral sample workspace.",
 		projectStatus: "Active",
 		whiteboardsEnabled: true,
 		advancedDatabasesEnabled: true,

@@ -2,36 +2,14 @@ import { datastore } from "./datastore";
 
 export const journeysData: JourneyRow[] = [
 	{
-		id: "student-assignment-journey",
-		title: "Student assignment journey",
-		linkedPersonas: ["Avery Patel"],
-		stagesCount: 6,
-		painPointsCount: 3,
-		owner: "Avery Patel",
-		lastUpdated: "2026-02-04",
+		id: "sample-journey-1",
+		title: "New-user onboarding journey",
+		linkedPersonas: ["Participant 1"],
+		stagesCount: 3,
+		painPointsCount: 1,
+		owner: "Workspace User",
+		lastUpdated: "2026-02-14",
 		status: "Draft",
-		isOrphan: false
-	},
-	{
-		id: "creator-publish-journey",
-		title: "Creator publish journey",
-		linkedPersonas: [],
-		stagesCount: 5,
-		painPointsCount: 2,
-		owner: "Nia Clark",
-		lastUpdated: "2026-01-30",
-		status: "Draft",
-		isOrphan: true
-	},
-	{
-		id: "onboarding-first-week",
-		title: "Onboarding first week",
-		linkedPersonas: ["Liam Gomez"],
-		stagesCount: 4,
-		painPointsCount: 0,
-		owner: "Dr. Ramos",
-		lastUpdated: "2026-01-22",
-		status: "Archived",
 		isOrphan: false
 	}
 ];

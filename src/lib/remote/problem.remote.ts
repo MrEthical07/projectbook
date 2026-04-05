@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import { getStoryCachedDetail } from "$lib/server/data/story-cache";
 import { storyDraftTemplateData } from "$lib/server/data/stories.data";
 import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
@@ -327,6 +328,7 @@ export const createProblem = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<ProblemRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreateProblem(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -377,6 +379,7 @@ export const updateProblem = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<ProblemRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditProblem(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -482,6 +485,7 @@ export const lockProblem = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<ProblemRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canChangeProblemStatus(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -521,6 +525,7 @@ export const updateProblemStatus = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<ProblemRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canChangeProblemStatus(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

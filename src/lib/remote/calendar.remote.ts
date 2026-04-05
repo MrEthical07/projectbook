@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import {
 	calendarEventDetailData,
 	calendarReferenceData
@@ -139,6 +140,7 @@ export const createCalendarEvent = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<CalendarEvent> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreateEvent(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -185,6 +187,7 @@ export const updateCalendarEvent = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<CalendarEvent> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditEvent(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -296,6 +299,7 @@ export const deleteCalendarEvent = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<{ eventId: string }> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canDeleteEvent(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

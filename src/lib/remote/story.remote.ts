@@ -2,6 +2,7 @@ import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { datastore } from "$lib/server/data/datastore";
+import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
 import {
 	storyAddOnCatalogData,
 	storyDraftTemplateData
@@ -172,6 +173,7 @@ export const createStory = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<StoryRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canCreateStory(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}
@@ -231,6 +233,7 @@ export const updateStory = command(
 		input: unknown;
 		permissions: EffectivePermissions;
 	}): MutationResult<StoryRow> => {
+		permissions = getTrustedProjectPermissions(input);
 		if (!canEditStory(permissions)) {
 			return { success: false, error: "Permission denied" };
 		}

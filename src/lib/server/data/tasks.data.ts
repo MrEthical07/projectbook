@@ -2,43 +2,15 @@ import { datastore } from "./datastore";
 
 export const tasksData: TaskRow[] = [
 	{
-		id: "deadline-lane-prototype",
-		title: "Prototype deadline lane interaction",
-		linkedIdea: "Deadline lane view",
-		linkedProblemStatement: "Students need a clear way to track assignment deadlines.",
-		persona: "Avery Patel",
-		owner: "Avery Patel",
-		deadline: "2026-02-09",
-		lastUpdated: "2026-02-08",
-		status: "In Progress",
-		ideaRejected: false,
-		hasFeedback: false,
-		isOrphan: false
-	},
-	{
-		id: "reminder-card-test",
-		title: "Test reminder card comprehension",
-		linkedIdea: "Smart reminder bundles",
-		linkedProblemStatement: "New creators need confidence during setup.",
-		persona: "Liam Gomez",
-		owner: "Nia Clark",
-		deadline: "2026-02-11",
-		lastUpdated: "2026-02-06",
+		id: "sample-task-1",
+		title: "Prototype onboarding checklist flow",
+		linkedIdea: "Progressive onboarding checklist",
+		linkedProblemStatement: "New users need clearer onboarding guidance.",
+		persona: "Participant 1",
+		owner: "Workspace User",
+		deadline: "2026-02-18",
+		lastUpdated: "2026-02-14",
 		status: "Planned",
-		ideaRejected: true,
-		hasFeedback: false,
-		isOrphan: false
-	},
-	{
-		id: "handoff-visibility-run",
-		title: "Run handoff visibility experiment",
-		linkedIdea: "Assistant chat coach",
-		linkedProblemStatement: "Team leads need visibility into handoffs.",
-		persona: "Priya Sharma",
-		owner: "Dr. Ramos",
-		deadline: "2026-02-01",
-		lastUpdated: "2026-02-01",
-		status: "Completed",
 		ideaRejected: false,
 		hasFeedback: false,
 		isOrphan: false
@@ -47,30 +19,28 @@ export const tasksData: TaskRow[] = [
 
 export const taskDetailData = {
 	assigneeOptions: [
-		{ id: "user-1", name: "Nia Clark", role: "Designer" },
-		{ id: "user-2", name: "Dr. Ramos", role: "Product" },
-		{ id: "user-3", name: "Avery Patel", role: "Research" }
+		{ id: "user-1", name: "Workspace User", role: "Product" }
 	],
 	ideaOptions: [
 		{
 			id: "idea-31",
-			title: "Visual deadline timeline for assignments",
+			title: "Progressive onboarding checklist",
 			phase: "Ideate",
-			href: "/project/alpha/ideas/deadline-timeline",
+			href: "/project/atlas-2026/ideas/sample-idea-1",
 			status: "Active",
 			problem: {
 				id: "problem-7",
-				title: "Students miss assignment requirements",
+				title: "New users need clearer onboarding guidance",
 				phase: "Define",
-				href: "/project/alpha/problem-statement/missed-requirements",
-				status: "Locked"
+				href: "/project/atlas-2026/problem-statement/sample-problem-1",
+				status: "Draft"
 			},
 			context: {
 				type: "Persona",
-				title: "Nia Clark",
-				detail: "First-year student balancing coursework and a part-time job.",
+				title: "Participant 1",
+				detail: "New user onboarding the product for the first time.",
 				phase: "Empathize",
-				href: "/project/alpha/personas/nia-clark",
+				href: "/project/atlas-2026/stories/sample-story-1",
 				status: "Active"
 			}
 		}

@@ -2,28 +2,10 @@ import { datastore } from "./datastore";
 
 export const pagesData: PageRow[] = [
 	{
-		id: "research-notes",
-		title: "Research notes",
-		owner: "Avery Patel",
-		lastEdited: "2026-02-06",
-		linkedArtifactsCount: 2,
-		status: "Draft",
-		isOrphan: false
-	},
-	{
-		id: "stakeholder-brief",
-		title: "Stakeholder brief",
-		owner: "Nia Clark",
-		lastEdited: "2026-01-29",
-		linkedArtifactsCount: 0,
-		status: "Archived",
-		isOrphan: true
-	},
-	{
-		id: "pilot-summary",
-		title: "Pilot summary",
-		owner: "Dr. Ramos",
-		lastEdited: "2026-02-04",
+		id: "sample-page-1",
+		title: "Sample research notes",
+		owner: "Workspace User",
+		lastEdited: "2026-02-14",
 		linkedArtifactsCount: 1,
 		status: "Draft",
 		isOrphan: false
@@ -33,19 +15,19 @@ export const pagesData: PageRow[] = [
 export const pageDetailData = {
 	tagOptions: ["Research", "Alignment", "Notes", "Strategy"],
 	linkedArtifactOptions: [
-		"User Story - Streamline checkout",
-		"Problem Statement - Reduce abandonment",
-		"Idea - Timeline reminders",
-		"Task - Prototype timeline",
-		"Feedback - Reminder test",
-		"Resource - Survey synthesis"
+		"User Story - Sample Story",
+		"Problem Statement - Sample Problem",
+		"Idea - Sample Idea",
+		"Task - Sample Task",
+		"Feedback - Sample Feedback",
+		"Resource - Sample Resource"
 	],
 	defaultValues: {
 		status: "Draft",
 		title: "Untitled Page",
-		owner: "Avery Patel",
-		createdAt: "Jan 10, 2026",
-		lastEdited: "Jan 12, 2026",
+		owner: "Workspace User",
+		createdAt: "Feb 14, 2026",
+		lastEdited: "Feb 14, 2026",
 		description: ""
 	},
 	defaultViews: [
@@ -60,23 +42,13 @@ export const pageDetailData = {
 	databaseItems: [
 		{
 			id: "item-1",
-			title: "Capture key observations",
+			title: "Capture onboarding observations",
 			status: "Backlog",
-			date: "2026-01-12",
-			owner: "Avery Patel",
+			date: "2026-02-14",
+			owner: "Workspace User",
 			tag: "Research",
 			docHeading: "Notes",
 			docBody: "Capture the key observations from the session."
-		},
-		{
-			id: "item-2",
-			title: "Draft summary insights",
-			status: "In progress",
-			date: "2026-01-14",
-			owner: "Nia Clark",
-			tag: "Notes",
-			docHeading: "Summary",
-			docBody: "Draft the summary of findings and insights."
 		}
 	]
 };

@@ -2,94 +2,35 @@ import { datastore } from "./datastore";
 
 export const projectInfoData: ProjectInfo = {
 	id: "atlas-2026",
-	name: "Northstar Checkout Revamp",
+	name: "Sample Project",
 	status: "Active"
 };
 
 export const projectMembersData: TeamMember[] = [
 	{
-		id: "mem-1",
-		name: "Avery Patel",
-		email: "avery@league.dev",
+		id: "u-1",
+		name: "Workspace User",
+		email: "user@example.com",
 		role: "Owner",
 		status: "Active",
-		joinedAt: "2026-02-04"
-	},
-	{
-		id: "mem-2",
-		name: "Nia Clark",
-		email: "nia@league.dev",
-		role: "Admin",
-		status: "Active",
-		joinedAt: "2026-02-05"
-	},
-	{
-		id: "mem-3",
-		name: "Jordan Lee",
-		email: "jordan@league.dev",
-		role: "Viewer",
-		status: "Invited",
-		joinedAt: "2026-02-06"
+		joinedAt: "2026-02-14"
 	}
 ];
 
 export const teamMembersPageData: TeamMember[] = [
 	{
-		id: "tm-1",
-		name: "Sophia Lee",
-		email: "sophia.lee@projectbook.io",
+		id: "u-1",
+		name: "Workspace User",
+		email: "user@example.com",
 		role: "Owner",
 		status: "Active",
-		joinedDate: "Jan 12, 2024",
+		joinedDate: "Feb 14, 2026",
 		team: "Product",
-		location: "San Francisco, CA"
-	},
-	{
-		id: "tm-2",
-		name: "Marcus Reid",
-		email: "marcus.reid@projectbook.io",
-		role: "Admin",
-		status: "Active",
-		joinedDate: "Feb 3, 2024",
-		team: "Design",
-		location: "New York, NY"
-	},
-	{
-		id: "tm-3",
-		name: "Priya Nair",
-		email: "priya.nair@projectbook.io",
-		role: "Editor",
-		status: "Active",
-		joinedDate: "Mar 22, 2024",
-		team: "Research",
-		location: "Toronto, CA"
-	},
-	{
-		id: "tm-4",
-		name: "Diego Santos",
-		email: "diego.santos@projectbook.io",
-		role: "Viewer",
-		status: "Invited",
-		joinedDate: "Apr 10, 2024",
-		team: "Operations",
-		location: "Lisbon, PT"
+		location: "Remote"
 	}
 ];
 
-export const teamInvitesPageData = [
-	{
-		email: "melissa.chen@projectbook.io",
-		role: "Editor" as const,
-		sentDate: "Apr 18, 2024",
-		status: "pending" as const
-	},
-	{
-		email: "ashton.clark@projectbook.io",
-		role: "Viewer" as const,
-		sentDate: "Apr 20, 2024",
-		status: "pending" as const
-	}
-];
+export const teamInvitesPageData = [];
 
 export const rolePermissionsData: RolePermissionMap = {
 	Owner: {
@@ -169,73 +110,23 @@ export const rolePermissionsData: RolePermissionMap = {
 export const dashboardEventsData: ProjectEventItem[] = [
 	{
 		id: "event-1",
-		title: "Prototype critique",
-		type: "Review",
-		startAt: "2026-02-10T16:00:00.000Z",
-		creator: "Priya Shah",
-		initials: "PS"
-	},
-	{
-		id: "event-2",
-		title: "Interview synthesis",
+		title: "Sample planning session",
 		type: "Workshop",
-		startAt: "2026-02-11T18:00:00.000Z",
-		creator: "Alex Morgan",
-		initials: "AM"
-	},
-	{
-		id: "event-3",
-		title: "Design standup",
-		type: "Standup",
-		startAt: "2026-02-12T15:30:00.000Z",
-		creator: "Jules Kim",
-		initials: "JK"
-	},
-	{
-		id: "event-4",
-		title: "Usability playback",
-		type: "Review",
-		startAt: "2026-02-14T17:00:00.000Z",
-		creator: "Rae Chen",
-		initials: "RC"
-	},
-	{
-		id: "event-5",
-		title: "Payment retry spike",
-		type: "Workshop",
-		startAt: "2026-02-15T19:00:00.000Z",
-		creator: "Noah Diaz",
-		initials: "ND"
+		startAt: "2026-02-14T16:00:00.000Z",
+		creator: "Workspace User",
+		initials: "WU"
 	}
 ];
 
 export const dashboardActivityData: ProjectActivityItem[] = [
 	{
 		id: "a-1",
-		user: "Alex Morgan",
-		initials: "AM",
-		action: "locked Problem Statement",
-		artifact: "Checkout fields are too dense on mobile",
-		href: "/project/atlas-2026/problem-statement/problem-1",
-		at: "2026-02-09T15:10:00.000Z"
-	},
-	{
-		id: "a-2",
-		user: "Priya Shah",
-		initials: "PS",
-		action: "updated Task",
-		artifact: "Implement mobile progressive form",
-		href: "/project/atlas-2026/tasks/task-1",
-		at: "2026-02-09T14:40:00.000Z"
-	},
-	{
-		id: "a-3",
-		user: "Rae Chen",
-		initials: "RC",
-		action: "added Feedback",
-		artifact: "Trust panel copy unclear",
-		href: "/project/atlas-2026/feedback/feedback-2",
-		at: "2026-02-09T13:55:00.000Z"
+		user: "Workspace User",
+		initials: "WU",
+		action: "updated Story",
+		artifact: "Sample Story",
+		href: "/project/atlas-2026/stories/sample-story-1",
+		at: "2026-02-14T15:10:00.000Z"
 	}
 ];
 
@@ -243,22 +134,15 @@ export const dashboardRecentEditsData = [
 	{
 		id: "e-1",
 		type: "Story",
-		title: "First-time buyers need payment confidence",
-		href: "/project/atlas-2026/stories/story-2",
-		at: "2026-02-09T10:30:00.000Z"
-	},
-	{
-		id: "e-2",
-		type: "Problem Statement",
-		title: "Checkout fields are too dense on mobile",
-		href: "/project/atlas-2026/problem-statement/problem-1",
-		at: "2026-02-09T15:10:00.000Z"
+		title: "Sample Story",
+		href: "/project/atlas-2026/stories/sample-story-1",
+		at: "2026-02-14T15:10:00.000Z"
 	}
 ];
 
 export const projectSettingsData = {
-	projectName: "Project Atlas",
-	projectDescription: "Core product research and prototype delivery.",
+	projectName: "Sample Project",
+	projectDescription: "Minimal neutral sample workspace.",
 	projectStatus: "Active" as const,
 	whiteboardsEnabled: true,
 	advancedDatabasesEnabled: true,
