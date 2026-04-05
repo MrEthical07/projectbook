@@ -132,7 +132,14 @@ const buildScopeSnapshotSetCookieHeaders = (
 };
 
 
-const PUBLIC_PATHS = ["/auth", "/auth/verify", "/auth/forgot-password", "/auth/reset-password"];
+const PUBLIC_PATHS = [
+	"/auth",
+	"/auth/verify",
+	"/auth/forgot-password",
+	"/auth/reset-password",
+	"/privacy-policy",
+	"/terms-and-conditions"
+];
 
 const isPublicPath = (pathname: string): boolean =>
 	PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));

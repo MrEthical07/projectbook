@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LegalLinks from "$lib/components/legal/legal-links.svelte";
 	import { Button } from "$lib/components/ui/button";
 	import * as Card from "$lib/components/ui/card";
 	import { Input } from "$lib/components/ui/input";
@@ -130,7 +131,7 @@
 </script>
 
 <svelte:head>
-	<title>Login • ProjectBook</title>
+	<title>Login - ProjectBook</title>
 	<meta name="description" content="Sign in to ProjectBook or create a new account." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
@@ -486,6 +487,8 @@
 						</Tabs.Root>
 					</Card.Content>
 				</Card.Root>
+
+				<LegalLinks class="justify-center" />
 			</div>
 		</section>
 	</div>
