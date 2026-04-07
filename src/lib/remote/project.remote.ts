@@ -1,8 +1,18 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import {
+	ensureProjectRolePermissionMasks,
+	getTrustedProjectPermissionMask
+} from "$lib/server/auth/authorization";
+import {
+	hasPerm,
+	isCustomPermissionMask,
+	normalizePermissionMask,
+	validatePermissionMaskValue
+} from "$lib/utils/permission";
 import "$lib/server/data/project.data";
 import "$lib/server/data/feedback.data";
 import "$lib/server/data/ideas.data";
@@ -23,28 +33,7 @@ type MutationResult<T> =
 
 const inviteRoleSchema = z.enum(["Owner", "Admin", "Editor", "Viewer", "Limited Access"]);
 const roleSchema = z.enum(["Owner", "Admin", "Editor", "Member", "Viewer", "Limited Access"]);
-
-const actionPermissionSchema = z.object({
-	view: z.boolean(),
-	create: z.boolean(),
-	edit: z.boolean(),
-	delete: z.boolean(),
-	archive: z.boolean(),
-	statusChange: z.boolean()
-});
-
-const effectivePermissionsSchema = z.object({
-	project: actionPermissionSchema,
-	story: actionPermissionSchema,
-	problem: actionPermissionSchema,
-	idea: actionPermissionSchema,
-	task: actionPermissionSchema,
-	feedback: actionPermissionSchema,
-	resource: actionPermissionSchema,
-	page: actionPermissionSchema,
-	calendar: actionPermissionSchema,
-	member: actionPermissionSchema
-});
+const permissionMaskSchema = z.string().regex(/^\d+$/);
 
 const createInviteSchema = z.object({
 	projectId: z.string().min(1),
@@ -60,13 +49,15 @@ const cancelInviteSchema = z.object({
 const updateRolePermissionsSchema = z.object({
 	projectId: z.string().min(1),
 	role: roleSchema,
-	permissions: effectivePermissionsSchema
+	permissionMask: permissionMaskSchema
 });
 
-const updateMemberRoleSchema = z.object({
+const updateMemberPermissionsSchema = z.object({
 	projectId: z.string().min(1),
 	memberId: z.string().min(1),
-	role: roleSchema
+	role: roleSchema,
+	isCustom: z.boolean(),
+	permissionMask: permissionMaskSchema
 });
 
 const updateProjectSettingsSchema = z.object({
@@ -110,12 +101,18 @@ const requireProjectId = (projectId: string): string => {
 	return scopedProjectId;
 };
 
-const canMemberCreate = (permissions: EffectivePermissions) => permissions?.member?.create === true;
-const canMemberEdit = (permissions: EffectivePermissions) => permissions?.member?.edit === true;
-const canMemberDelete = (permissions: EffectivePermissions) => permissions?.member?.delete === true;
-const canProjectArchive = (permissions: EffectivePermissions) => permissions?.project?.archive === true;
-const canProjectDelete = (permissions: EffectivePermissions) => permissions?.project?.delete === true;
-const canProjectEdit = (permissions: EffectivePermissions) => permissions?.project?.edit === true;
+const canMemberCreate = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.member, permissionActionIndex.create);
+const canMemberEdit = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.member, permissionActionIndex.edit);
+const canMemberDelete = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.member, permissionActionIndex.delete);
+const canProjectArchive = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.project, permissionActionIndex.archive);
+const canProjectDelete = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.project, permissionActionIndex.delete);
+const canProjectEdit = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.project, permissionActionIndex.edit);
 
 export const getProjectDashboard = query("unchecked", (projectId: string) => {
 	const scopedProjectId = requireProjectId(projectId);
@@ -177,13 +174,25 @@ export const getProjectTeamMembers = query("unchecked", (projectId: string) => {
 
 export const getProjectTeamRoles = query("unchecked", (projectId: string) => {
 	const scopedProjectId = requireProjectId(projectId);
-	const rolePermissions = datastore.team.rolePermissions[scopedProjectId];
-	if (!rolePermissions) {
-		error(500, "Role permissions are not configured for this project.");
-	}
+	const rolePermissionMasks = ensureProjectRolePermissionMasks(scopedProjectId);
+	const members = datastore.team.members
+		.filter((member) => inProjectScope(scopedProjectId, member.projectId))
+		.map((member) => {
+			const roleMask = rolePermissionMasks[member.role];
+			const resolvedMask = normalizePermissionMask(member.permissionMask ?? roleMask);
+			const isCustom = member.isCustom === true && isCustomPermissionMask(resolvedMask, roleMask);
+			const permissionMask = isCustom ? resolvedMask : normalizePermissionMask(roleMask);
+			member.isCustom = isCustom;
+			member.permissionMask = permissionMask;
+			return {
+				...member,
+				isCustom,
+				permissionMask
+			};
+		});
 	return {
-		members: datastore.team.members.filter((member) => inProjectScope(scopedProjectId, member.projectId)),
-		rolePermissions
+		members,
+		rolePermissionMasks
 	};
 });
 
@@ -227,15 +236,9 @@ export const getProjectSettings = query("unchecked", (projectId: string) => {
 
 export const createProjectInvite = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ email: string; role: string; sentDate: string; status: "pending" }> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canMemberCreate(permissions)) {
+	({ input }: { input: unknown }): MutationResult<{ email: string; role: string; sentDate: string; status: "pending" }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canMemberCreate(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createInviteSchema.safeParse(input);
@@ -264,15 +267,9 @@ export const createProjectInvite = command(
 
 export const cancelProjectInvite = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ email: string }> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canMemberDelete(permissions)) {
+	({ input }: { input: unknown }): MutationResult<{ email: string }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canMemberDelete(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = cancelInviteSchema.safeParse(input);
@@ -297,15 +294,13 @@ export const cancelProjectInvite = command(
 
 export const updateProjectRolePermissions = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ role: ProjectRole; permissions: EffectivePermissions }> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canMemberEdit(permissions)) {
+	({ input }: { input: unknown }): MutationResult<{
+		role: ProjectRole;
+		permissionMask: PermissionMask;
+		customMembersUnaffected: number;
+	}> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canMemberEdit(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateRolePermissionsSchema.safeParse(input);
@@ -316,37 +311,56 @@ export const updateProjectRolePermissions = command(
 			return { success: false, error: "Owner permissions cannot be modified." };
 		}
 		const scopedProjectId = requireProjectId(parsed.data.projectId);
-		const rolePermissions = datastore.team.rolePermissions[scopedProjectId];
-		if (!rolePermissions) {
-			return { success: false, error: "Role permissions not found" };
+		const rolePermissions = ensureProjectRolePermissionMasks(scopedProjectId);
+		const normalizedRoleMask = normalizePermissionMask(parsed.data.permissionMask);
+		const validation = validatePermissionMaskValue(normalizedRoleMask);
+		if (!validation.valid) {
+			return { success: false, error: validation.errors.join("; ") };
 		}
-		rolePermissions[parsed.data.role] = structuredClone(
-			parsed.data.permissions
-		) as EffectivePermissions;
+		rolePermissions[parsed.data.role] = normalizedRoleMask;
+
+		let customMembersUnaffected = 0;
+		for (const member of datastore.team.members) {
+			if (!inProjectScope(scopedProjectId, member.projectId)) continue;
+			if (member.role !== parsed.data.role) continue;
+
+			const memberMask = normalizePermissionMask(member.permissionMask ?? normalizedRoleMask);
+			const memberHasCustomPermissions =
+				member.isCustom === true && isCustomPermissionMask(memberMask, normalizedRoleMask);
+
+			if (memberHasCustomPermissions) {
+				customMembersUnaffected += 1;
+				continue;
+			}
+
+			member.isCustom = false;
+			member.permissionMask = normalizedRoleMask;
+		}
+
 		return {
 			success: true,
 			data: {
 				role: parsed.data.role,
-				permissions: rolePermissions[parsed.data.role]
+				permissionMask: normalizedRoleMask,
+				customMembersUnaffected
 			}
 		};
 	}
 );
 
-export const updateProjectMemberRole = command(
+export const updateProjectMemberPermissions = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ memberId: string; role: ProjectRole }> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canMemberEdit(permissions)) {
+	({ input }: { input: unknown }): MutationResult<{
+		memberId: string;
+		role: ProjectRole;
+		isCustom: boolean;
+		permissionMask: PermissionMask;
+	}> => {
+		const actorPermissionMask = getTrustedProjectPermissionMask(input);
+		if (!canMemberEdit(actorPermissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
-		const parsed = updateMemberRoleSchema.safeParse(input);
+		const parsed = updateMemberPermissionsSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
@@ -354,19 +368,52 @@ export const updateProjectMemberRole = command(
 			return { success: false, error: "Cannot assign Owner role." };
 		}
 		const scopedProjectId = requireProjectId(parsed.data.projectId);
+		const rolePermissions = ensureProjectRolePermissionMasks(scopedProjectId);
+		const roleMask = rolePermissions[parsed.data.role];
+		if (!roleMask) {
+			return { success: false, error: "Role permissions missing" };
+		}
+		const normalizedRoleMask = normalizePermissionMask(roleMask);
+		const roleValidation = validatePermissionMaskValue(normalizedRoleMask);
+		if (!roleValidation.valid) {
+			return { success: false, error: roleValidation.errors.join("; ") };
+		}
 		const member = datastore.team.members.find(
 			(item) => item.id === parsed.data.memberId && inProjectScope(scopedProjectId, item.projectId)
 		);
 		if (!member) {
 			return { success: false, error: "Member not found" };
 		}
+
+		const requestedMask = normalizePermissionMask(parsed.data.permissionMask);
+		if (parsed.data.isCustom) {
+			const requestedValidation = validatePermissionMaskValue(requestedMask);
+			if (!requestedValidation.valid) {
+				return { success: false, error: requestedValidation.errors.join("; ") };
+			}
+		}
+		const nextPermissionMask = parsed.data.isCustom
+			? requestedMask
+			: normalizedRoleMask;
+		const nextValidation = validatePermissionMaskValue(nextPermissionMask);
+		if (!nextValidation.valid) {
+			return { success: false, error: nextValidation.errors.join("; ") };
+		}
+		const nextIsCustom =
+			parsed.data.isCustom &&
+			isCustomPermissionMask(nextPermissionMask, normalizedRoleMask);
+
 		member.role = parsed.data.role;
+		member.isCustom = nextIsCustom;
+		member.permissionMask = nextPermissionMask;
 		member.updatedAt = new Date().toISOString().slice(0, 10);
 		return {
 			success: true,
 			data: {
 				memberId: member.id,
-				role: member.role
+				role: member.role,
+				isCustom: nextIsCustom,
+				permissionMask: nextPermissionMask
 			}
 		};
 	}
@@ -374,15 +421,9 @@ export const updateProjectMemberRole = command(
 
 export const updateProjectSettings = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ projectId: string }> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canProjectEdit(permissions)) {
+	({ input }: { input: unknown }): MutationResult<{ projectId: string }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canProjectEdit(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateProjectSettingsSchema.safeParse(input);
@@ -448,15 +489,9 @@ export const updateProjectSettings = command(
 
 export const archiveProject = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ projectId: string; status: "Archived" }> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canProjectArchive(permissions)) {
+	({ input }: { input: unknown }): MutationResult<{ projectId: string; status: "Archived" }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canProjectArchive(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = projectActionSchema.safeParse(input);
@@ -487,15 +522,9 @@ export const archiveProject = command(
 
 export const deleteProject = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ projectId: string; status: "Archived" }> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canProjectDelete(permissions)) {
+	({ input }: { input: unknown }): MutationResult<{ projectId: string; status: "Archived" }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canProjectDelete(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = projectActionSchema.safeParse(input);

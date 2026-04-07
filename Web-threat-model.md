@@ -49,10 +49,10 @@ This repository models an internet-exposed, multi-user, multi-tenant project wor
   - Security guarantees: hashed session lookup in `src/lib/server/auth/service.ts:184-194`; unauthenticated users redirected away from non-public routes in `src/hooks.server.ts:37-44`
   - Validation: no per-project authorization at this boundary
 - Browser -> Svelte remote queries and mutations
-  - Data: project IDs, artifact IDs, role changes, permission matrices, editor state, and currently caller-supplied `permissions` or `actorId`
+  - Data: project IDs, artifact IDs, role changes, role permission masks, member `isCustom` toggles, member `permissionMask`, editor state, and caller-supplied `actorId`
   - Channel: Svelte remote-function RPC boundary
   - Security guarantees: some Zod validation on payload shape; intended future server-side authz per `API-GUIDELINES.md:450-468`
-  - Validation: current implementation authorizes on caller-supplied permission objects in `src/lib/remote/project.remote.ts:227-350`, `src/lib/remote/story.remote.ts:166-270`, `src/lib/remote/page.remote.ts:159-260`, and `src/lib/remote/problem.remote.ts:321-425`
+  - Validation: current implementation derives the actor permission mask server-side and authorizes with mask checks; `actorId` remains a high-sensitivity caller field for some artifact mutations
 - Remote layer -> current in-memory stores
   - Data: auth sessions, users, project artifacts, role permission maps, invites, activity
   - Channel: in-process memory access
@@ -136,17 +136,17 @@ flowchart TD
 | Forgot/reset password | POST `/auth/forgot-password`, POST `/auth/reset-password` | Internet -> server auth actions | Public reset initiation and token redemption | `src/routes/auth/forgot-password/+page.server.ts`, `src/routes/auth/reset-password/+page.server.ts` |
 | Session hook and route gating | Any non-public route request | Browser -> SvelteKit hook | Establishes authenticated user but not project authz | `src/hooks.server.ts` |
 | Project access lookup | Layout load for `/project/{projectId}` | Browser -> remote query -> data store | Feeds role/permissions into client context | `src/routes/project/[projectId]/+layout.ts`, `src/lib/remote/access.remote.ts` |
-| Team management mutations | Team members/roles pages | Browser -> remote mutations | Highest-impact project admin functions: invites, role changes, permission matrix changes | `src/routes/project/[projectId]/team/members/+page.svelte`, `src/routes/project/[projectId]/team/roles/+page.svelte`, `src/lib/remote/project.remote.ts` |
+| Team management mutations | Team members/roles pages | Browser -> remote mutations | Highest-impact project admin functions: invites, role changes, role permission mask changes | `src/routes/project/[projectId]/team/members/+page.svelte`, `src/routes/project/[projectId]/team/roles/+page.svelte`, `src/lib/remote/project.remote.ts` |
 | Artifact mutations | Story/problem/page and other editor pages | Browser -> remote mutations | User-controlled content and status changes for tenant artifacts | `src/lib/remote/story.remote.ts`, `src/lib/remote/problem.remote.ts`, `src/lib/remote/page.remote.ts` |
 | Planned REST API delegation | Future backend integration | Remote layer -> backend API | Intended secure boundary but not yet present | `API-GUIDELINES.md:466-586`, `openapi.yaml` |
 | Verification/reset email side effect | Auth flows | Auth service -> logging/email provider | Raw links currently recorded locally; future provider will become external boundary | `src/lib/server/auth/email.ts` |
 
 ## Top abuse paths
 
-1. Gain a normal user session, intercept a remote mutation request, replace the submitted `permissions` object with elevated rights, then call `updateProjectRolePermissions` or `updateProjectMemberRole` to grant broader access and take over a target project.
+1. Gain a normal user session with `member.edit`, intercept a team mutation request, tamper with submitted `permissionMask`/`isCustom` values in `updateProjectRolePermissions` or `updateProjectMemberPermissions`, and attempt to over-grant access through weak server-side validation.
 2. Sign in with the seeded `admin@projectbook.com` / `admin` account, then use privileged project and team endpoints to modify memberships, permission matrices, or archive/delete tenant content.
 3. Access project routes with any valid session and rely on the current global `datastore.workspace.user` resolution so the app treats the attacker as the same actor across projects, exposing or mutating data outside the attacker's real membership.
-4. Tamper with artifact mutation requests such as `createStory`, `updateStory`, `createProblem`, or `updatePageEditor` to act as another user via `actorId` or to bypass per-domain edit/status restrictions with forged permissions.
+4. Tamper with artifact mutation requests such as `createStory`, `updateStory`, `createProblem`, or `updatePageEditor` to act as another user via `actorId` or to bypass per-domain edit/status restrictions with forged mask values where accepted.
 5. Enumerate valid accounts by comparing auth, signup, and resend-verification responses, then target verified users with password-reset phishing or credential stuffing.
 6. Spread login, resend, or reset traffic across multiple instances or after restarts so in-memory rate limits and auth state become inconsistent, enabling brute force, email flooding, or session instability.
 
@@ -154,7 +154,7 @@ flowchart TD
 
 | Threat ID | Threat source | Prerequisites | Threat action | Impact | Impacted assets | Existing controls (evidence) | Gaps | Recommended mitigations | Detection ideas | Likelihood | Impact severity | Priority |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TM-001 | Authenticated low-privilege tenant user | Any valid session and ability to tamper requests from the browser | Modify caller-supplied `permissions` or `actorId` and invoke unchecked remote mutations | Privilege escalation, unauthorized member/role changes, artifact tampering, project archive/delete | Authorization state, tenant data, invites, audit integrity | UI permission gating via `can(...)`; payload shape validation; intended server-side authz in `API-GUIDELINES.md:450-456` | Server commands trust client-supplied authority in `src/lib/remote/project.remote.ts:227-350`, `src/lib/remote/story.remote.ts:166-270`, `src/lib/remote/page.remote.ts:159-260`, `src/lib/remote/problem.remote.ts:321-425` | Remove authority-bearing fields from client inputs; derive user and effective permissions from session on server; centralize `requireProjectPermission`; add integration tests for every protected mutation | Alert on role/permission changes by non-admins; log server-derived actor, project, and permission decision; detect mismatches between UI role and mutation type | High | High | critical |
+| TM-001 | Authenticated tenant user | Any valid session and ability to tamper requests from the browser | Modify caller-supplied `actorId`, `isCustom`, or `permissionMask` values and invoke privileged mutations | Privilege escalation, unauthorized member/role changes, artifact tampering, project archive/delete | Authorization state, tenant data, invites, audit integrity | Server derives actor permission mask from request/session and enforces `hasPerm(...)`; payload shape validation | Some mutation payloads still include caller identity fields (`actorId`) that require strict server-side ownership checks | Derive actor identity exclusively from session where possible; keep mask validation centralized; add integration tests for role/member mask update boundaries and actor spoofing attempts | Alert on role/mask changes by non-admin actors; log actor, target member, old/new masks, and validation decisions | Medium | High | high |
 | TM-002 | Internet attacker | Public reachability of the app | Log in using seeded default superadmin credentials | Immediate admin takeover of projects and future backend integration points | Auth artifacts, all tenant data, role configuration | Passwords are hashed with Argon2 in `src/lib/server/auth/password.ts:1-15`; auth cookie is `HttpOnly` in `src/lib/server/auth/cookies.ts:5-20` | Hard-coded bootstrap credentials in `src/lib/server/auth/constants.ts:10-12`; auto-seeding on first request in `src/hooks.server.ts:13-17` and `src/lib/server/auth/service.ts:293-309` | Remove default credentials; replace with operator-controlled one-time bootstrap; fail closed in production if bootstrap secret absent; rotate any previously used values | Alert on any login to bootstrap/admin account; record bootstrap events; block startup when default credentials are configured | High | High | critical |
 | TM-003 | Authenticated tenant user | Any valid session and knowledge or discovery of target project IDs | Exploit global workspace identity and non-session-scoped project access to read or change data outside real membership | Cross-project and cross-tenant disclosure or mutation; broken tenant isolation | Tenant metadata, project artifacts, membership data | Hook enforces authentication on non-public routes in `src/hooks.server.ts:37-44`; API contract says project access should require membership in `API-GUIDELINES.md:1316-1317` and `API-GUIDELINES.md:1432-1435` | Current access resolution uses global `datastore.workspace.user` in `src/lib/remote/access.remote.ts:52-75` backed by `src/lib/server/data/datastore.ts:50-57`, not `event.locals.user` from `src/hooks.server.ts:21-33` | Bind all access resolution to session principal; enforce tenant scoping in persistent backend queries; deny out-of-scope `projectId` before data access; add cross-tenant isolation tests | Log project access with session user and resolved actor; alert on mismatches or repeated access to unknown project IDs | High | High | high |
 | TM-004 | Unauthenticated internet attacker | Public auth endpoints | Enumerate emails and account state through distinct login/signup/resend responses | Better targeting for credential stuffing, phishing, and reset abuse | User identities, auth workflows, availability | Password policy in `src/lib/schemas/auth.schema.ts`; per-IP auth throttling in `src/lib/server/auth/rate-limit.ts:3-21`; forgot-password flow already returns a generic message in `src/routes/auth/forgot-password/+page.server.ts:20-24` | Login and verification responses expose account state in `src/routes/auth/+page.server.ts:57-65`, `src/routes/auth/+page.server.ts:95-98`, and `src/routes/auth/verify/+page.server.ts:50-60` | Normalize auth responses; keep specific reasons server-side only; add email and IP anomaly thresholds; consider CAPTCHA or challenge after repeated failures | Track many-email login attempts, resend bursts, and signup collisions; alert on enumeration patterns | Medium | Medium | medium |
@@ -167,7 +167,7 @@ flowchart TD
   - Tenant-wide or app-wide compromise with low attacker cost.
   - Examples:
     - Logging in with the seeded superadmin account and taking over projects.
-    - Tampering with remote-function `permissions` to modify role matrices or archive/delete a project.
+    - Tampering with remote-function `permissionMask` or `isCustom` values to modify role defaults or archive/delete a project.
 - `high`
   - Cross-tenant read/write exposure or control of integrity-critical state that still requires a valid user session or some additional step.
   - Examples:
@@ -195,16 +195,16 @@ flowchart TD
 | `src/lib/server/auth/rate-limit.ts` | Process-local throttling logic for public auth flows | TM-004, TM-005 |
 | `src/lib/server/auth/email.ts` | Emits reset/verification links and defines the future email side-effect boundary | TM-004, TM-005 |
 | `src/lib/remote/access.remote.ts` | Resolves project role and permissions; current tenant-isolation choke point | TM-003 |
-| `src/lib/remote/project.remote.ts` | Highest-impact admin mutations for invites, roles, permissions, archive, and delete | TM-001, TM-003 |
-| `src/lib/remote/story.remote.ts` | Representative artifact mutation path with caller-supplied authority and actor identity | TM-001 |
+| `src/lib/remote/project.remote.ts` | Highest-impact admin mutations for invites, roles, permission masks, archive, and delete | TM-001, TM-003 |
+| `src/lib/remote/story.remote.ts` | Representative artifact mutation path with caller-supplied actor identity (`actorId`) | TM-001 |
 | `src/lib/remote/problem.remote.ts` | Representative status/edit mutation path for project artifacts | TM-001 |
-| `src/lib/remote/page.remote.ts` | Rich editor mutation path that currently trusts client-provided authority | TM-001 |
+| `src/lib/remote/page.remote.ts` | Rich editor mutation path with high-sensitivity caller-controlled editor payloads | TM-001 |
 | `src/routes/project/[projectId]/+layout.ts` | Loads project access for all project routes | TM-003 |
-| `src/routes/project/[projectId]/+layout.svelte` | Pushes access/permissions into client context used by downstream pages | TM-001, TM-003 |
-| `src/routes/project/[projectId]/team/members/+page.svelte` | Client call site that sends `permissions` into privileged mutations | TM-001 |
-| `src/routes/project/[projectId]/team/roles/+page.svelte` | Client call site for role and permission-matrix updates | TM-001 |
-| `src/routes/project/[projectId]/stories/+page.svelte` | Sends `actorId` and `permissions` into story creation | TM-001 |
-| `src/routes/project/[projectId]/stories/[slug]/+page.svelte` | Sends editor state and caller authority into artifact update/status flows | TM-001 |
+| `src/routes/project/[projectId]/+layout.svelte` | Pushes access and `permissionMask` context into downstream route UI | TM-001, TM-003 |
+| `src/routes/project/[projectId]/team/members/+page.svelte` | Client call site for member `role` + `isCustom` + `permissionMask` updates | TM-001 |
+| `src/routes/project/[projectId]/team/roles/+page.svelte` | Client call site for role permission-mask updates | TM-001 |
+| `src/routes/project/[projectId]/stories/+page.svelte` | Sends `actorId` into story creation | TM-001 |
+| `src/routes/project/[projectId]/stories/[slug]/+page.svelte` | Sends editor state into artifact update/status flows | TM-001 |
 | `API-GUIDELINES.md` | Documents the intended production backend trust model and server-side permission expectations | TM-001, TM-003, TM-005 |
 | `openapi.yaml` | Documents exposed API surfaces, auth schemes, and resource identifiers for future backend integration | TM-003, TM-005 |
 

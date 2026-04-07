@@ -161,9 +161,8 @@
 				projectId,
 				eventId,
 				state: event
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			savePhase = "idle";
 			return;
@@ -183,9 +182,8 @@
 			input: {
 				projectId,
 				eventId
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) return;
 		await goto(`/project/${projectId}/calendar`);
 	};

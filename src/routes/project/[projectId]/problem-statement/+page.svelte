@@ -105,9 +105,8 @@
 				projectId: page.params.projectId,
 				actorId,
 				statement: title
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			createError = result.error;
 			return;

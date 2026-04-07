@@ -1,8 +1,9 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import {
 	storyAddOnCatalogData,
 	storyDraftTemplateData
@@ -11,6 +12,7 @@ import {
 	storyDetailsByKey,
 	storyDetailKey
 } from "$lib/server/data/story-cache";
+import { hasPerm } from "$lib/utils/permission";
 
 type StoryPageInput = {
 	projectId: string;
@@ -114,12 +116,12 @@ const logProjectActivity = (
 	datastore.activity.unshift(item);
 };
 
-const canCreateStory = (permissions: EffectivePermissions) =>
-	permissions?.story?.create === true;
-const canEditStory = (permissions: EffectivePermissions) =>
-	permissions?.story?.edit === true;
-const canChangeStoryStatus = (permissions: EffectivePermissions) =>
-	permissions?.story?.statusChange === true;
+const canCreateStory = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.create);
+const canEditStory = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.edit);
+const canChangeStoryStatus = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.statusChange);
 
 export const getStories = query("unchecked", (projectId: string): StoryRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
@@ -166,15 +168,9 @@ export const getStoryPageData = query("unchecked", (input: StoryPageInput) => {
 
 export const createStory = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<StoryRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreateStory(permissions)) {
+	({ input }: { input: unknown }): MutationResult<StoryRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreateStory(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 
@@ -226,15 +222,9 @@ export const createStory = command(
 
 export const updateStory = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<StoryRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditStory(permissions)) {
+	({ input }: { input: unknown }): MutationResult<StoryRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditStory(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 
@@ -273,7 +263,7 @@ export const updateStory = command(
 			const rawStatus = String(candidate.status).trim().toLowerCase();
 			const currentStatus = row.status.toLowerCase();
 			if (rawStatus !== currentStatus) {
-				if (!canChangeStoryStatus(permissions)) {
+				if (!canChangeStoryStatus(permissionMask)) {
 					return { success: false, error: "Permission denied: cannot change story status." };
 				}
 				if (rawStatus !== "draft" && rawStatus !== "locked" && rawStatus !== "archived") {

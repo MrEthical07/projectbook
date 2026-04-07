@@ -530,9 +530,8 @@
 					tableRows,
 					databaseItems
 				}
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			savePhase = "idle";
 			return;

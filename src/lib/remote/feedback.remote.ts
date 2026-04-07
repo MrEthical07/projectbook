@@ -1,9 +1,11 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import { feedbackDetailData } from "$lib/server/data/feedback.data";
+import { hasPerm } from "$lib/utils/permission";
 
 type FeedbackPageInput = {
 	projectId: string;
@@ -75,10 +77,10 @@ const actorNameFor = (actorId: string): string | null => {
 	return member?.name ?? null;
 };
 
-const canCreateFeedback = (permissions: EffectivePermissions) =>
-	permissions?.feedback?.create === true;
-const canEditFeedback = (permissions: EffectivePermissions) =>
-	permissions?.feedback?.edit === true;
+const canCreateFeedback = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.feedback, permissionActionIndex.create);
+const canEditFeedback = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.feedback, permissionActionIndex.edit);
 
 type FeedbackEditorState = {
 	title: string;
@@ -154,15 +156,9 @@ export const getFeedbackPageData = query("unchecked", (input: FeedbackPageInput)
 
 export const createFeedback = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<FeedbackRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreateFeedback(permissions)) {
+	({ input }: { input: unknown }): MutationResult<FeedbackRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreateFeedback(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createFeedbackSchema.safeParse(input);
@@ -205,15 +201,9 @@ export const createFeedback = command(
 
 export const updateFeedback = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<FeedbackRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditFeedback(permissions)) {
+	({ input }: { input: unknown }): MutationResult<FeedbackRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditFeedback(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 

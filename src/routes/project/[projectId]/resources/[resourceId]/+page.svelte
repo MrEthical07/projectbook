@@ -162,9 +162,8 @@
 					linkedArtifacts,
 					versions
 				}
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			savePhase = "idle";
 			return;

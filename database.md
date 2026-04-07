@@ -7,7 +7,8 @@ This document defines the production database model for ProjectBook based on:
 - API contracts in [API-GUIDELINES.md](API-GUIDELINES.md)
 - Schema contracts in [openapi.yaml](openapi.yaml)
 - Shared app types in [src/app.d.ts](src/app.d.ts)
-- Permission model and role matrix in [src/lib/server/data/project.data.ts](src/lib/server/data/project.data.ts)
+- Canonical RBAC mask specification in [rbac.md](rbac.md)
+- Default role mask seed data in [src/lib/server/data/default-role-permissions.ts](src/lib/server/data/default-role-permissions.ts)
 - Runtime mutation contracts in [src/lib/remote](src/lib/remote)
 - Auth/session model in [src/lib/server/auth](src/lib/server/auth)
 
@@ -52,8 +53,6 @@ Create these enums first:
 - `calendar_event_type`: `Derived`, `Manual`
 - `calendar_phase`: `Empathize`, `Define`, `Ideate`, `Prototype`, `Test`, `None`
 - `calendar_artifact_type`: `Task`, `Feedback`, `Manual`
-- `permission_domain`: `project`, `story`, `problem`, `idea`, `task`, `feedback`, `resource`, `page`, `calendar`, `member`
-- `permission_action`: `view`, `create`, `edit`, `delete`, `archive`, `statusChange`
 - `invite_status`: `pending`, `accepted`, `declined`, `expired`, `cancelled`
 - `member_status`: `Active`, `Invited`
 - `artifact_type`: `story`, `journey`, `problem`, `idea`, `task`, `feedback`, `resource`, `page`, `calendar`
@@ -203,6 +202,8 @@ Constraints:
 | project_id | uuid | NOT NULL | - | FK to projects |
 | user_id | uuid | NOT NULL | - | FK to users |
 | role | project_role | NOT NULL | `Member` | Effective role |
+| permission_mask | bigint | NOT NULL | 0 | Effective member mask (uint64-compatible bitset stored in bigint) |
+| is_custom | boolean | NOT NULL | false | Whether member mask overrides role default mask |
 | status | member_status | NOT NULL | `Active` | `Active` or `Invited` |
 | joined_at | date | NULL | - | Optional for invited users |
 | updated_at | timestamptz | NOT NULL | now() | Audit |
@@ -210,6 +211,12 @@ Constraints:
 Constraints:
 
 - `UNIQUE (project_id, user_id)`
+- `CHECK (permission_mask >= 0)`
+
+RBAC mask rules (enforced by service layer and/or DB trigger):
+
+- If `is_custom = false`, `project_members.permission_mask` must equal the role default mask for `(project_id, role)`.
+- If `is_custom = true`, `project_members.permission_mask` may differ from the role default mask.
 
 #### `project_invites`
 
@@ -250,38 +257,41 @@ Constraints:
 | delivery_channel | text | NOT NULL | `In-app` | `In-app` or `Email` |
 | updated_at | timestamptz | NOT NULL | now() | Updated |
 
-#### `role_permissions_default`
+#### `role_permissions`
 
-This stores the default matrix for all roles.
-
-| Column | Type | Nullability | Default | Notes |
-| --- | --- | --- | --- | --- |
-| role | project_role | NOT NULL | - | Role |
-| domain | permission_domain | NOT NULL | - | Domain |
-| action | permission_action | NOT NULL | - | Action |
-| allowed | boolean | NOT NULL | false | Value |
-
-Constraints:
-
-- `PRIMARY KEY (role, domain, action)`
-
-#### `project_role_permissions`
-
-This stores per-project role overrides (team page changes).
+This stores per-project role default masks (`rolePermissionMasks`).
 
 | Column | Type | Nullability | Default | Notes |
 | --- | --- | --- | --- | --- |
 | project_id | uuid | NOT NULL | - | FK to projects |
 | role | project_role | NOT NULL | - | Role |
-| domain | permission_domain | NOT NULL | - | Domain |
-| action | permission_action | NOT NULL | - | Action |
-| allowed | boolean | NOT NULL | false | Value |
+| permission_mask | bigint | NOT NULL | 0 | Role default mask for this project |
 | updated_by_user_id | uuid | NULL | - | Optional audit actor |
 | updated_at | timestamptz | NOT NULL | now() | Updated |
 
 Constraints:
 
-- `PRIMARY KEY (project_id, role, domain, action)`
+- `PRIMARY KEY (project_id, role)`
+- `CHECK (permission_mask >= 0)`
+
+Notes:
+
+- This replaces legacy per-domain/per-action boolean RBAC storage.
+- Owner role mask remains immutable at the API/service layer.
+- Role rows are seeded for each project from canonical defaults and then managed through role-mask updates.
+
+#### RBAC Model (Mask-Based)
+
+- Role defines default permission mask.
+- Member may override with custom mask (`is_custom = true`).
+- `permission_mask` is the single source of truth for authorization.
+
+Mask allocation and helpers are defined in [rbac.md](rbac.md):
+
+- Bit strategy: `bit = domain_index * 6 + action_index`
+- Domain/action mapping is append-only and shared by frontend/backend
+- Helper functions include `hasPerm(...)` and `updatePerm(...)`
+- Validation rule: non-view actions require view in the same domain
 
 ### 4.4 Artifact Metadata Tables (SQL)
 
@@ -670,7 +680,8 @@ Create these high-value indexes:
 - `project_members(project_id, user_id)` unique
 - `project_members(user_id, project_id)`
 - `project_invites(project_id, email)` partial unique where `status = 'pending'`
-- `project_role_permissions(project_id, role, domain, action)` primary key
+- `role_permissions(project_id, role)` primary key
+- `project_members(project_id, role, is_custom)`
 - for each artifact metadata table:
   - unique `(project_id, slug)`
   - index `(project_id, status, updated_at desc)`
@@ -701,7 +712,9 @@ For `resource_version_documents`:
 - Enforce RBAC checks before any mutation.
 - Derived calendar events (`type = Derived`) are read-only at API/service layer.
 - Owner role cannot be reassigned through role update APIs.
-- Owner permission matrix should remain immutable.
+- Owner role mask should remain immutable.
+- Reject invalid permission masks on write. Non-view actions require view in the same domain.
+- Frontend may auto-correct mask toggles for UX, but backend must validate and reject invalid masks.
 - Archive should be logical (status/is_archived), not hard delete for core artifacts.
 
 ## 9. Migration Strategy from In-Memory Store

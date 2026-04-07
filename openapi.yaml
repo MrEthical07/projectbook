@@ -261,53 +261,27 @@ components:
 
     # ── Permission Schemas ──────────────────────────────────────────────
 
-    ActionPermission:
-      type: object
-      required: [view, create, edit, delete, archive, statusChange]
-      properties:
-        view:
-          type: boolean
-        create:
-          type: boolean
-        edit:
-          type: boolean
-        delete:
-          type: boolean
-        archive:
-          type: boolean
-        statusChange:
-          type: boolean
+    PermissionMask:
+      type: string
+      pattern: '^[0-9]+$'
+      description: Decimal-encoded uint64-compatible permission bitmask
 
-    EffectivePermissions:
+    RolePermissionMasks:
       type: object
-      required: [project, story, problem, idea, task, feedback, resource, page, calendar, member]
       properties:
-        project:
-          $ref: '#/components/schemas/ActionPermission'
-        story:
-          $ref: '#/components/schemas/ActionPermission'
-        problem:
-          $ref: '#/components/schemas/ActionPermission'
-        idea:
-          $ref: '#/components/schemas/ActionPermission'
-        task:
-          $ref: '#/components/schemas/ActionPermission'
-        feedback:
-          $ref: '#/components/schemas/ActionPermission'
-        resource:
-          $ref: '#/components/schemas/ActionPermission'
-        page:
-          $ref: '#/components/schemas/ActionPermission'
-        calendar:
-          $ref: '#/components/schemas/ActionPermission'
-        member:
-          $ref: '#/components/schemas/ActionPermission'
-
-    RolePermissionMap:
-      type: object
-      additionalProperties:
-        $ref: '#/components/schemas/EffectivePermissions'
-      description: Map of role name to its effective permissions
+        Owner:
+          $ref: '#/components/schemas/PermissionMask'
+        Admin:
+          $ref: '#/components/schemas/PermissionMask'
+        Editor:
+          $ref: '#/components/schemas/PermissionMask'
+        Member:
+          $ref: '#/components/schemas/PermissionMask'
+        Viewer:
+          $ref: '#/components/schemas/PermissionMask'
+        Limited Access:
+          $ref: '#/components/schemas/PermissionMask'
+      description: Map of role name to role default permission mask
 
     # ── User / Workspace Schemas ────────────────────────────────────────
 
@@ -637,6 +611,10 @@ components:
           format: email
         role:
           $ref: '#/components/schemas/ProjectRole'
+        permissionMask:
+          $ref: '#/components/schemas/PermissionMask'
+        isCustom:
+          type: boolean
         status:
           type: string
           enum: [Active, Invited]
@@ -2287,8 +2265,8 @@ paths:
                         $ref: '#/components/schemas/WorkspaceUser'
                       role:
                         $ref: '#/components/schemas/ProjectRole'
-                      permissions:
-                        $ref: '#/components/schemas/EffectivePermissions'
+                      permissionMask:
+                        $ref: '#/components/schemas/PermissionMask'
         '400':
           $ref: '#/components/responses/BadRequest'
         '403':
@@ -2497,7 +2475,7 @@ paths:
   /projects/{projectId}/team/roles:
     get:
       tags: [Team]
-      summary: Get full role permission matrix
+      summary: Get role permission masks and member mask state
       operationId: getTeamRoles
       parameters:
         - $ref: '#/components/parameters/projectId'
@@ -2513,7 +2491,14 @@ paths:
                     type: boolean
                     enum: [true]
                   data:
-                    $ref: '#/components/schemas/RolePermissionMap'
+                    type: object
+                    properties:
+                      rolePermissionMasks:
+                        $ref: '#/components/schemas/RolePermissionMasks'
+                      members:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TeamMember'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -2658,11 +2643,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /projects/{projectId}/team/members/{memberId}/role:
+  /projects/{projectId}/team/members/{memberId}/permissions:
     put:
       tags: [Team]
-      summary: Update a member's role
-      operationId: updateMemberRole
+      summary: Update a member's role and permission mask state
+      operationId: updateMemberPermissions
       parameters:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/memberId'
@@ -2672,15 +2657,19 @@ paths:
           application/json:
             schema:
               type: object
-              required: [role]
+              required: [role, isCustom, permissionMask]
               properties:
                 role:
                   type: string
                   enum: [Admin, Editor, Member, Viewer, Limited Access]
                   description: Cannot assign Owner role
+                isCustom:
+                  type: boolean
+                permissionMask:
+                  $ref: '#/components/schemas/PermissionMask'
       responses:
         '200':
-          description: Role updated
+          description: Member permissions updated
           content:
             application/json:
               schema:
@@ -2696,6 +2685,10 @@ paths:
                         type: string
                       role:
                         $ref: '#/components/schemas/ProjectRole'
+                      isCustom:
+                        type: boolean
+                      permissionMask:
+                        $ref: '#/components/schemas/PermissionMask'
         '400':
           $ref: '#/components/responses/BadRequest'
         '403':
@@ -2706,7 +2699,7 @@ paths:
   /projects/{projectId}/team/roles/{role}/permissions:
     put:
       tags: [Team]
-      summary: Update role permission matrix
+      summary: Update role permission mask
       operationId: updateRolePermissions
       parameters:
         - $ref: '#/components/parameters/projectId'
@@ -2723,13 +2716,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [permissions]
+              required: [role, permissionMask]
               properties:
-                permissions:
-                  $ref: '#/components/schemas/EffectivePermissions'
+                role:
+                  $ref: '#/components/schemas/ProjectRole'
+                permissionMask:
+                  $ref: '#/components/schemas/PermissionMask'
       responses:
         '200':
-          description: Permissions updated
+          description: Role permission mask updated
           content:
             application/json:
               schema:
@@ -2743,8 +2738,10 @@ paths:
                     properties:
                       role:
                         $ref: '#/components/schemas/ProjectRole'
-                      permissions:
-                        $ref: '#/components/schemas/EffectivePermissions'
+                      permissionMask:
+                        $ref: '#/components/schemas/PermissionMask'
+                      customMembersUnaffected:
+                        type: integer
         '400':
           $ref: '#/components/responses/BadRequest'
         '403':
@@ -2872,8 +2869,8 @@ paths:
                       reference:
                         type: object
                         properties:
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -3058,8 +3055,8 @@ paths:
                       reference:
                         type: object
                         properties:
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -3246,8 +3243,8 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/SourcePainPoint'
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -3531,8 +3528,8 @@ paths:
                             type: array
                             items:
                               type: string
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -3802,8 +3799,8 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/AssigneeOption'
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -4051,8 +4048,8 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/ReferenceOption'
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -4224,8 +4221,8 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/ReferenceOption'
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -4438,8 +4435,8 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/ReferenceOption'
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -4694,8 +4691,8 @@ paths:
                             type: array
                             items:
                               $ref: '#/components/schemas/ReferenceOption'
-                          permissions:
-                            $ref: '#/components/schemas/EffectivePermissions'
+                          permissionMask:
+                            $ref: '#/components/schemas/PermissionMask'
         '404':
           $ref: '#/components/responses/NotFound'
 

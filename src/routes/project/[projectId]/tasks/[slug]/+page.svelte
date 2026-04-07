@@ -248,9 +248,8 @@
 				projectId,
 				taskId,
 				status: nextStatus
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			toast.error("error" in result ? result.error : "Status change failed.");
 			return;
@@ -290,9 +289,8 @@
 					abandonReason,
 					hasFeedback
 				}
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			savePhase = "idle";
 			toast.error("error" in result ? result.error : "Save failed.");

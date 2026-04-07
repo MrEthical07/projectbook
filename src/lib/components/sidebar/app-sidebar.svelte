@@ -61,6 +61,25 @@
 				error: string;
 		  };
 
+	const sanitizeNodes = (value: SidebarNode[] | unknown): SidebarNode[] => {
+		if (!Array.isArray(value)) return [];
+		return value
+			.filter(
+				(item): item is SidebarNode =>
+					Boolean(
+						item &&
+						typeof item === "object" &&
+						typeof (item as SidebarNode).slug === "string" &&
+						typeof (item as SidebarNode).title === "string"
+					)
+			)
+			.map((item) => ({
+				slug: item.slug.trim(),
+				title: item.title.trim()
+			}))
+			.filter((item) => item.slug.length > 0 && item.title.length > 0);
+	};
+
 	let {
 		sidebarData,
 		ref = $bindable(null),
@@ -120,14 +139,70 @@
 	let data = $derived.by(() => {
 		if (!sourceData || !projectId) return null;
 		const source = sourceData;
+		const sourceProjects = Array.isArray(source.projects) ? source.projects : [];
+		const projects = sourceProjects
+			.map((project) => ({
+				id: typeof project?.id === "string" ? project.id.trim() : "",
+				name:
+					typeof project?.name === "string" && project.name.trim().length > 0
+						? project.name.trim()
+						: "Project",
+				url:
+					typeof project?.id === "string" && project.id.trim().length > 0
+						? `/project/${project.id.trim()}`
+						: "",
+				icon: resolveProjectIcon(project?.icon)
+			}))
+			.filter((project) => project.id.length > 0 && project.url.length > 0);
+		const artifacts = source.artifacts ?? {
+			stories: [],
+			journeys: [],
+			problems: [],
+			ideas: [],
+			tasks: [],
+			feedback: [],
+			pages: []
+		};
+		const navTeam = [
+			...(canManageTeam
+				? [
+						{
+							name: "Members",
+							url: `/project/${projectId}/team/members`,
+							icon: Users,
+							tooltip: "Manage Members",
+							isActive: path === "team/members" || path.startsWith("team/members/")
+						},
+						{
+							name: "Roles",
+							url: `/project/${projectId}/team/roles`,
+							icon: UserLock,
+							tooltip: "Manage Roles & Access",
+							isActive: path === "team/roles" || path.startsWith("team/roles/")
+						}
+					]
+				: []),
+			...(canEditProject
+				? [
+						{
+							name: "Project Settings",
+							url: `/project/${projectId}/settings`,
+							icon: Settings,
+							tooltip: "Project Settings",
+							isActive: path === "settings" || path.startsWith("settings/")
+						}
+					]
+				: [])
+		].filter(
+			(item) =>
+				typeof item?.name === "string" &&
+				typeof item?.url === "string" &&
+				typeof item?.tooltip === "string" &&
+				typeof item?.isActive === "boolean"
+		);
 		return {
 			user: source.user,
-			projects: source.projects.map((project) => ({
-				id: project.id,
-				name: project.name,
-				url: `/project/${project.id}`,
-				icon: resolveProjectIcon(project.icon)
-			})),
+			projects,
 			dashboard: {
 				title: "Dashboard",
 				url: `/project/${projectId}`,
@@ -146,14 +221,14 @@
 								icon: UserRound,
 								prefix: "stories",
 								isActive: path === "stories" || path.startsWith("stories/"),
-								items: source.artifacts.stories
+								items: sanitizeNodes(artifacts.stories)
 							},
 							{
 								title: "User Journeys",
 								icon: Route,
 								prefix: "journeys",
 								isActive: path === "journeys" || path.startsWith("journeys/"),
-								items: source.artifacts.journeys
+								items: sanitizeNodes(artifacts.journeys)
 							}
 						]
 					},
@@ -165,7 +240,7 @@
 								icon: Target,
 								prefix: "problem-statement",
 								isActive: path === "problem-statement" || path.startsWith("problem-statement/"),
-								items: source.artifacts.problems
+								items: sanitizeNodes(artifacts.problems)
 							}
 						]
 					},
@@ -177,7 +252,7 @@
 								icon: Lightbulb,
 								prefix: "ideas",
 								isActive: path === "ideas" || path.startsWith("ideas/"),
-								items: source.artifacts.ideas
+								items: sanitizeNodes(artifacts.ideas)
 							}
 						]
 					},
@@ -189,7 +264,7 @@
 								icon: ClipboardList,
 								prefix: "tasks",
 								isActive: path === "tasks" || path.startsWith("tasks/"),
-								items: source.artifacts.tasks
+								items: sanitizeNodes(artifacts.tasks)
 							}
 						]
 					},
@@ -201,7 +276,7 @@
 								icon: MessageSquareQuote,
 								prefix: "feedback",
 								isActive: path === "feedback" || path.startsWith("feedback/"),
-								items: source.artifacts.feedback
+								items: sanitizeNodes(artifacts.feedback)
 							}
 						]
 					}
@@ -226,41 +301,11 @@
 						prefix: "pages",
 						icon: NotepadText,
 						isActive: path === "pages" || path.startsWith("pages/"),
-						items: source.artifacts.pages
+						items: sanitizeNodes(artifacts.pages)
 					}
 				}
 			},
-			navTeam: [
-				...(canManageTeam
-					? [
-							{
-								name: "Members",
-								url: `/project/${projectId}/team/members`,
-								icon: Users,
-								tooltip: "Manage Members",
-								isActive: path === "team/members" || path.startsWith("team/members/")
-							},
-							{
-								name: "Roles",
-								url: `/project/${projectId}/team/roles`,
-								icon: UserLock,
-								tooltip: "Manage Roles & Access",
-								isActive: path === "team/roles" || path.startsWith("team/roles/")
-							}
-						]
-					: []),
-				...(canEditProject
-					? [
-							{
-								name: "Project Settings",
-								url: `/project/${projectId}/settings`,
-								icon: Settings,
-								tooltip: "Project Settings",
-								isActive: path === "settings" || path.startsWith("settings/")
-							}
-						]
-					: [])
-			]
+			navTeam
 		};
 	});
 </script>
@@ -352,7 +397,11 @@
 							<Sidebar.MenuButton tooltipContent={item.tooltip} class={item.isActive ? activeClass : ""}>
 								{#snippet child({ props })}
 									<a href={item.url} {...props}>
-										<item.icon />
+										{#if item.icon}
+											<item.icon />
+										{:else}
+											<Settings />
+										{/if}
 										<span>{item.name}</span>
 									</a>
 								{/snippet}

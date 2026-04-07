@@ -2,13 +2,13 @@
 
 ## Executive summary
 
-This codebase has a few solid building blocks, including `HttpOnly` session cookies, Argon2 password hashing, and hashed reset/verification tokens. The highest-risk issues are architectural: authorization decisions are delegated to client-supplied permission objects across remote function endpoints, the runtime seeds a known superadmin account with hard-coded credentials, and project access is derived from a global in-memory workspace user instead of the authenticated session. Those three issues together make privilege escalation and full project compromise realistic if this code is exposed beyond a local prototype.
+This codebase has a few solid building blocks, including `HttpOnly` session cookies, Argon2 password hashing, and hashed reset/verification tokens. The highest-risk issues are architectural: privileged mutation paths still accept high-sensitivity caller-controlled fields (`actorId`, `isCustom`, and `permissionMask` payloads), the runtime seeds a known superadmin account with hard-coded credentials, and project access is derived from a global in-memory workspace user instead of the authenticated session. Those issues together make privilege escalation and full project compromise realistic if this code is exposed beyond a local prototype.
 
 ## Critical findings
 
-### SBP-001: Client-controlled authorization on server-side remote mutations
+### SBP-001: Caller-controlled RBAC and identity fields in privileged remote mutations
 
-Impact: A low-privilege authenticated user can tamper with remote-function payloads to grant themselves permissions, modify protected artifacts, invite users, change roles, archive data, or delete project content.
+Impact: A low-privilege authenticated user can tamper with remote-function payloads (`actorId`, role/mask update inputs) to attempt over-privileged role/member changes or artifact ownership spoofing if server-side validation is incomplete.
 
 - Severity: Critical
 - Locations:
@@ -27,18 +27,18 @@ Impact: A low-privilege authenticated user can tamper with remote-function paylo
   - `src/routes/project/[projectId]/stories/+page.svelte:110`
   - `src/routes/project/[projectId]/stories/[slug]/+page.svelte:219`
 - Evidence:
-  - Server commands accept `permissions: EffectivePermissions` from the caller and immediately authorize on that object, for example `if (!canMemberCreate(permissions))` in `src/lib/remote/project.remote.ts:236` and `if (!canEditStory(permissions))` in `src/lib/remote/story.remote.ts:234`.
-  - The browser sends that authority-bearing object back to the server, for example `createProjectInvite({ ..., permissions })` in `src/routes/project/[projectId]/team/members/+page.svelte:207-214` and `updateProjectRolePermissions({ ..., permissions: access.permissions })` in `src/routes/project/[projectId]/team/roles/+page.svelte:202-209`.
-  - Client pages also pass caller identity fields such as `actorId` into remote mutations, for example `actorId` in `src/routes/project/[projectId]/stories/+page.svelte:102-116`, and the server trusts it in `actorNameFor(parsed.data.actorId)` at `src/lib/remote/story.remote.ts:184`.
+  - Server-side RBAC now derives trusted project masks and authorizes via mask checks in remote modules.
+  - Team mutations accept caller-provided `role`, `isCustom`, and `permissionMask` inputs in privileged update endpoints and therefore rely on strict server validation.
+  - Client pages also pass caller identity fields such as `actorId` into some remote mutations, for example in story creation and updates.
 - Why this fails secure-by-default:
-  - Authorization state is attacker-controlled input.
-  - The server is not deriving privileges from `event.locals.user`, a session lookup, or a server-side membership record.
-  - The same pattern appears across multiple remote modules, so the blast radius is not limited to one route.
+  - High-sensitivity fields in privileged mutation inputs are still attacker-controlled request data.
+  - Authorization remains robust only when every endpoint derives identity from session and validates mask semantics centrally.
+  - The pattern spans multiple remote modules, so a single missed validation path has broad blast radius.
 - Recommended remediation:
-  - Remove `permissions` and `actorId` from all client-callable mutation inputs.
-  - Derive the caller from the authenticated request on the server, then load membership and effective permissions server-side.
-  - Centralize authorization in one helper such as `requireProjectPermission(event, projectId, domain, action)`.
-  - Treat remote functions as public attack surfaces and validate both identity and project membership on every query and mutation.
+  - Minimize caller-controlled identity fields (`actorId`) in client-callable mutation inputs.
+  - Derive caller identity from authenticated request context wherever possible.
+  - Centralize mask validation (`validatePermissionMaskValue`) and permission enforcement (`hasPerm`) across all privileged endpoints.
+  - Keep integration tests for role-mask updates, member custom-mask updates, and actor spoofing attempts.
 
 ### SBP-002: Hard-coded superadmin credentials are seeded on first request
 
@@ -85,7 +85,7 @@ Impact: Different signed-in users can collapse onto the same effective workspace
   - The request hook authenticates the session cookie and places the user in `event.locals.user` in `src/hooks.server.ts:21-33`.
   - Project access does not use `event.locals.user`; instead `getProjectAccess()` derives the actor from `datastore.workspace.user` in `src/lib/remote/access.remote.ts:52-53`.
   - That backing user is a single hard-coded global object, `user: { id: "u-1", name: "Ayush", email: "ayush@projectbook.dev" }`, in `src/lib/server/data/datastore.ts:50-57`.
-  - The project layout then exposes `data.access.permissions` to the client context in `src/routes/project/[projectId]/+layout.svelte:12-23`.
+  - The project layout then exposes `data.access.permissionMask` (and derived UI access state) to the client context in `src/routes/project/[projectId]/+layout.svelte:12-23`.
 - Why this fails secure-by-default:
   - Authentication and authorization are handled by separate, inconsistent identity sources.
   - The code does not preserve per-user or per-tenant isolation once a request enters the project data layer.
@@ -171,7 +171,7 @@ Impact: If edge infrastructure is not adding them, the app misses important defe
 
 ## Secure-by-default priorities
 
-1. Rebuild remote-function authorization so the server derives identity and permissions from the authenticated session, never from client input.
+1. Keep remote-function authorization server-derived from authenticated session context, with `permissionMask` as source of truth and no trust in caller-supplied authority fields.
 2. Remove the default superadmin bootstrap path and replace it with an explicit operator-controlled initialization flow.
 3. Replace global in-memory identity and auth state with per-user, durable storage and server-side membership checks.
 4. Normalize auth error messages and move the remaining security state into shared storage.

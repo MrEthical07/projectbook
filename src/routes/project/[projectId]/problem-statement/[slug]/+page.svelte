@@ -216,9 +216,8 @@ let saveIndicator = $derived.by(() => {
 			input: {
 				projectId,
 				problemId
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			toast.error("error" in result ? result.error : "Lock failed.");
 			return;
@@ -262,9 +261,8 @@ let availableJourneyOptions = $derived.by(() =>
 					projectId,
 					problemId,
 					status: targetStatus
-				},
-				permissions
-			});
+				}
+});
 			if (!result.success) {
 				toast.error("error" in result ? result.error : "Status change failed.");
 				return;
@@ -367,9 +365,8 @@ let availableJourneyOptions = $derived.by(() =>
 					moduleContent,
 					notesText
 				}
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			savePhase = "idle";
 			toast.error("error" in result ? result.error : "Save failed.");

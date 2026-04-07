@@ -223,17 +223,15 @@
 						input: {
 							projectId,
 							ideaId
-						},
-						permissions
+						}
 					})
 				: await updateIdeaStatus({
 						input: {
 							projectId,
 							ideaId,
 							status: targetStatus
-						},
-						permissions
-					});
+						}
+});
 		if (!result.success) {
 			toast.error("error" in result ? result.error : "Status change failed.");
 			return;
@@ -308,9 +306,8 @@
 					activeModules,
 					moduleContent
 				}
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			savePhase = "idle";
 			toast.error("error" in result ? result.error : "Save failed.");

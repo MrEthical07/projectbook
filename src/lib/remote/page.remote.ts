@@ -1,9 +1,11 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import { pageDetailData } from "$lib/server/data/pages.data";
+import { hasPerm } from "$lib/utils/permission";
 
 type PageEditorInput = {
 	projectId: string;
@@ -81,8 +83,10 @@ const actorNameFor = (actorId: string): string | null => {
 	return member?.name ?? null;
 };
 
-const canCreatePage = (permissions: EffectivePermissions) => permissions?.page?.create === true;
-const canEditPage = (permissions: EffectivePermissions) => permissions?.page?.edit === true;
+const canCreatePage = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.page, permissionActionIndex.create);
+const canEditPage = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.page, permissionActionIndex.edit);
 
 type PageEditorState = {
 	status: "Draft" | "Archived";
@@ -159,15 +163,9 @@ export const getPageEditorData = query("unchecked", (input: PageEditorInput) => 
 
 export const createPage = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<PageRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreatePage(permissions)) {
+	({ input }: { input: unknown }): MutationResult<PageRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreatePage(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createPageSchema.safeParse(input);
@@ -208,15 +206,9 @@ export const createPage = command(
 
 export const updatePageEditor = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<PageRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditPage(permissions)) {
+	({ input }: { input: unknown }): MutationResult<PageRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditPage(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updatePageEditorSchema.safeParse(input);
@@ -311,15 +303,9 @@ export const updatePageEditor = command(
 
 export const renamePage = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<PageRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditPage(permissions)) {
+	({ input }: { input: unknown }): MutationResult<PageRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditPage(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = renamePageSchema.safeParse(input);

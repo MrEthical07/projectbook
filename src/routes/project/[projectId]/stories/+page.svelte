@@ -115,9 +115,8 @@
 				projectId,
 				actorId,
 				title
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			createError = result.error;
 			return;

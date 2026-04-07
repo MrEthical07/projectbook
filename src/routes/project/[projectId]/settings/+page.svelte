@@ -187,9 +187,8 @@
 					notifyResourceUpdated,
 					deliveryChannel
 				}
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			savePhase = "idle";
 			actionError = result.error;
@@ -214,9 +213,8 @@
 		const result = await archiveProjectRemote({
 			input: {
 				projectId
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			actionError = result.error;
 			return;
@@ -234,9 +232,8 @@
 		const result = await deleteProjectRemote({
 			input: {
 				projectId
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			actionError = result.error;
 			return;

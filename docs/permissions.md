@@ -2,26 +2,30 @@
 
 ## Permission Model
 
-Action set used by the system:
+ProjectBook uses a mask-based RBAC model.
 
-- `view`
-- `create`
-- `edit`
-- `delete`
-- `archive`
-- `statusChange`
+- `permissionMask` is the authorization source of truth.
+- Role defaults are stored as `rolePermissionMasks`.
+- Each member has `role`, `permissionMask`, and `isCustom`.
 
-Requested core write actions:
+Canonical reference: [rbac.md](../rbac.md)
 
-- `create`
-- `edit`
-- `delete`
-- `archive`
-- `statusChange`
+## RBAC Resolution
 
-## Domain-Based Permissions
+Effective access is resolved as:
 
-Permissions are evaluated per domain:
+```text
+if isCustom == true:
+	effectiveMask = member.permissionMask
+else:
+	effectiveMask = rolePermissionMasks[member.role]
+```
+
+## Domains and Actions
+
+The model still uses 10 domains x 6 actions, but capability checks are done via mask bits.
+
+Domains:
 
 - `project`
 - `story`
@@ -34,26 +38,47 @@ Permissions are evaluated per domain:
 - `calendar`
 - `member`
 
-## Why Role Is Not Used Directly In UI
+Actions:
 
-UI does not gate actions by role strings (`Owner`, `Admin`, etc.). It gates by effective permission booleans.
+- `view`
+- `create`
+- `edit`
+- `delete`
+- `archive`
+- `statusChange`
 
-Reason:
+Bit allocation is fixed and append-only:
 
-- Roles are policy inputs.
-- Effective permissions are execution outputs.
+```text
+bit = domain_index * 6 + action_index
+```
 
-## Backend Resolves, Frontend Enforces UX
+## Helper Functions
 
-- Backend-side remote (`getProjectAccess`) resolves role to effective permissions.
-- Frontend consumes effective permissions to render UX safely.
-- Remote commands re-check permissions before mutation.
+Permission evaluation and mutation use mask helpers:
+
+- `hasPerm(mask, domainIndex, actionIndex)`
+- `updatePerm(mask, domainIndex, actionIndex, enabled)`
+- `applyPermissionDependencyRules(mask, domain, action, enabled)`
+- `validatePermissionMaskValue(mask)`
+
+## Validation
+
+- Non-view actions require `view` in the same domain.
+- Invalid masks must be rejected by backend.
+- Frontend may auto-correct toggles for UX, but backend enforcement is authoritative.
+
+## UI and Backend Responsibilities
+
+- UI should use resolved access state to hide/disable controls.
+- Backend resolves actor membership and mask from session/context.
+- Remote commands must re-check authorization before mutation.
 
 ## Read vs Write vs Status Change
 
-- Read: `view` controls route visibility and section access.
-- Write: `create`, `edit`, `delete`, `archive` gate mutation commands.
-- Status changes: `statusChange` is a separate capability from `edit`.
+- Read: requires `view` for the domain.
+- Write: `create`, `edit`, `delete`, `archive` are independently gated by mask bits.
+- Status changes: `statusChange` is separate from `edit`.
 
 ## UI Behavior Patterns
 

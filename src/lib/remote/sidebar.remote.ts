@@ -1,8 +1,9 @@
 import { command, query } from "$app/server";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
-import { getProjectAccess } from "$lib/remote/access.remote";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
+import { hasPerm } from "$lib/utils/permission";
 import { workspaceProjectsData } from "../server/data/workspace.data";
 import "$lib/server/data/project.data";
 import "$lib/server/data/stories.data";
@@ -149,32 +150,42 @@ const initialsFor = (name: string) =>
 		.slice(0, 2)
 		.toUpperCase();
 
-const permissionDomainForPrefix = (
-	prefix: SidebarPrefix
-): "story" | "problem" | "idea" | "task" | "feedback" | "page" => {
+const permissionDomainIndexForPrefix = (prefix: SidebarPrefix): number => {
 	switch (prefix) {
 		case "stories":
 		case "journeys":
-			return "story";
+			return permissionDomainIndex.story;
 		case "problem-statement":
-			return "problem";
+			return permissionDomainIndex.problem;
 		case "ideas":
-			return "idea";
+			return permissionDomainIndex.idea;
 		case "tasks":
-			return "task";
+			return permissionDomainIndex.task;
 		case "feedback":
-			return "feedback";
+			return permissionDomainIndex.feedback;
 		case "pages":
-			return "page";
+			return permissionDomainIndex.page;
 	}
 };
 
-const canCreate = (permissions: EffectivePermissions, prefix: SidebarPrefix) =>
-	permissions?.[permissionDomainForPrefix(prefix)]?.create === true;
-const canEdit = (permissions: EffectivePermissions, prefix: SidebarPrefix) =>
-	permissions?.[permissionDomainForPrefix(prefix)]?.edit === true;
-const canDelete = (permissions: EffectivePermissions, prefix: SidebarPrefix) =>
-	permissions?.[permissionDomainForPrefix(prefix)]?.delete === true;
+const canCreate = (permissionMask: PermissionMask, prefix: SidebarPrefix) =>
+	hasPerm(
+		permissionMask,
+		permissionDomainIndexForPrefix(prefix),
+		permissionActionIndex.create
+	);
+const canEdit = (permissionMask: PermissionMask, prefix: SidebarPrefix) =>
+	hasPerm(
+		permissionMask,
+		permissionDomainIndexForPrefix(prefix),
+		permissionActionIndex.edit
+	);
+const canDelete = (permissionMask: PermissionMask, prefix: SidebarPrefix) =>
+	hasPerm(
+		permissionMask,
+		permissionDomainIndexForPrefix(prefix),
+		permissionActionIndex.delete
+	);
 
 const listStories = (projectId: string) =>
 	datastore.stories.filter((item) => inProjectScope(projectId, item.projectId));
@@ -522,14 +533,8 @@ export const getProjectSidebarData = query("unchecked", (projectId: string): Sid
 
 export const createSidebarArtifact = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ id: string; title: string }> => {
-		permissions = getTrustedProjectPermissions(input);
+	({ input }: { input: unknown }): MutationResult<{ id: string; title: string }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
 		const parsed = createSidebarArtifactSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
@@ -538,7 +543,7 @@ export const createSidebarArtifact = command(
 		if (!projectExists(scopedProjectId)) {
 			return { success: false, error: "Project not found" };
 		}
-		if (!canCreate(permissions, parsed.data.prefix)) {
+		if (!canCreate(permissionMask, parsed.data.prefix)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const owner = actorNameFor(scopedProjectId, parsed.data.actorId);
@@ -577,14 +582,8 @@ export const createSidebarArtifact = command(
 
 export const renameSidebarArtifact = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ id: string; title: string }> => {
-		permissions = getTrustedProjectPermissions(input);
+	({ input }: { input: unknown }): MutationResult<{ id: string; title: string }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
 		const parsed = renameSidebarArtifactSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
@@ -593,7 +592,7 @@ export const renameSidebarArtifact = command(
 		if (!projectExists(scopedProjectId)) {
 			return { success: false, error: "Project not found" };
 		}
-		if (!canEdit(permissions, parsed.data.prefix)) {
+		if (!canEdit(permissionMask, parsed.data.prefix)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const actorName = actorNameFor(scopedProjectId, parsed.data.actorId);
@@ -628,14 +627,8 @@ export const renameSidebarArtifact = command(
 
 export const deleteSidebarArtifact = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ id: string }> => {
-		permissions = getTrustedProjectPermissions(input);
+	({ input }: { input: unknown }): MutationResult<{ id: string }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
 		const parsed = deleteSidebarArtifactSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
@@ -644,7 +637,7 @@ export const deleteSidebarArtifact = command(
 		if (!projectExists(scopedProjectId)) {
 			return { success: false, error: "Project not found" };
 		}
-		if (!canDelete(permissions, parsed.data.prefix)) {
+		if (!canDelete(permissionMask, parsed.data.prefix)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const actorName = actorNameFor(scopedProjectId, parsed.data.actorId);

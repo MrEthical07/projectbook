@@ -28,6 +28,8 @@ declare global {
 		member: ActionPermission;
 	};
 
+	type PermissionMask = string;
+
 	type PermissionDomain = keyof EffectivePermissions;
 	type PermissionAction = keyof ActionPermission;
 
@@ -40,6 +42,7 @@ declare global {
 		| "Limited Access";
 
 	type RolePermissionMap = Record<ProjectRole, EffectivePermissions>;
+	type RolePermissionMaskMap = Record<ProjectRole, PermissionMask>;
 
 	type ProjectAccess = {
 		user: {
@@ -48,6 +51,7 @@ declare global {
 			email?: string;
 		};
 		role: ProjectRole;
+		permissionMask: PermissionMask;
 		permissions: EffectivePermissions;
 	};
 
@@ -263,6 +267,8 @@ declare global {
 		name: string;
 		email: string;
 		role: ProjectRole;
+		isCustom?: boolean;
+		permissionMask?: PermissionMask;
 		status: "Active" | "Invited";
 		joinedAt?: string;
 		updatedAt?: string;
@@ -420,6 +426,7 @@ declare global {
 			project?: {
 				id: string;
 				role?: ProjectRole;
+				permissionMask?: PermissionMask;
 				permissions?: EffectivePermissions;
 			};
 			session?: {

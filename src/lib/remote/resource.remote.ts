@@ -1,12 +1,14 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import {
 	resourceDetailData,
 	resourcesReferenceData
 } from "$lib/server/data/resources.data";
+import { hasPerm } from "$lib/utils/permission";
 
 type ResourcePageInput = {
 	projectId: string;
@@ -85,10 +87,10 @@ const actorNameFor = (actorId: string): string | null => {
 	return member?.name ?? null;
 };
 
-const canCreateResource = (permissions: EffectivePermissions) =>
-	permissions?.resource?.create === true;
-const canEditResource = (permissions: EffectivePermissions) =>
-	permissions?.resource?.edit === true;
+const canCreateResource = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.resource, permissionActionIndex.create);
+const canEditResource = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.resource, permissionActionIndex.edit);
 
 type ResourceEditorState = {
 	name: string;
@@ -150,15 +152,9 @@ export const getResourcePageData = query("unchecked", (input: ResourcePageInput)
 
 export const createResource = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<ResourceRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreateResource(permissions)) {
+	({ input }: { input: unknown }): MutationResult<ResourceRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreateResource(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createResourceSchema.safeParse(input);
@@ -201,15 +197,9 @@ export const createResource = command(
 
 export const updateResource = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<ResourceRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditResource(permissions)) {
+	({ input }: { input: unknown }): MutationResult<ResourceRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditResource(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateResourceSchema.safeParse(input);
@@ -343,20 +333,14 @@ export const updateResource = command(
 	}
 );
 
-const canChangeResourceStatus = (permissions: EffectivePermissions) =>
-	permissions?.resource?.statusChange === true;
+const canChangeResourceStatus = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.resource, permissionActionIndex.statusChange);
 
 export const updateResourceStatus = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<ResourceRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canChangeResourceStatus(permissions)) {
+	({ input }: { input: unknown }): MutationResult<ResourceRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canChangeResourceStatus(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateResourceStatusSchema.safeParse(input);

@@ -1,258 +1,384 @@
-# ProjectBook RBAC Matrix and Artifact Impact
+# RBAC (Permission Mask Model)
 
-## 1. Scope and Source of Truth
+This document defines the breaking RBAC model for ProjectBook.
 
-This RBAC document is grounded in:
+RBAC is now mask-based and uses a fixed 64-bit strategy.
 
-- role values in [src/lib/constants/member-roles.ts](src/lib/constants/member-roles.ts)
-- permission domains/actions in [src/lib/constants/permissions.ts](src/lib/constants/permissions.ts)
-- default matrix in [src/lib/server/data/project.data.ts](src/lib/server/data/project.data.ts)
-- API semantics in [API-GUIDELINES.md](API-GUIDELINES.md)
-- enforcement paths in [src/lib/remote/project.remote.ts](src/lib/remote/project.remote.ts) and [src/lib/utils/permission.ts](src/lib/utils/permission.ts)
+## 1) Source Of Truth
 
-This is the matrix shown and edited in the team roles page at [src/routes/project/[projectId]/team/roles/+page.svelte](src/routes/project/[projectId]/team/roles/+page.svelte).
+- Frontend mapping/constants: [src/lib/constants/permissions.ts](src/lib/constants/permissions.ts)
+- Permission helper/conversion functions: [src/lib/utils/permission.ts](src/lib/utils/permission.ts)
+- Authorization resolution: [src/lib/server/auth/authorization.ts](src/lib/server/auth/authorization.ts)
+- Team/roles API behavior: [src/lib/remote/project.remote.ts](src/lib/remote/project.remote.ts)
+- Seed/default role setup: [src/lib/server/data/project.data.ts](src/lib/server/data/project.data.ts)
+- Roles page UX: [src/routes/project/[projectId]/team/roles/+page.svelte](src/routes/project/[projectId]/team/roles/+page.svelte)
 
-## 2. Roles
+## 2) Ground Rules (Non-Negotiable)
 
-- Owner
-- Admin
-- Editor
-- Member
-- Viewer
-- Limited Access
+1. Max = 64 bits (`uint64` compatible space)
+2. Never reuse bits
+3. Never reorder bits
+4. Only append new permissions
+5. Frontend + backend must share exact mapping
 
-### Role invariants
+## 3) Fixed Allocation Strategy
 
-- Owner permissions are full and should not be modified through role-permission APIs.
-- Owner role cannot be assigned through member role update API.
-- Project role permissions are project-scoped and override defaults for non-owner roles.
-- Permission checks are always server-side.
+Bit index formula:
 
-## 3. Permission Model
+```text
+bit = domain_index * 6 + action_index
+```
 
-### 3.1 Domains
+### Action index mapping (global)
 
-- `project`
-- `story` (also governs journeys)
-- `problem`
-- `idea`
-- `task`
-- `feedback`
-- `resource`
-- `page`
-- `calendar`
-- `member`
+```text
+0 = VIEW
+1 = CREATE
+2 = EDIT
+3 = DELETE
+4 = ARCHIVE
+5 = STATUS_CHANGE
+```
 
-### 3.2 Actions
+### Domain index mapping (global)
 
-- `view`
-- `create`
-- `edit`
-- `delete`
-- `archive`
-- `statusChange`
+```text
+0 = PROJECT
+1 = STORY
+2 = PROBLEM
+3 = IDEA
+4 = TASK
+5 = FEEDBACK
+6 = RESOURCE
+7 = PAGE
+8 = CALENDAR
+9 = MEMBER
+```
 
-## 4. Full Default Matrix (Team Roles Page)
+Current system uses bits `0..59` (60 permissions). Bits `60..63` are reserved for future append-only growth.
 
-Legend: `Y` = allowed, `N` = denied
+## 4) Full Bit Map
 
-### 4.1 Owner
+### PROJECT (0-5)
 
-| Domain | view | create | edit | delete | archive | statusChange |
-| --- | --- | --- | --- | --- | --- | --- |
-| project | Y | Y | Y | Y | Y | Y |
-| story | Y | Y | Y | Y | Y | Y |
-| problem | Y | Y | Y | Y | Y | Y |
-| idea | Y | Y | Y | Y | Y | Y |
-| task | Y | Y | Y | Y | Y | Y |
-| feedback | Y | Y | Y | Y | Y | Y |
-| resource | Y | Y | Y | Y | Y | Y |
-| page | Y | Y | Y | Y | Y | Y |
-| calendar | Y | Y | Y | Y | Y | Y |
-| member | Y | Y | Y | Y | Y | Y |
+```go
+PermProjectView         = 1 << 0
+PermProjectCreate       = 1 << 1
+PermProjectEdit         = 1 << 2
+PermProjectDelete       = 1 << 3
+PermProjectArchive      = 1 << 4
+PermProjectStatusChange = 1 << 5
+```
 
-### 4.2 Admin
+### STORY (6-11)
 
-| Domain | view | create | edit | delete | archive | statusChange |
-| --- | --- | --- | --- | --- | --- | --- |
-| project | Y | N | Y | N | Y | Y |
-| story | Y | Y | Y | Y | Y | Y |
-| problem | Y | Y | Y | Y | Y | Y |
-| idea | Y | Y | Y | Y | Y | Y |
-| task | Y | Y | Y | Y | Y | Y |
-| feedback | Y | Y | Y | Y | Y | Y |
-| resource | Y | Y | Y | Y | Y | Y |
-| page | Y | Y | Y | Y | Y | Y |
-| calendar | Y | Y | Y | Y | Y | Y |
-| member | Y | Y | Y | Y | N | Y |
+```go
+PermStoryView         = 1 << 6
+PermStoryCreate       = 1 << 7
+PermStoryEdit         = 1 << 8
+PermStoryDelete       = 1 << 9
+PermStoryArchive      = 1 << 10
+PermStoryStatusChange = 1 << 11
+```
 
-### 4.3 Editor
+### PROBLEM (12-17)
 
-| Domain | view | create | edit | delete | archive | statusChange |
-| --- | --- | --- | --- | --- | --- | --- |
-| project | Y | N | N | N | N | N |
-| story | Y | Y | Y | N | N | Y |
-| problem | Y | Y | Y | N | N | Y |
-| idea | Y | Y | Y | N | N | Y |
-| task | Y | Y | Y | N | N | Y |
-| feedback | Y | Y | Y | N | N | Y |
-| resource | Y | Y | Y | N | N | N |
-| page | Y | Y | Y | N | N | N |
-| calendar | Y | Y | Y | N | N | N |
-| member | Y | N | N | N | N | N |
+```go
+PermProblemView         = 1 << 12
+PermProblemCreate       = 1 << 13
+PermProblemEdit         = 1 << 14
+PermProblemDelete       = 1 << 15
+PermProblemArchive      = 1 << 16
+PermProblemStatusChange = 1 << 17
+```
 
-### 4.4 Member
+### IDEA (18-23)
 
-| Domain | view | create | edit | delete | archive | statusChange |
-| --- | --- | --- | --- | --- | --- | --- |
-| project | Y | N | N | N | N | N |
-| story | Y | Y | Y | N | N | N |
-| problem | Y | Y | Y | N | N | N |
-| idea | Y | Y | Y | N | N | N |
-| task | Y | Y | Y | N | N | Y |
-| feedback | Y | Y | Y | N | N | Y |
-| resource | Y | Y | Y | N | N | N |
-| page | Y | Y | Y | N | N | N |
-| calendar | Y | Y | N | N | N | N |
-| member | N | N | N | N | N | N |
+```go
+PermIdeaView         = 1 << 18
+PermIdeaCreate       = 1 << 19
+PermIdeaEdit         = 1 << 20
+PermIdeaDelete       = 1 << 21
+PermIdeaArchive      = 1 << 22
+PermIdeaStatusChange = 1 << 23
+```
 
-### 4.5 Viewer
+### TASK (24-29)
 
-| Domain | view | create | edit | delete | archive | statusChange |
-| --- | --- | --- | --- | --- | --- | --- |
-| project | Y | N | N | N | N | N |
-| story | Y | N | N | N | N | N |
-| problem | Y | N | N | N | N | N |
-| idea | Y | N | N | N | N | N |
-| task | Y | N | N | N | N | N |
-| feedback | Y | N | N | N | N | N |
-| resource | Y | N | N | N | N | N |
-| page | Y | N | N | N | N | N |
-| calendar | Y | N | N | N | N | N |
-| member | Y | N | N | N | N | N |
+```go
+PermTaskView         = 1 << 24
+PermTaskCreate       = 1 << 25
+PermTaskEdit         = 1 << 26
+PermTaskDelete       = 1 << 27
+PermTaskArchive      = 1 << 28
+PermTaskStatusChange = 1 << 29
+```
 
-### 4.6 Limited Access
+### FEEDBACK (30-35)
 
-| Domain | view | create | edit | delete | archive | statusChange |
-| --- | --- | --- | --- | --- | --- | --- |
-| project | N | N | N | N | N | N |
-| story | N | N | N | N | N | N |
-| problem | N | N | N | N | N | N |
-| idea | N | N | N | N | N | N |
-| task | N | N | N | N | N | N |
-| feedback | N | N | N | N | N | N |
-| resource | N | N | N | N | N | N |
-| page | N | N | N | N | N | N |
-| calendar | N | N | N | N | N | N |
-| member | N | N | N | N | N | N |
+```go
+PermFeedbackView         = 1 << 30
+PermFeedbackCreate       = 1 << 31
+PermFeedbackEdit         = 1 << 32
+PermFeedbackDelete       = 1 << 33
+PermFeedbackArchive      = 1 << 34
+PermFeedbackStatusChange = 1 << 35
+```
 
-## 5. Artifact Impact by Domain
+### RESOURCE (36-41)
 
-### 5.1 `story` domain impact (stories and journeys)
+```go
+PermResourceView         = 1 << 36
+PermResourceCreate       = 1 << 37
+PermResourceEdit         = 1 << 38
+PermResourceDelete       = 1 << 39
+PermResourceArchive      = 1 << 40
+PermResourceStatusChange = 1 << 41
+```
 
-- Controls story endpoints and journey endpoints.
-- `statusChange` controls:
-  - story: `Draft`, `Locked`, `Archived`
-  - journey: `Draft`, `Archived`
-- If denied, users can still read/edit only if corresponding `view`/`edit` is true.
+### PAGE (42-47)
 
-### 5.2 `problem` domain impact
+```go
+PermPageView         = 1 << 42
+PermPageCreate       = 1 << 43
+PermPageEdit         = 1 << 44
+PermPageDelete       = 1 << 45
+PermPageArchive      = 1 << 46
+PermPageStatusChange = 1 << 47
+```
 
-- Controls create/update/lock/status change for problem statements.
-- `statusChange` is required for `Draft`/`Locked`/`Archived` transitions.
-- Locking problems impacts idea lifecycle because idea selection requires linked problem locked.
+### CALENDAR (48-53)
 
-### 5.3 `idea` domain impact
+```go
+PermCalendarView         = 1 << 48
+PermCalendarCreate       = 1 << 49
+PermCalendarEdit         = 1 << 50
+PermCalendarDelete       = 1 << 51
+PermCalendarArchive      = 1 << 52
+PermCalendarStatusChange = 1 << 53
+```
 
-- Controls create/update/select/status change for ideas.
-- `statusChange` governs transitions across `Considered`, `Selected`, `Rejected`, `Archived`.
+### MEMBER (54-59)
 
-### 5.4 `task` domain impact
+```go
+PermMemberView         = 1 << 54
+PermMemberCreate       = 1 << 55
+PermMemberEdit         = 1 << 56
+PermMemberDelete       = 1 << 57
+PermMemberArchive      = 1 << 58
+PermMemberStatusChange = 1 << 59
+```
 
-- Controls create/update/status change for tasks.
-- `statusChange` governs transitions across `Planned`, `In Progress`, `Completed`, `Blocked`, `Abandoned`.
+## 5) Frontend Mapping Contract
 
-### 5.5 `feedback` domain impact
+Do not hardcode duplicate mappings in random places.
 
-- Controls create/update of feedback artifacts.
-- `statusChange` is enabled for roles that can drive feedback lifecycle decisions in team workflows.
+Use domain/action arrays and compute bit from indexes.
 
-### 5.6 `resource` domain impact
+```ts
+const ACTIONS = ["view", "create", "edit", "delete", "archive", "status"];
 
-- Controls create/update/delete/archive/status operations for resources and version-management operations.
-- In default matrix, Editor and Member cannot `statusChange` resources.
+const DOMAINS = [
+  "project",
+  "story",
+  "problem",
+  "idea",
+  "task",
+  "feedback",
+  "resource",
+  "page",
+  "calendar",
+  "member"
+];
 
-### 5.7 `page` domain impact
+function getBit(domainIndex: number, actionIndex: number) {
+  return 1n << BigInt(domainIndex * 6 + actionIndex);
+}
+```
 
-- Controls create/update/delete/archive/status operations for pages.
-- In default matrix, Editor and Member cannot `statusChange` pages.
+In codebase naming, action key is `statusChange` while action index label is `status`.
 
-### 5.8 `calendar` domain impact
+## 6) Required Helper Functions
 
-- Controls manual calendar event create/update/delete/archive/status operations.
-- Derived events are always read-only by business rule even if role has edit/delete.
-- In default matrix, Member can create but cannot edit calendar events.
+Implemented in [src/lib/utils/permission.ts](src/lib/utils/permission.ts):
 
-### 5.9 `member` domain impact
+- `hasPerm(mask, domainIndex, actionIndex)`
+- `updatePerm(mask, domainIndex, actionIndex, enabled)`
+- `applyPermissionDependencyRules(mask, domain, action, enabled)`
+- `maskToPermissions(mask)`
+- `permissionsToMask(permissions)`
+- `normalizePermissionMask(value)`
+- `validatePermissionMask(mask: bigint)`
+- `validatePermissionMaskValue(mask)`
+- `enforcePermissionMaskDependencies(mask)`
 
-- Controls team and invite management:
-  - `create`: send invite
-  - `delete`: cancel invite
-  - `edit`: update member role and role-permission matrix
-  - `view`: access members/roles pages
-- Admin has `member.archive = N` in default matrix.
+Backend should implement equivalent helpers using the exact same mapping.
 
-### 5.10 `project` domain impact
+## 7) Role Masks (Current Defaults)
 
-- Controls project settings update, project archive, and delete.
-- Admin can archive project but cannot delete project by default.
-- Editor/Member/Viewer cannot mutate project settings by default.
+These are computed from the canonical default role-mask policy used by the app.
 
-## 6. Action Semantics
+| Role | Decimal mask | Hex mask |
+| --- | ---: | ---: |
+| Owner | 1152921504606846975 | 0xFFFFFFFFFFFFFFF |
+| Admin | 864691128455135221 | 0xBFFFFFFFFFFFFF5 |
+| Editor | 20016033248999873 | 0x471C79E79E79C1 |
+| Member | 875734824153537 | 0x31C79E71C71C1 |
+| Viewer | 18300341342965825 | 0x41041041041041 |
+| Limited Access | 0 | 0x0 |
 
-- `view`: read/list/get access
-- `create`: new artifact/member invite creation
-- `edit`: update content or mutable metadata
-- `delete`: destructive removal (where API allows)
-- `archive`: logical archive/unarchive behavior
-- `statusChange`: explicit lifecycle transitions
+## 8) Member RBAC State
 
-## 7. Artifact Lifecycle Permissions
+Each team member now carries:
 
-| Artifact | Domain | Status field | Action needed for transition |
-| --- | --- | --- | --- |
-| Story | story | `Draft`/`Locked`/`Archived` | `story.statusChange` |
-| Journey | story | `Draft`/`Archived` | `story.statusChange` |
-| Problem | problem | `Draft`/`Locked`/`Archived` | `problem.statusChange` |
-| Idea | idea | `Considered`/`Selected`/`Rejected`/`Archived` | `idea.statusChange` |
-| Task | task | `Planned`/`In Progress`/`Completed`/`Abandoned`/`Blocked` | `task.statusChange` |
-| Resource | resource | `Active`/`Archived` | `resource.statusChange` |
-| Page | page | `Draft`/`Archived` | `page.statusChange` |
-| Calendar Event | calendar | lifecycle via event mutation | `calendar.statusChange` where applicable |
+- `role`
+- `isCustom`
+- `permissionMask`
 
-## 8. Role Impact Summary Across Artifacts
+Resolution rule:
 
-| Role | Practical artifact impact |
-| --- | --- |
-| Owner | Full control across all artifacts, project, and team permissions |
-| Admin | Full artifact control, strong team control, no project delete, no member archive |
-| Editor | Can create/edit all artifact types, no deletes/archives, selective status transitions |
-| Member | Can create/edit most artifacts, task/feedback status transitions only, no team management |
-| Viewer | Read-only access to artifacts and member list |
-| Limited Access | No artifact access |
+```text
+if isCustom == true:
+  effectiveMask = member.permissionMask
+else:
+  effectiveMask = rolePermissionMask[member.role]
+```
 
-## 9. Team Roles Page Behavior
+`isCustom` is true only when member mask differs from role mask.
 
-- The roles page renders all domain/action toggles for each role.
-- Changes are persisted per project via role-permission update endpoint.
-- Owner role remains immutable by API rule.
-- Effective permissions are evaluated at request time through `can(permissions, domain, action)`.
+## 9) Team Roles UX Contract
 
-## 10. Implementation Notes
+### 9.1 Member table
 
-- Keep this matrix synchronized with `rolePermissionsData` in [src/lib/server/data/project.data.ts](src/lib/server/data/project.data.ts).
-- If new domains or actions are introduced, update:
-  - constants in [src/lib/constants/permissions.ts](src/lib/constants/permissions.ts)
-  - RBAC type contracts in [src/app.d.ts](src/app.d.ts)
-  - team roles UI in [src/routes/project/[projectId]/team/roles/+page.svelte](src/routes/project/[projectId]/team/roles/+page.svelte)
-  - this file.
+- No inline role selector or per-row Save button.
+- Row action is `Edit permissions`.
+- Role column shows role + `Custom` badge when `isCustom = true`.
+
+### 9.2 Edit permissions dialog
+
+- First control: role selector.
+- Then: `Customize permissions?` toggle.
+- When enabled: full 60-bit permission grid.
+- If custom member toggles custom OFF, show confirmation alert:
+
+```text
+This will revert from custom permissions to role specific permissions. Still want to continue?
+```
+
+- If member is custom and role changes while custom stays active, show alert:
+
+```text
+Custom permissions are active. Role change won't affect permissions. To update permissions, edit the permissions explicitely.
+```
+
+### 9.3 Role Permission Mask Editor Location
+
+- Moved below member table.
+- On role permission save, show alert:
+
+```text
+For the users whos custom permissions are active, Role change won't affect permissions. To update permissions, edit the permissions explicitely.
+```
+
+## 10) API Contract (Backend Must Match)
+
+### 10.1 Get team roles
+
+Return for project:
+
+- members with role/isCustom/permissionMask + existing member fields
+- rolePermissionMasks map (role -> mask)
+
+### 10.2 Update role permissions
+
+Input:
+
+- `projectId`
+- `role`
+- `permissionMask`
+
+Rules:
+
+- Owner role mask immutable from this API.
+- Non-custom members with that role follow new role mask.
+- Custom members remain unchanged.
+
+### 10.3 Update member permissions
+
+Input:
+
+- `projectId`
+- `memberId`
+- `role`
+- `isCustom`
+- `permissionMask`
+
+Rules:
+
+- If `isCustom = false`, persisted member mask should be role mask.
+- If `isCustom = true`, persisted member mask can differ from role mask.
+- If provided custom mask equals role mask, member should be treated as non-custom.
+
+## 11) Migration Notes
+
+- Canonical storage and authorization enforcement are mask-only at role and member level.
+- Backend authorization must call `getTrustedProjectPermissionMask(input)` and enforce with `hasPerm(mask, domainIndex, actionIndex)`.
+- Object-shaped permissions may exist only as isolated display adapters, never as auth source of truth.
+- Any new permission must be appended only (next free bit), never inserted or reordered.
+
+## 12) Permission Mask Integrity Validation (MANDATORY)
+
+### 12.1 Core validation rule
+
+For every domain:
+
+- If any of `create`, `edit`, `delete`, `archive`, or `statusChange` is enabled, then `view` must be enabled.
+
+### 12.2 Shared validation function
+
+Validation is centralized in [src/lib/utils/permission.ts](src/lib/utils/permission.ts):
+
+- `validatePermissionMask(mask: bigint): { valid: boolean; errors: string[] }`
+
+Validation iterates all 10 domains and rejects any domain where non-view actions are enabled while view is disabled.
+
+Error text:
+
+```text
+Invalid permission: VIEW is required when other actions are enabled (domain: <domain_name>)
+```
+
+### 12.3 Frontend enforcement behavior
+
+Frontend uses dependency-safe toggling in [src/routes/project/[projectId]/team/roles/+page.svelte](src/routes/project/[projectId]/team/roles/+page.svelte):
+
+- Enabling a non-view action auto-enables `view` for that domain.
+- Disabling `view` auto-disables `create`, `edit`, `delete`, `archive`, and `statusChange` for that domain.
+- UI state hydration normalizes masks through `enforcePermissionMaskDependencies(mask)` to avoid persisting invalid combinations in client state.
+
+### 12.4 API and backend rejection points
+
+Validation is enforced in backend write paths:
+
+- `updateProjectRolePermissions` in [src/lib/remote/project.remote.ts](src/lib/remote/project.remote.ts)
+- `updateProjectMemberPermissions` in [src/lib/remote/project.remote.ts](src/lib/remote/project.remote.ts)
+
+Behavior:
+
+- Invalid masks are rejected.
+- Backend never silently auto-corrects invalid masks.
+- Invalid masks are never persisted to datastore.
+
+### 12.5 Backend-only responsibilities (explicit)
+
+These are backend tasks and are not delegated to frontend:
+
+- Validate masks on every RBAC write path before persistence.
+- Validate and normalize stored role masks during project-role-mask resolution in [src/lib/server/auth/authorization.ts](src/lib/server/auth/authorization.ts).
+- Ensure project role-mask maps exist for project access resolution, project creation, and invite acceptance using default seeded masks.
+- Reject invalid stored masks explicitly with clear error messages.
+
+### 12.6 Performance constraint
+
+- Validation cost is fixed and bounded by 10 domains x 6 actions.
+- No unbounded or data-size-dependent loops are used in the mask validator.

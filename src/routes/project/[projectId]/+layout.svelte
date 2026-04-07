@@ -16,6 +16,9 @@
 		get role() {
 			return data.access.role;
 		},
+		get permissionMask() {
+			return data.access.permissionMask;
+		},
 		get permissions() {
 			return data.access.permissions;
 		}

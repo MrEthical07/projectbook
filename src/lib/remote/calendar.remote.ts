@@ -1,12 +1,14 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import {
 	calendarEventDetailData,
 	calendarReferenceData
 } from "$lib/server/data/calendar.data";
+import { hasPerm } from "$lib/utils/permission";
 
 type CalendarEventInput = {
 	projectId: string;
@@ -90,9 +92,12 @@ const requiredStringArray = (value: unknown, path: string): string[] => {
 	return value;
 };
 
-const canCreateEvent = (permissions: EffectivePermissions) => permissions?.calendar?.create === true;
-const canEditEvent = (permissions: EffectivePermissions) => permissions?.calendar?.edit === true;
-const canDeleteEvent = (permissions: EffectivePermissions) => permissions?.calendar?.delete === true;
+const canCreateEvent = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.calendar, permissionActionIndex.create);
+const canEditEvent = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.calendar, permissionActionIndex.edit);
+const canDeleteEvent = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.calendar, permissionActionIndex.delete);
 
 export const getCalendarData = query("unchecked", (projectId: string) => {
 	const scopedProjectId = requireProjectId(projectId);
@@ -133,15 +138,9 @@ export const getCalendarEventData = query("unchecked", (input: CalendarEventInpu
 
 export const createCalendarEvent = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<CalendarEvent> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreateEvent(permissions)) {
+	({ input }: { input: unknown }): MutationResult<CalendarEvent> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreateEvent(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createEventSchema.safeParse(input);
@@ -180,15 +179,9 @@ export const createCalendarEvent = command(
 
 export const updateCalendarEvent = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<CalendarEvent> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditEvent(permissions)) {
+	({ input }: { input: unknown }): MutationResult<CalendarEvent> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditEvent(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateEventSchema.safeParse(input);
@@ -292,15 +285,9 @@ export const updateCalendarEvent = command(
 
 export const deleteCalendarEvent = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<{ eventId: string }> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canDeleteEvent(permissions)) {
+	({ input }: { input: unknown }): MutationResult<{ eventId: string }> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canDeleteEvent(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = deleteEventSchema.safeParse(input);

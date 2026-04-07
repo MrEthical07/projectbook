@@ -21,7 +21,13 @@
 	import { can } from "$lib/utils/permission";
 	import { toast } from "svelte-sonner";
 
-	type MemberRole = "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access";
+	type MemberRole =
+		| "Owner"
+		| "Admin"
+		| "Editor"
+		| "Member"
+		| "Viewer"
+		| "Limited Access";
 	type InviteStatus = "pending" | "accepted";
 
 	type Member = {
@@ -40,7 +46,14 @@
 		status: InviteStatus;
 	};
 
-	const roleValues: MemberRole[] = ["Owner", "Admin", "Editor", "Viewer", "Limited Access"];
+	const roleValues: MemberRole[] = [
+		"Owner",
+		"Admin",
+		"Editor",
+		"Member",
+		"Viewer",
+		"Limited Access"
+	];
 	const inviteStatusValues: InviteStatus[] = ["pending", "accepted"];
 
 	const requiredString = (value: unknown, path: string): string => {
@@ -64,7 +77,13 @@
 		return value as InviteStatus;
 	};
 
-	const requiredDateLike = (value: unknown, fallback: unknown, path: string): string => {
+	const optionalString = (value: unknown, fallback: string): string => {
+		if (typeof value !== "string") return fallback;
+		const normalized = value.trim();
+		return normalized.length > 0 ? normalized : fallback;
+	};
+
+	const resolveDateLike = (value: unknown, fallback: unknown, fallbackText: string): string => {
 		const primary = typeof value === "string" ? value.trim() : "";
 		if (primary.length > 0) {
 			return primary;
@@ -73,25 +92,29 @@
 		if (secondary.length > 0) {
 			return secondary;
 		}
-		throw new Error(`Invalid or missing '${path}'.`);
+		return fallbackText;
 	};
 
 	const parseInvites = (source: unknown, path: string): Invite[] => {
-		if (!Array.isArray(source)) {
-			throw new Error(`Invalid '${path}'. Expected an array.`);
-		}
-		return source.map((item, index) => {
+		if (!Array.isArray(source)) return [];
+		const parsed: Invite[] = [];
+		for (const [index, item] of source.entries()) {
 			if (!item || typeof item !== "object") {
-				throw new Error(`Invalid '${path}[${index}]'.`);
+				continue;
 			}
 			const row = item as Record<string, unknown>;
-			return {
-				email: requiredString(row.email, `${path}[${index}].email`),
-				role: requiredRole(row.role, `${path}[${index}].role`),
-				sentDate: requiredString(row.sentDate, `${path}[${index}].sentDate`),
-				status: requiredInviteStatus(row.status, `${path}[${index}].status`)
-			};
-		});
+			try {
+				parsed.push({
+					email: requiredString(row.email, `${path}[${index}].email`),
+					role: requiredRole(row.role, `${path}[${index}].role`),
+					sentDate: requiredString(row.sentDate, `${path}[${index}].sentDate`),
+					status: requiredInviteStatus(row.status, `${path}[${index}].status`)
+				});
+			} catch {
+				continue;
+			}
+		}
+		return parsed;
 	};
 
 	let { data } = $props();
@@ -103,27 +126,27 @@
 	const canCancelInvite = can(permissions, "member", "delete");
 	let members = $derived.by<Member[]>(() => {
 		const rawMembers = structuredClone(data.members);
-		if (!Array.isArray(rawMembers)) {
-			throw new Error("Invalid 'members' payload. Expected an array.");
-		}
-		return rawMembers.map((item, index) => {
+		if (!Array.isArray(rawMembers)) return [];
+		const parsed: Member[] = [];
+		for (const [index, item] of rawMembers.entries()) {
 			if (!item || typeof item !== "object") {
-				throw new Error(`Invalid 'members[${index}]'.`);
+				continue;
 			}
 			const row = item as unknown as Record<string, unknown>;
-			return {
-				name: requiredString(row.name, `members[${index}].name`),
-				email: requiredString(row.email, `members[${index}].email`),
-				role: requiredRole(row.role, `members[${index}].role`),
-				joinedDate: requiredDateLike(
-					row.joinedDate,
-					row.joinedAt,
-					`members[${index}].joinedDate`
-				),
-				team: requiredString(row.team, `members[${index}].team`),
-				location: requiredString(row.location, `members[${index}].location`)
-			};
-		});
+			try {
+				parsed.push({
+					name: requiredString(row.name, `members[${index}].name`),
+					email: requiredString(row.email, `members[${index}].email`),
+					role: requiredRole(row.role, `members[${index}].role`),
+					joinedDate: resolveDateLike(row.joinedDate, row.joinedAt, "Unknown"),
+					team: optionalString(row.team, "Unassigned"),
+					location: optionalString(row.location, "Unknown")
+				});
+			} catch {
+				continue;
+			}
+		}
+		return parsed;
 	});
 
 	let invites = $derived.by<Invite[]>(() => {
@@ -209,9 +232,8 @@
 				projectId,
 				email,
 				role: canEditMember ? inviteForm.role : "Limited Access"
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			toast.error(result.error);
 			return;
@@ -232,9 +254,8 @@
 			input: {
 				projectId,
 				email
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			toast.error(result.error);
 			return;

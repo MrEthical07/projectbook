@@ -139,9 +139,8 @@
 				projectId: page.params.projectId,
 				taskId,
 				status: targetStatus
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) return;
 		await invalidateAll();
 	};
@@ -165,9 +164,8 @@
 				projectId: page.params.projectId,
 				actorId,
 				title
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			createError = result.error;
 			return;

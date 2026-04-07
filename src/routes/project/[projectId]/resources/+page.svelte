@@ -163,9 +163,8 @@
 				actorId,
 				name: trimmedName,
 				docType: selectedDocType
-			},
-			permissions
-		});
+			}
+});
 		isUploading = false;
 
 		if (!result.success) {
@@ -189,9 +188,8 @@
 				projectId,
 				resourceId: pendingArchiveId,
 				status: "Archived"
-			},
-			permissions
-		});
+			}
+});
 		isArchiving = false;
 		if (!result.success) {
 			archiveError = result.error;

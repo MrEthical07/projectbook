@@ -224,9 +224,8 @@
                     ...story,
                     addOnSections
                 }
-            },
-            permissions
-        });
+            }
+});
         if (!result.success) {
             savePhase = "idle";
             return;
@@ -264,9 +263,8 @@
                     status: pendingStatus,
                     addOnSections
                 }
-            },
-            permissions
-        });
+            }
+});
         if (!result.success) return;
         story.status = pendingStatus;
         savedSignature = JSON.stringify({

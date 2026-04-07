@@ -139,8 +139,7 @@
 				prefix: item.prefix as SidebarPrefix,
 				actorId,
 				title
-			},
-			permissions
+			}
 		})) as MutationResult<{ id: string }>;
 		isCreating = false;
 
@@ -191,8 +190,7 @@
 				artifactId: targetItem.slug,
 				actorId,
 				title
-			},
-			permissions
+			}
 		})) as MutationResult<{ id: string; title: string }>;
 		isMutating = false;
 
@@ -229,8 +227,7 @@
 				prefix: item.prefix as SidebarPrefix,
 				artifactId: deletingSlug,
 				actorId
-			},
-			permissions
+			}
 		})) as MutationResult<{ id: string }>;
 		isMutating = false;
 

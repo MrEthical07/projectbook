@@ -1,12 +1,14 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import { getStoryCachedDetail } from "$lib/server/data/story-cache";
 import { storyDraftTemplateData } from "$lib/server/data/stories.data";
 import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
 import { journeyDraftTemplateData } from "$lib/server/data/journeys.data";
+import { hasPerm } from "$lib/utils/permission";
 
 type ProblemPageInput = {
 	projectId: string;
@@ -95,12 +97,12 @@ const actorNameFor = (actorId: string): string | null => {
 	return member?.name ?? null;
 };
 
-const canCreateProblem = (permissions: EffectivePermissions) =>
-	permissions?.problem?.create === true;
-const canEditProblem = (permissions: EffectivePermissions) =>
-	permissions?.problem?.edit === true;
-const canChangeProblemStatus = (permissions: EffectivePermissions) =>
-	permissions?.problem?.statusChange === true;
+const canCreateProblem = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.problem, permissionActionIndex.create);
+const canEditProblem = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.problem, permissionActionIndex.edit);
+const canChangeProblemStatus = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.problem, permissionActionIndex.statusChange);
 
 const canTransition = (current: ProblemRow["status"], next: ProblemRow["status"]) =>
 	statusTransitions[current]?.includes(next) ?? false;
@@ -321,15 +323,9 @@ export const getProblemPageData = query("unchecked", (input: ProblemPageInput) =
 
 export const createProblem = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<ProblemRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreateProblem(permissions)) {
+	({ input }: { input: unknown }): MutationResult<ProblemRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreateProblem(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createProblemSchema.safeParse(input);
@@ -372,15 +368,9 @@ export const createProblem = command(
 
 export const updateProblem = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<ProblemRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditProblem(permissions)) {
+	({ input }: { input: unknown }): MutationResult<ProblemRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditProblem(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateProblemSchema.safeParse(input);
@@ -439,7 +429,7 @@ export const updateProblem = command(
 				: {};
 		let nextStatus: ProblemRow["status"] = row.status;
 		if ("status" in state) {
-			if (!canChangeProblemStatus(permissions)) {
+			if (!canChangeProblemStatus(permissionMask)) {
 				return { success: false, error: "Permission denied: cannot change problem status." };
 			}
 			const nextStatusRaw = String(state.status).trim();
@@ -478,15 +468,9 @@ export const updateProblem = command(
 
 export const lockProblem = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<ProblemRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canChangeProblemStatus(permissions)) {
+	({ input }: { input: unknown }): MutationResult<ProblemRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canChangeProblemStatus(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = lockProblemSchema.safeParse(input);
@@ -518,15 +502,9 @@ export const lockProblem = command(
 
 export const updateProblemStatus = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<ProblemRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canChangeProblemStatus(permissions)) {
+	({ input }: { input: unknown }): MutationResult<ProblemRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canChangeProblemStatus(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateProblemStatusSchema.safeParse(input);

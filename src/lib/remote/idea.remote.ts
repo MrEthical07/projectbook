@@ -1,10 +1,12 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import { getStoryCachedDetail } from "$lib/server/data/story-cache";
 import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
+import { hasPerm } from "$lib/utils/permission";
 
 type IdeaPageInput = {
 	projectId: string;
@@ -94,10 +96,12 @@ const actorNameFor = (actorId: string): string | null => {
 	return member?.name ?? null;
 };
 
-const canCreateIdea = (permissions: EffectivePermissions) => permissions?.idea?.create === true;
-const canEditIdea = (permissions: EffectivePermissions) => permissions?.idea?.edit === true;
-const canChangeIdeaStatus = (permissions: EffectivePermissions) =>
-	permissions?.idea?.statusChange === true;
+const canCreateIdea = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.idea, permissionActionIndex.create);
+const canEditIdea = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.idea, permissionActionIndex.edit);
+const canChangeIdeaStatus = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.idea, permissionActionIndex.statusChange);
 const canTransition = (current: IdeaRow["status"], next: IdeaRow["status"]) =>
 	statusTransitions[current]?.includes(next) ?? false;
 
@@ -264,15 +268,9 @@ export const getIdeaPageData = query("unchecked", (input: IdeaPageInput) => {
 
 export const createIdea = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<IdeaRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreateIdea(permissions)) {
+	({ input }: { input: unknown }): MutationResult<IdeaRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreateIdea(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createIdeaSchema.safeParse(input);
@@ -316,15 +314,9 @@ export const createIdea = command(
 
 export const updateIdea = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<IdeaRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditIdea(permissions)) {
+	({ input }: { input: unknown }): MutationResult<IdeaRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditIdea(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateIdeaSchema.safeParse(input);
@@ -348,7 +340,7 @@ export const updateIdea = command(
 			row.status === "Selected" || row.status === "Rejected" ? row.status : "Considered";
 		let ideaStatus: "Considered" | "Selected" | "Rejected" = currentIdeaStatus;
 		if ("ideaStatus" in state) {
-			if (!canChangeIdeaStatus(permissions)) {
+			if (!canChangeIdeaStatus(permissionMask)) {
 				return { success: false, error: "Permission denied: cannot change idea status." };
 			}
 			const ideaStatusRaw = String(state.ideaStatus).trim();
@@ -366,7 +358,7 @@ export const updateIdea = command(
 			if (typeof state.isArchived !== "boolean") {
 				return { success: false, error: "Invalid archive flag." };
 			}
-			if (state.isArchived !== isArchived && !canChangeIdeaStatus(permissions)) {
+			if (state.isArchived !== isArchived && !canChangeIdeaStatus(permissionMask)) {
 				return { success: false, error: "Permission denied: cannot change idea status." };
 			}
 			isArchived = state.isArchived;
@@ -450,15 +442,9 @@ export const updateIdea = command(
 
 export const selectIdea = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<IdeaRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canChangeIdeaStatus(permissions)) {
+	({ input }: { input: unknown }): MutationResult<IdeaRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canChangeIdeaStatus(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = selectIdeaSchema.safeParse(input);
@@ -494,15 +480,9 @@ export const selectIdea = command(
 
 export const updateIdeaStatus = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<IdeaRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canChangeIdeaStatus(permissions)) {
+	({ input }: { input: unknown }): MutationResult<IdeaRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canChangeIdeaStatus(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateIdeaStatusSchema.safeParse(input);

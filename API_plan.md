@@ -46,7 +46,8 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
    5.1 Roles (Owner, Admin, Editor, Member, Viewer, Limited Access)
    5.2 Domains (project, story, problem, idea, task, feedback, resource, page, calendar, member)
    5.3 Actions (view, create, edit, delete, archive, statusChange)
-   5.4 Default permission matrix per role
+   5.4 Default role permission masks (`rolePermissionMasks`)
+   5.5 Member-level overrides (`isCustom`, `permissionMask`)
 6. API Endpoints (every endpoint with: method, URL, auth, permissions, request body, query params, success response, error responses, examples)
    6.1  Authentication (7 endpoints)
    6.2  Workspace (12 endpoints)
@@ -129,7 +130,7 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 | POST | /api/v1/projects/{projectId}/team/invites | `createProjectInvite()` |
 | POST | /api/v1/projects/{projectId}/team/invites/batch | `sendWorkspaceProjectInvites()` |
 | DELETE | /api/v1/projects/{projectId}/team/invites/{email} | `cancelProjectInvite()` |
-| PUT | /api/v1/projects/{projectId}/team/members/{memberId}/role | `updateProjectMemberRole()` |
+| PUT | /api/v1/projects/{projectId}/team/members/{memberId}/permissions | `updateProjectMemberPermissions()` |
 | PUT | /api/v1/projects/{projectId}/team/roles/{role}/permissions | `updateProjectRolePermissions()` |
 
 ### Stories (4)

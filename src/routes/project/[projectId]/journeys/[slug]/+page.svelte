@@ -151,9 +151,8 @@
                 projectId,
                 journeyId,
                 journey
-            },
-            permissions
-        });
+            }
+});
         if (!result.success) {
             savePhase = "idle";
             return;
@@ -189,9 +188,8 @@
                     ...journey,
                     status: pendingStatus
                 }
-            },
-            permissions
-        });
+            }
+});
         if (!result.success) return;
         journey.status = pendingStatus;
         savedSignature = JSON.stringify({

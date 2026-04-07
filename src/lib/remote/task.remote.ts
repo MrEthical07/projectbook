@@ -1,10 +1,12 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import { getStoryCachedDetail } from "$lib/server/data/story-cache";
 import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
+import { hasPerm } from "$lib/utils/permission";
 
 type TaskPageInput = {
 	projectId: string;
@@ -90,10 +92,12 @@ const actorNameFor = (actorId: string): string | null => {
 	return member?.name ?? null;
 };
 
-const canCreateTask = (permissions: EffectivePermissions) => permissions?.task?.create === true;
-const canEditTask = (permissions: EffectivePermissions) => permissions?.task?.edit === true;
-const canChangeTaskStatus = (permissions: EffectivePermissions) =>
-	permissions?.task?.statusChange === true;
+const canCreateTask = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.task, permissionActionIndex.create);
+const canEditTask = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.task, permissionActionIndex.edit);
+const canChangeTaskStatus = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.task, permissionActionIndex.statusChange);
 const canTransition = (current: TaskRow["status"], next: TaskRow["status"]) =>
 	statusTransitions[current]?.includes(next) ?? false;
 
@@ -274,15 +278,9 @@ export const getTaskPageData = query("unchecked", (input: TaskPageInput) => {
 
 export const createTask = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<TaskRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreateTask(permissions)) {
+	({ input }: { input: unknown }): MutationResult<TaskRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreateTask(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createTaskSchema.safeParse(input);
@@ -328,15 +326,9 @@ export const createTask = command(
 
 export const updateTaskStatus = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<TaskRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canChangeTaskStatus(permissions)) {
+	({ input }: { input: unknown }): MutationResult<TaskRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canChangeTaskStatus(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateTaskStatusSchema.safeParse(input);
@@ -361,15 +353,9 @@ export const updateTaskStatus = command(
 
 export const updateTask = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<TaskRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditTask(permissions)) {
+	({ input }: { input: unknown }): MutationResult<TaskRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditTask(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateTaskSchema.safeParse(input);

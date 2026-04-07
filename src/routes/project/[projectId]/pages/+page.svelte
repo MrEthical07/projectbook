@@ -119,9 +119,8 @@
 				projectId: page.params.projectId,
 				actorId,
 				title
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			mutationError = result.error;
 			return;
@@ -157,9 +156,8 @@
 				projectId: page.params.projectId,
 				pageId: editingId,
 				title: nextTitle
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			mutationError = result.error;
 			return;

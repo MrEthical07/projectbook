@@ -28,7 +28,7 @@ export interface DataStore {
 	team: {
 		members: TeamMember[];
 		invites: Array<{ email: string; role: "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access"; sentDate: string; status: "pending" | "accepted"; projectId?: string }>;
-		rolePermissions: Record<string, RolePermissionMap>;
+		rolePermissions: Record<string, RolePermissionMaskMap>;
 	};
 	settings: {
 		projectName: string;

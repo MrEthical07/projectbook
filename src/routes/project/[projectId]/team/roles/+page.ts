@@ -4,6 +4,6 @@ export async function load({ params }: { params: { projectId: string } }) {
 	const teamRoles = await getProjectTeamRoles(params.projectId);
 	return {
 		members: teamRoles.members,
-		rolePermissions: teamRoles.rolePermissions
+		rolePermissionMasks: teamRoles.rolePermissionMasks
 	};
 }

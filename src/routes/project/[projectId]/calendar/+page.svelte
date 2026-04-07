@@ -297,9 +297,8 @@
 				eventKind,
 				linkedArtifacts: newLinked,
 				tags
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			createError = result.error;
 			return;

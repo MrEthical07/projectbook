@@ -249,9 +249,8 @@
 					evidenceLocked,
 					nextStepsText
 				}
-			},
-			permissions
-		});
+			}
+});
 		if (!result.success) {
 			savePhase = "idle";
 			toast.error("Failed to save changes");

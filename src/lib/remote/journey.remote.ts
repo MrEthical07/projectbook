@@ -1,8 +1,9 @@
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { z } from "zod";
+import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissions } from "$lib/server/auth/authorization";
+import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
 import {
 	journeyDraftTemplateData,
 	journeyEmotionsData
@@ -11,6 +12,7 @@ import {
 	journeyDetailsByKey,
 	journeyDetailKey
 } from "$lib/server/data/journey-cache";
+import { hasPerm } from "$lib/utils/permission";
 
 type JourneyPageInput = {
 	projectId: string;
@@ -84,12 +86,12 @@ const actorNameFor = (actorId: string): string | null => {
 	return member?.name ?? null;
 };
 
-const canCreateJourney = (permissions: EffectivePermissions) =>
-	permissions?.story?.create === true;
-const canEditJourney = (permissions: EffectivePermissions) =>
-	permissions?.story?.edit === true;
-const canChangeJourneyStatus = (permissions: EffectivePermissions) =>
-	permissions?.story?.statusChange === true;
+const canCreateJourney = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.create);
+const canEditJourney = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.edit);
+const canChangeJourneyStatus = (permissionMask: PermissionMask) =>
+	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.statusChange);
 
 export const getJourneys = query("unchecked", (projectId: string): JourneyRow[] => {
 	const scopedProjectId = requireProjectId(projectId);
@@ -130,15 +132,9 @@ export const getJourneyPageData = query("unchecked", (input: JourneyPageInput) =
 
 export const createJourney = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<JourneyRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canCreateJourney(permissions)) {
+	({ input }: { input: unknown }): MutationResult<JourneyRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canCreateJourney(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = createJourneySchema.safeParse(input);
@@ -184,15 +180,9 @@ export const createJourney = command(
 
 export const updateJourney = command(
 	"unchecked",
-	({
-		input,
-		permissions
-	}: {
-		input: unknown;
-		permissions: EffectivePermissions;
-	}): MutationResult<JourneyRow> => {
-		permissions = getTrustedProjectPermissions(input);
-		if (!canEditJourney(permissions)) {
+	({ input }: { input: unknown }): MutationResult<JourneyRow> => {
+		const permissionMask = getTrustedProjectPermissionMask(input);
+		if (!canEditJourney(permissionMask)) {
 			return { success: false, error: "Permission denied" };
 		}
 		const parsed = updateJourneySchema.safeParse(input);
@@ -237,7 +227,7 @@ export const updateJourney = command(
 			const rawStatus = String(candidate.status).trim().toLowerCase();
 			const currentStatus = row.status.toLowerCase();
 			if (rawStatus !== currentStatus) {
-				if (!canChangeJourneyStatus(permissions)) {
+				if (!canChangeJourneyStatus(permissionMask)) {
 					return { success: false, error: "Permission denied: cannot change journey status." };
 				}
 				if (rawStatus !== "draft" && rawStatus !== "archived") {

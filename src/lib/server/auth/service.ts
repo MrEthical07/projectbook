@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { dev } from "$app/environment";
 import {
 	DEFAULT_SESSION_TTL_MS,
 	PASSWORD_RESET_TOKEN_TTL_MS,
@@ -23,6 +24,13 @@ import type {
 } from "./types";
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
+const DEV_ADMIN_NAME = "Dev Admin";
+const DEV_ADMIN_EMAIL = "admin@projectbook.local";
+const DEV_ADMIN_PASSWORD = "DevAdmin#2026";
+
+let devAdminSeeded = false;
+let devAdminSeedPromise: Promise<void> | null = null;
 
 const isExpired = (expiresAt: Date, now = Date.now()): boolean => expiresAt.getTime() <= now;
 
@@ -108,8 +116,53 @@ const revokeAllUserSessions = (userId: string): void => {
 	}
 };
 
+const ensureDevAdminSeeded = async (): Promise<void> => {
+	if (!dev || devAdminSeeded) {
+		return;
+	}
+
+	if (devAdminSeedPromise) {
+		await devAdminSeedPromise;
+		return;
+	}
+
+	devAdminSeedPromise = (async () => {
+		const normalizedEmail = normalizeEmail(DEV_ADMIN_EMAIL);
+		const existingUser = authStore.users.find((user) => user.email === normalizedEmail);
+		const seededPasswordHash = await hashPassword(DEV_ADMIN_PASSWORD);
+		if (existingUser) {
+			existingUser.name = DEV_ADMIN_NAME;
+			existingUser.passwordHash = seededPasswordHash;
+			existingUser.isEmailVerified = true;
+			existingUser.updatedAt = new Date();
+			devAdminSeeded = true;
+			return;
+		}
+
+		const createdAt = new Date();
+		authStore.users.push({
+			id: randomUUID(),
+			name: DEV_ADMIN_NAME,
+			email: normalizedEmail,
+			passwordHash: seededPasswordHash,
+			isEmailVerified: true,
+			createdAt,
+			updatedAt: createdAt,
+			lastLoginAt: null
+		});
+		devAdminSeeded = true;
+	})();
+
+	try {
+		await devAdminSeedPromise;
+	} finally {
+		devAdminSeedPromise = null;
+	}
+};
+
 export const authService = {
 	async registerUser(name: string, email: string, password: string): Promise<SignUpResult> {
+		await ensureDevAdminSeeded();
 		const normalizedEmail = normalizeEmail(email);
 		const existingUser = authStore.users.find((user) => user.email === normalizedEmail);
 		if (existingUser) {
@@ -135,6 +188,7 @@ export const authService = {
 	},
 
 	async authenticate(email: string, password: string): Promise<LoginResult> {
+		await ensureDevAdminSeeded();
 		const user = findUserByEmail(email);
 		if (!user) {
 			return { ok: false, reason: "invalid_credentials" };
@@ -226,6 +280,7 @@ export const authService = {
 	},
 
 	async resendVerificationEmail(email: string): Promise<ResendVerificationResult> {
+		await ensureDevAdminSeeded();
 		const user = findUserByEmail(email);
 		if (!user) {
 			return { status: "not_found" };
@@ -240,6 +295,7 @@ export const authService = {
 	},
 
 	async requestPasswordReset(email: string): Promise<void> {
+		await ensureDevAdminSeeded();
 		const user = findUserByEmail(email);
 		if (!user) {
 			return;
@@ -267,6 +323,7 @@ export const authService = {
 	},
 
 	async resetPassword(token: string, password: string): Promise<ResetPasswordResult> {
+		await ensureDevAdminSeeded();
 		const resetToken = findValidResetToken(token);
 		if (!resetToken) {
 			return { ok: false, reason: "invalid_or_expired_token" };
@@ -287,3 +344,7 @@ export const authService = {
 		return { ok: true, user };
 	}
 };
+
+if (dev) {
+	void ensureDevAdminSeeded();
+}

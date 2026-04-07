@@ -338,126 +338,72 @@ Rate limits are applied to authentication endpoints. Specific limits are configu
 
 ## 5. Permission System
 
+ProjectBook RBAC is mask-based. Canonical reference: [rbac.md](rbac.md).
+
 ### 5.1 Roles
 
-ProjectBook uses a role-based access control (RBAC) system. Each project member is assigned exactly one role.
+Each project member has exactly one role:
 
-| Role | Description |
-|------|-------------|
-| **Owner** | Full control. Can delete project, manage all members, modify all permissions. One per project. |
-| **Admin** | Near-full control. Cannot create or delete projects. Cannot archive members. |
-| **Editor** | Can create and edit all artifacts. Cannot delete artifacts or manage members. Limited status change on resources/pages/calendar. |
-| **Member** | Can create and edit most artifacts. Limited status change (tasks and feedback only). No member management. Read-only calendar editing. |
-| **Viewer** | Read-only access to all artifacts. Can view member list. |
-| **Limited Access** | No permissions. Placeholder for users whose access has been restricted. |
+- `Owner`
+- `Admin`
+- `Editor`
+- `Member`
+- `Viewer`
+- `Limited Access`
 
-### 5.2 Permission Domains
+Roles define default permission masks, not boolean permission maps.
 
-Permissions are organized into 10 domains, each corresponding to an entity type:
+### 5.2 Canonical RBAC Model
 
-| Domain | Entity Type |
-|--------|-------------|
-| `project` | Project settings, archive, delete |
-| `story` | User Stories (also governs Journeys) |
-| `problem` | Problem Statements |
-| `idea` | Ideas / Solution Concepts |
-| `task` | Tasks / Work Items |
-| `feedback` | Feedback / Validation |
-| `resource` | Resources / Documents |
-| `page` | Custom Pages |
-| `calendar` | Calendar Events |
-| `member` | Team Members & Invites |
+- Each project stores `rolePermissionMasks` (one `permissionMask` per role).
+- Each member stores `role`, `permissionMask`, and `isCustom`.
+- `permissionMask` is the single source of truth for authorization.
 
-> **Note:** Journeys share the `story` permission domain.
+Resolution rule:
 
-### 5.3 Actions
+```text
+if isCustom == true:
+  effectiveMask = member.permissionMask
+else:
+  effectiveMask = rolePermissionMasks[member.role]
+```
 
-Each domain supports 6 actions:
+### 5.3 Bit Allocation Strategy
 
-| Action | Description |
-|--------|-------------|
-| `view` | Read/list entities |
-| `create` | Create new entities |
-| `edit` | Modify existing entities |
-| `delete` | Permanently remove entities |
-| `archive` | Archive/unarchive entities |
-| `statusChange` | Change entity status (e.g., Draft → Locked) |
+Permission bits use fixed allocation:
 
-### 5.4 Default Permission Matrix
+```text
+bit = domain_index * 6 + action_index
+```
 
-The table below shows default permissions per role. Project-specific overrides may be applied via `PUT /api/v1/projects/{projectId}/team/roles/{role}/permissions`.
+- Domains: `project`, `story`, `problem`, `idea`, `task`, `feedback`, `resource`, `page`, `calendar`, `member`
+- Actions: `view`, `create`, `edit`, `delete`, `archive`, `statusChange`
 
-#### Owner (full access)
+The current system uses bits `0..59` and reserves `60..63` for append-only growth.
 
-All domains: `view` `create` `edit` `delete` `archive` `statusChange` = **all true**
+### 5.4 Validation Rules
 
-#### Admin
+- Non-view actions require `view` in the same domain.
+- Invalid masks must be rejected by backend validation.
+- Frontend may auto-correct toggles for UX, but backend remains authoritative.
+- Owner role mask is immutable via role-update APIs.
 
-| Domain | view | create | edit | delete | archive | statusChange |
-|--------|------|--------|------|--------|---------|--------------|
-| project | yes | no | yes | no | yes | yes |
-| story | yes | yes | yes | yes | yes | yes |
-| problem | yes | yes | yes | yes | yes | yes |
-| idea | yes | yes | yes | yes | yes | yes |
-| task | yes | yes | yes | yes | yes | yes |
-| feedback | yes | yes | yes | yes | yes | yes |
-| resource | yes | yes | yes | yes | yes | yes |
-| page | yes | yes | yes | yes | yes | yes |
-| calendar | yes | yes | yes | yes | yes | yes |
-| member | yes | yes | yes | yes | **no** | yes |
-
-#### Editor
-
-| Domain | view | create | edit | delete | archive | statusChange |
-|--------|------|--------|------|--------|---------|--------------|
-| project | yes | no | no | no | no | no |
-| story | yes | yes | yes | no | no | yes |
-| problem | yes | yes | yes | no | no | yes |
-| idea | yes | yes | yes | no | no | yes |
-| task | yes | yes | yes | no | no | yes |
-| feedback | yes | yes | yes | no | no | yes |
-| resource | yes | yes | yes | no | no | no |
-| page | yes | yes | yes | no | no | no |
-| calendar | yes | yes | yes | no | no | no |
-| member | yes | no | no | no | no | no |
-
-#### Member
-
-| Domain | view | create | edit | delete | archive | statusChange |
-|--------|------|--------|------|--------|---------|--------------|
-| project | yes | no | no | no | no | no |
-| story | yes | yes | yes | no | no | no |
-| problem | yes | yes | yes | no | no | no |
-| idea | yes | yes | yes | no | no | no |
-| task | yes | yes | yes | no | no | yes |
-| feedback | yes | yes | yes | no | no | yes |
-| resource | yes | yes | yes | no | no | no |
-| page | yes | yes | yes | no | no | no |
-| calendar | yes | yes | no | no | no | no |
-| member | no | no | no | no | no | no |
-
-#### Viewer
-
-All domains: `view` = **true**, everything else = **false**.
-Exception: `member.view` = **true**.
-
-#### Limited Access
-
-All domains: all actions = **false**.
+Helpers and validation are implemented with mask functions such as `hasPerm(...)`, `updatePerm(...)`, and `validatePermissionMaskValue(...)`.
 
 ### 5.5 Permission Enforcement
 
-Permissions are checked server-side on every request:
+Authorization flow on every protected operation:
 
-1. Resolve the user's role for the project (from workspace membership or team membership)
-2. Load the project's role permission map
-3. Map the role to `EffectivePermissions`
-4. Check the relevant `domain.action` for the requested operation
-5. Return `403 PERMISSION_DENIED` if the check fails
+1. Resolve authenticated actor from server session/request context.
+2. Resolve project membership and role.
+3. Load project `rolePermissionMasks`.
+4. Compute effective member `permissionMask` using `isCustom` rule.
+5. Check required capability via `hasPerm(mask, domainIndex, actionIndex)`.
+6. Return `403 PERMISSION_DENIED` when capability is missing.
 
-**Owner permissions cannot be modified** via the role permissions API. Attempting to update Owner permissions returns an error.
+**The Owner role cannot be reassigned** via member permission update APIs.
 
-**The Owner role cannot be assigned** to other members via the role update API.
+**Owner role mask cannot be modified** via role mask update APIs.
 
 ---
 
@@ -502,7 +448,7 @@ The Svelte remote layer is the canonical client/server boundary for the web app.
 - `createProjectInvite` -> `POST /api/v1/projects/{projectId}/team/invites`
 - `cancelProjectInvite` -> `DELETE /api/v1/projects/{projectId}/team/invites/{email}`
 - `updateProjectRolePermissions` -> `PUT /api/v1/projects/{projectId}/team/roles/{role}/permissions`
-- `updateProjectMemberRole` -> `PUT /api/v1/projects/{projectId}/team/members/{memberId}/role`
+- `updateProjectMemberPermissions` -> `PUT /api/v1/projects/{projectId}/team/members/{memberId}/permissions`
 - `updateProjectSettings` -> `PUT /api/v1/projects/{projectId}/settings`
 - `archiveProject` -> `POST /api/v1/projects/{projectId}/archive`
 - `deleteProject` -> `DELETE /api/v1/projects/{projectId}`
@@ -1732,7 +1678,7 @@ List all team members and pending invites for the project.
 
 #### GET `/api/v1/projects/{projectId}/team/roles`
 
-Get the full role permission matrix for the project. Returns permissions for all roles.
+Get project role permission masks and member-level RBAC mask state.
 
 **Auth:** Required
 **Permissions:** `member.view`
@@ -1747,15 +1693,36 @@ Get the full role permission matrix for the project. Returns permissions for all
 {
   "success": true,
   "data": {
-    "Owner": {
-      "project": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-      "story": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true }
+    "rolePermissionMasks": {
+      "Owner": "1152921504606846975",
+      "Admin": "864691128455135221",
+      "Editor": "20016033248999873",
+      "Member": "875734824153537",
+      "Viewer": "18300341342965825",
+      "Limited Access": "0"
     },
-    "Admin": { },
-    "Editor": { },
-    "Member": { },
-    "Viewer": { },
-    "Limited Access": { }
+    "members": [
+      {
+        "id": "mem-1",
+        "name": "Avery Patel",
+        "email": "avery@league.dev",
+        "role": "Owner",
+        "status": "Active",
+        "joinedAt": "2026-02-04",
+        "isCustom": false,
+        "permissionMask": "1152921504606846975"
+      },
+      {
+        "id": "mem-2",
+        "name": "Nia Clark",
+        "email": "nia@league.dev",
+        "role": "Editor",
+        "status": "Active",
+        "joinedAt": "2026-02-05",
+        "isCustom": true,
+        "permissionMask": "20016033248999873"
+      }
+    ]
   }
 }
 ```
@@ -1898,9 +1865,9 @@ Cancel a pending invite.
 
 ---
 
-#### PUT `/api/v1/projects/{projectId}/team/members/{memberId}/role`
+#### PUT `/api/v1/projects/{projectId}/team/members/{memberId}/permissions`
 
-Update a team member's role.
+Update a team member's role and effective permission mask state.
 
 **Auth:** Required
 **Permissions:** `member.edit`
@@ -1914,7 +1881,9 @@ Update a team member's role.
 **Request body:**
 ```json
 {
-  "role": "Editor"
+  "role": "Editor",
+  "isCustom": true,
+  "permissionMask": 987654321
 }
 ```
 
@@ -1922,6 +1891,8 @@ Update a team member's role.
 | Field | Rules |
 |-------|-------|
 | `role` | Required, one of: `Admin`, `Editor`, `Member`, `Viewer`, `Limited Access` |
+| `isCustom` | Required boolean |
+| `permissionMask` | Required uint64-compatible non-negative integer value (decimal). If `isCustom` is false, this must match the selected role mask. |
 
 **Success response:** `200 OK`
 ```json
@@ -1929,7 +1900,9 @@ Update a team member's role.
   "success": true,
   "data": {
     "memberId": "mem-2",
-    "role": "Editor"
+    "role": "Editor",
+    "isCustom": true,
+    "permissionMask": 987654321
   }
 }
 ```
@@ -1938,7 +1911,7 @@ Update a team member's role.
 
 | Status | Code | Condition |
 |--------|------|-----------|
-| 400 | `VALIDATION_ERROR` | Cannot assign Owner role |
+| 400 | `VALIDATION_ERROR` | Cannot assign Owner role, or mask is invalid |
 | 403 | `PERMISSION_DENIED` | Lacks `member.edit` permission |
 | 404 | `NOT_FOUND` | Member not found |
 
@@ -1950,7 +1923,7 @@ Update a team member's role.
 
 #### PUT `/api/v1/projects/{projectId}/team/roles/{role}/permissions`
 
-Update the permission matrix for a specific role in this project.
+Update the default role permission mask for a specific role in this project.
 
 **Auth:** Required
 **Permissions:** `member.edit`
@@ -1964,23 +1937,17 @@ Update the permission matrix for a specific role in this project.
 **Request body:**
 ```json
 {
-  "permissions": {
-    "project": { "view": true, "create": false, "edit": true, "delete": false, "archive": true, "statusChange": true },
-    "story": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-    "problem": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-    "idea": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-    "task": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-    "feedback": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-    "resource": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-    "page": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-    "calendar": { "view": true, "create": true, "edit": true, "delete": true, "archive": true, "statusChange": true },
-    "member": { "view": true, "create": true, "edit": true, "delete": true, "archive": false, "statusChange": true }
-  }
+  "role": "Admin",
+  "permissionMask": 123456789
 }
 ```
 
 **Validation rules:**
-Each domain must provide all 6 boolean action fields: `view`, `create`, `edit`, `delete`, `archive`, `statusChange`.
+
+- `role` must match the path role.
+- `permissionMask` must be a valid non-negative uint64-compatible mask value.
+- Non-view actions require view in the same domain.
+- Owner role mask is immutable.
 
 **Success response:** `200 OK`
 ```json
@@ -1988,7 +1955,8 @@ Each domain must provide all 6 boolean action fields: `view`, `create`, `edit`, 
   "success": true,
   "data": {
     "role": "Admin",
-    "permissions": { }
+    "permissionMask": 123456789,
+    "customMembersUnaffected": 2
   }
 }
 ```
@@ -1997,12 +1965,12 @@ Each domain must provide all 6 boolean action fields: `view`, `create`, `edit`, 
 
 | Status | Code | Condition |
 |--------|------|-----------|
-| 400 | `VALIDATION_ERROR` | Invalid permissions structure, or attempting to modify Owner role |
+| 400 | `VALIDATION_ERROR` | Invalid mask value, view-dependency violation, or attempting to modify Owner role |
 | 403 | `PERMISSION_DENIED` | Lacks `member.edit` permission |
 | 404 | `NOT_FOUND` | Role permissions not found for project |
 
 **Restrictions:**
-- **Owner permissions cannot be modified.** Attempting to update the Owner role returns an error.
+- **Owner role mask cannot be modified.** Attempting to update the Owner role returns an error.
 
 ---
 
@@ -4987,31 +4955,20 @@ This section provides a complete reference of all entity types used in the API.
 
 ### 8.2 Core Entity Schemas
 
-#### ActionPermission
+#### PermissionMask
 ```typescript
-{
-  view: boolean
-  create: boolean
-  edit: boolean
-  delete: boolean
-  archive: boolean
-  statusChange: boolean
-}
+type PermissionMask = string // decimal-encoded uint64-compatible bitset
 ```
 
-#### EffectivePermissions
+#### RolePermissionMasks
 ```typescript
 {
-  project: ActionPermission
-  story: ActionPermission
-  problem: ActionPermission
-  idea: ActionPermission
-  task: ActionPermission
-  feedback: ActionPermission
-  resource: ActionPermission
-  page: ActionPermission
-  calendar: ActionPermission
-  member: ActionPermission
+  Owner: PermissionMask
+  Admin: PermissionMask
+  Editor: PermissionMask
+  Member: PermissionMask
+  Viewer: PermissionMask
+  "Limited Access": PermissionMask
 }
 ```
 
@@ -5054,7 +5011,7 @@ This section provides a complete reference of all entity types used in the API.
 {
   user: { id: string, name: string, email?: string }
   role: ProjectRole
-  permissions: EffectivePermissions
+  permissionMask: PermissionMask
 }
 ```
 
@@ -5065,6 +5022,8 @@ This section provides a complete reference of all entity types used in the API.
   name: string
   email: string
   role: ProjectRole
+  permissionMask?: PermissionMask
+  isCustom?: boolean
   status: "Active" | "Invited"
   joinedAt?: string            // ISO date
   updatedAt?: string
