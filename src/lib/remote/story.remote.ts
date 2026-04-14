@@ -1,36 +1,25 @@
 import { command, query } from "$app/server";
-import { error } from "@sveltejs/kit";
 import { z } from "zod";
-import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
-import { datastore } from "$lib/server/data/datastore";
 import {
-	getAuthenticatedRequestUser,
-	getTrustedProjectPermissionMask
-} from "$lib/server/auth/authorization";
-import {
-	storyAddOnCatalogData,
-	storyDraftTemplateData
-} from "$lib/server/data/stories.data";
-import {
-	storyDetailsByKey,
-	storyDetailKey
-} from "$lib/server/data/story-cache";
-import { hasPerm } from "$lib/utils/permission";
+	encodePathSegment,
+	remoteMutationRequest,
+	remoteQueryRequest,
+	type MutationResult
+} from "$lib/server/api/remote";
 
 type StoryPageInput = {
 	projectId: string;
 	slug: string;
 };
 
-type MutationResult<T> =
-	| {
-			success: true;
-			data: T;
-	  }
-	| {
-			success: false;
-			error: string;
-	  };
+type ArtifactMetadata = {
+	owner: string;
+	createdBy: string;
+	createdAt: string;
+	lastEditedBy: string;
+	lastEditedAt: string;
+	lastUpdated: string;
+};
 
 const createStorySchema = z.object({
 	projectId: z.string().min(1),
@@ -43,255 +32,210 @@ const updateStorySchema = z.object({
 	story: z.record(z.string(), z.unknown())
 });
 
-const inProjectScope = (projectId: string, itemProjectId?: string) =>
-	itemProjectId === projectId;
-
-const projectExists = (projectId: string) =>
-	datastore.projects.some((item) => item.id === projectId);
-
-const requireProjectId = (projectId: string): string => {
-	const scopedProjectId = projectId.trim();
-	if (!scopedProjectId) {
-		error(400, "Project id is required.");
-	}
-	if (!projectExists(scopedProjectId)) {
-		error(404, "Project not found.");
-	}
-	return scopedProjectId;
+const defaultStoryDraft = {
+	title: "",
+	description: "",
+	status: "draft",
+	persona: {
+		name: "",
+		bio: "",
+		role: "",
+		age: 0,
+		job: "",
+		edu: ""
+	},
+	context: "",
+	empathyMap: {
+		says: "",
+		thinks: "",
+		does: "",
+		feels: ""
+	},
+	painPoints: [""],
+	hypothesis: [""],
+	notes: ""
 };
 
-const slugify = (value: string) =>
-	value
-		.toLowerCase()
-		.trim()
-		.replace(/[^a-z0-9\s-]/g, "")
-		.replace(/\s+/g, "-")
-		.replace(/-+/g, "-");
-
-const uniqueId = (title: string, existing: string[]): string | null => {
-	const base = slugify(title);
-	if (!base) return null;
-	if (!existing.includes(base)) return base;
-	let suffix = 2;
-	while (existing.includes(`${base}-${suffix}`)) {
-		suffix += 1;
+const fallbackStoryAddOnCatalog = [
+	{
+		type: "goals_success",
+		name: "Goals & Success Criteria",
+		description: "Define what success looks like from the user's perspective.",
+		tag: "Recommended"
+	},
+	{
+		type: "jtbd",
+		name: "Jobs To Be Done (JTBD)",
+		description: "Capture functional, supporting, and emotional jobs.",
+		tag: "Recommended"
+	},
+	{
+		type: "assumptions",
+		name: "Assumptions",
+		description: "Make hidden assumptions explicit.",
+		tag: "Optional"
+	},
+	{
+		type: "constraints",
+		name: "Constraints",
+		description: "Capture environmental, technical, or behavioral limits.",
+		tag: "Optional"
+	},
+	{
+		type: "risks_unknowns",
+		name: "Risks & Unknowns",
+		description: "Identify uncertainty early.",
+		tag: "Recommended"
+	},
+	{
+		type: "evidence",
+		name: "Evidence / Research References",
+		description: "Ground the story in data and references.",
+		tag: "Optional"
+	},
+	{
+		type: "scenarios",
+		name: "Scenarios / Edge Cases",
+		description: "Capture non-happy paths and expectations.",
+		tag: "Optional"
 	}
-	return `${base}-${suffix}`;
+];
+
+const asString = (value: unknown): string =>
+	typeof value === "string" ? value.trim() : "";
+
+const normalizeStoryStatus = (value: unknown): "draft" | "locked" | "archived" => {
+	const normalized = asString(value).toLowerCase();
+	if (normalized === "locked") {
+		return "locked";
+	}
+	if (normalized === "archived") {
+		return "archived";
+	}
+	return "draft";
 };
 
-const actorNameFor = (): string | null => {
-	try {
-		return getAuthenticatedRequestUser().name;
-	} catch {
-		return null;
+const toApiStoryStatus = (value: unknown): "Draft" | "Locked" | "Archived" | null => {
+	const normalized = asString(value).toLowerCase();
+	if (normalized === "draft") {
+		return "Draft";
 	}
+	if (normalized === "locked") {
+		return "Locked";
+	}
+	if (normalized === "archived") {
+		return "Archived";
+	}
+	return null;
 };
 
-const initialsFor = (name: string) =>
-	name
-		.split(" ")
-		.map((part) => part[0] ?? "")
-		.join("")
-		.slice(0, 2)
-		.toUpperCase();
+const mapStoryMetadata = (
+	payload: Record<string, unknown>,
+	storyPayload: { owner?: unknown; lastUpdated?: unknown }
+): ArtifactMetadata => {
+	const owner = asString(payload.owner) || asString(storyPayload.owner);
+	const createdBy = asString(payload.createdBy) || owner;
+	const createdAt = asString(payload.createdAt);
+	const lastEditedBy = asString(payload.lastEditedBy) || owner;
+	const lastEditedAt = asString(payload.lastEditedAt) || asString(storyPayload.lastUpdated);
+	const lastUpdated = asString(payload.lastUpdated) || asString(storyPayload.lastUpdated);
 
-const logProjectActivity = (
-	projectId: string,
-	userName: string,
-	action: string,
-	artifact: string,
-	href: string
-) => {
-	const at = new Date().toISOString();
-	const item = {
-		id: `activity-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-		projectId,
-		user: userName,
-		initials: initialsFor(userName),
-		action,
-		artifact,
-		href,
-		at
+	return {
+		owner,
+		createdBy,
+		createdAt,
+		lastEditedBy,
+		lastEditedAt,
+		lastUpdated
 	};
-	datastore.projectDashboard.activity.unshift(item);
-	datastore.activity.unshift(item);
 };
 
-const canCreateStory = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.create);
-const canEditStory = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.edit);
-const canChangeStoryStatus = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.statusChange);
-
-export const getStories = query("unchecked", (projectId: string): StoryRow[] => {
-	const scopedProjectId = requireProjectId(projectId);
-	return datastore.stories.filter((item) => inProjectScope(scopedProjectId, item.projectId));
+export const getStories = query("unchecked", async (projectId: string): Promise<StoryRow[]> => {
+	const payload = await remoteQueryRequest<{ items?: StoryRow[] }>({
+		path: `/projects/${encodePathSegment(projectId)}/stories`,
+		method: "GET"
+	});
+	return Array.isArray(payload.items) ? payload.items : [];
 });
 
-export const getStoryPageData = query("unchecked", (input: StoryPageInput) => {
-	const scopedProjectId = requireProjectId(input.projectId);
-	const key = storyDetailKey(scopedProjectId, input.slug);
-	const cached = storyDetailsByKey.get(key);
-	const row = datastore.stories.find(
-		(item) => item.id === input.slug && inProjectScope(scopedProjectId, item.projectId)
-	);
-	if (!row) {
-		error(404, "Story not found.");
-	}
-	const baseStory = {
-		...storyDraftTemplateData,
-		title: row.title,
-		status: row.status.toLowerCase(),
-		persona: {
-			...storyDraftTemplateData.persona,
-			name: row.personaName
-		}
+export const getStoryPageData = query("unchecked", async (input: StoryPageInput) => {
+	const payload = await remoteQueryRequest<{
+		story?: { title?: string; status?: string; owner?: string; lastUpdated?: string };
+		metadata?: Record<string, unknown>;
+		detail?: Record<string, unknown>;
+		addOnCatalog?: unknown[];
+		addOnSections?: unknown[];
+	}>({
+		path: `/projects/${encodePathSegment(input.projectId)}/stories/${encodePathSegment(input.slug)}`,
+		method: "GET"
+	});
+
+	const detail = payload.detail ?? {};
+	const metadataPayload =
+		payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
+	const addOnSections = Array.isArray(payload.addOnSections)
+		? payload.addOnSections
+		: Array.isArray((detail as Record<string, unknown>).addOnSections)
+			? ((detail as Record<string, unknown>).addOnSections as unknown[])
+			: [];
+	const story = {
+		...defaultStoryDraft,
+		...detail,
+		title:
+			typeof payload.story?.title === "string"
+				? payload.story.title
+				: (detail.title as string | undefined) ?? defaultStoryDraft.title,
+		status: normalizeStoryStatus((detail.status as string | undefined) ?? payload.story?.status ?? "Draft")
 	};
-	const story = structuredClone(cached ?? baseStory);
-	story.title = row.title;
-	story.status = String(row.status).toLowerCase();
-	story.persona = {
-		...story.persona,
-		name: row.personaName
-	};
+
 	return {
 		story,
-		addOnCatalog: storyAddOnCatalogData,
-		addOnSections:
-			cached && Array.isArray((cached as Record<string, unknown>).addOnSections)
-				? structuredClone(
-						(cached as Record<string, unknown>).addOnSections as unknown[]
-					)
-				: []
+		metadata: mapStoryMetadata(metadataPayload, payload.story ?? {}),
+		addOnCatalog:
+			Array.isArray(payload.addOnCatalog) && payload.addOnCatalog.length > 0
+				? payload.addOnCatalog
+				: fallbackStoryAddOnCatalog,
+		addOnSections
 	};
 });
 
 export const createStory = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<StoryRow> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canCreateStory(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
-
+	async ({ input }: { input: unknown }): Promise<MutationResult<StoryRow>> => {
 		const parsed = createStorySchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
 
-		const actorName = actorNameFor();
-		if (!actorName) {
-			return { success: false, error: "Invalid actor" };
-		}
-
-		const projectId = requireProjectId(parsed.data.projectId);
-		const existingIds = datastore.stories
-			.filter((item) => inProjectScope(projectId, item.projectId))
-			.map((item) => item.id);
-		const id = uniqueId(parsed.data.title, existingIds);
-		if (!id) {
-			return {
-				success: false,
-				error: "Title must include letters or numbers."
-			};
-		}
-		const created: StoryRow = {
-			id,
-			projectId,
-			title: parsed.data.title.trim(),
-			personaName: "",
-			painPointsCount: 0,
-			problemHypothesesCount: 0,
-			owner: actorName,
-			lastUpdated: new Date().toISOString().slice(0, 10),
-			status: "Draft",
-			isOrphan: true
-		};
-
-		datastore.stories.unshift(created);
-		logProjectActivity(
-			projectId,
-			actorName,
-			"created Story",
-			created.title,
-			`/project/${projectId}/stories/${id}`
-		);
-		return { success: true, data: created };
+		return remoteMutationRequest<StoryRow>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/stories`,
+			method: "POST",
+			body: {
+				title: parsed.data.title
+			}
+		});
 	}
 );
 
 export const updateStory = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<StoryRow> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canEditStory(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
-
+	async ({ input }: { input: unknown }): Promise<MutationResult<StoryRow>> => {
 		const parsed = updateStorySchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-
-		const projectId = requireProjectId(parsed.data.projectId);
-		const row = datastore.stories.find(
-			(item) => item.id === parsed.data.storyId && inProjectScope(projectId, item.projectId)
-		);
-		if (!row) {
-			return { success: false, error: "Story not found" };
+		const storyPayload = structuredClone(parsed.data.story) as Record<string, unknown>;
+		const canonicalStatus = toApiStoryStatus(storyPayload.status);
+		if (canonicalStatus) {
+			storyPayload.status = canonicalStatus;
 		}
 
-		const candidate = parsed.data.story;
-
-		const persona =
-			candidate.persona && typeof candidate.persona === "object"
-				? (candidate.persona as Record<string, unknown>)
-				: null;
-		const painPoints = Array.isArray(candidate.painPoints) ? candidate.painPoints : [];
-		const hypothesis = Array.isArray(candidate.hypothesis) ? candidate.hypothesis : [];
-		if ("title" in candidate) {
-			const normalizedTitle = String(candidate.title).trim();
-			if (!normalizedTitle) {
-				return { success: false, error: "Title is required." };
+		return remoteMutationRequest<StoryRow>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/stories/${encodePathSegment(parsed.data.storyId)}`,
+			method: "PUT",
+			body: {
+				story: storyPayload
 			}
-			row.title = normalizedTitle;
-		}
-		row.personaName = String(persona?.name ?? row.personaName).trim();
-		row.painPointsCount = painPoints.filter((item) => String(item ?? "").trim().length > 0).length;
-		row.problemHypothesesCount = hypothesis.filter((item) => String(item ?? "").trim().length > 0).length;
-		if ("status" in candidate) {
-			const rawStatus = String(candidate.status).trim().toLowerCase();
-			const currentStatus = row.status.toLowerCase();
-			if (rawStatus !== currentStatus) {
-				if (!canChangeStoryStatus(permissionMask)) {
-					return { success: false, error: "Permission denied: cannot change story status." };
-				}
-				if (rawStatus !== "draft" && rawStatus !== "locked" && rawStatus !== "archived") {
-					return { success: false, error: "Invalid story status." };
-				}
-				row.status =
-					rawStatus === "locked" ? "Locked" : rawStatus === "archived" ? "Archived" : "Draft";
-			}
-		}
-		row.lastUpdated = new Date().toISOString().slice(0, 10);
-
-		const templateKeys = Object.keys(storyDraftTemplateData);
-		const safeCandidate = Object.fromEntries(
-			Object.entries(candidate).filter(([key]) => templateKeys.includes(key))
-		);
-		const normalizedStory: typeof storyDraftTemplateData = {
-			...storyDraftTemplateData,
-			...safeCandidate,
-			title: row.title,
-			status: row.status.toLowerCase()
-		};
-		const addOnSections = Array.isArray(candidate.addOnSections)
-			? structuredClone(candidate.addOnSections)
-			: [];
-		const cacheEntry = { ...normalizedStory, addOnSections } as typeof storyDraftTemplateData & { addOnSections: unknown[] };
-		storyDetailsByKey.set(storyDetailKey(projectId, parsed.data.storyId), structuredClone(cacheEntry) as typeof storyDraftTemplateData);
-
-		return { success: true, data: row };
+		});
 	}
 );

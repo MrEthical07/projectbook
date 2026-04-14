@@ -34,6 +34,15 @@
         content: Record<string, unknown>;
     };
 
+    type ArtifactMetadata = {
+        owner: string;
+        createdBy: string;
+        createdAt: string;
+        lastEditedBy: string;
+        lastEditedAt: string;
+        lastUpdated: string;
+    };
+
     let { data } = $props();
     let projectId = $derived(page.params.projectId);
     let storyId = $derived(page.params.slug);
@@ -74,6 +83,14 @@
     });
     const isReadOnly = $derived(story.status === "locked" || story.status === "archived" || !canEditStory);
     let addOnSections = $state<AddOnSection[]>([]);
+    let metadata = $state<ArtifactMetadata>({
+        owner: "",
+        createdBy: "",
+        createdAt: "",
+        lastEditedBy: "",
+        lastEditedAt: "",
+        lastUpdated: ""
+    });
     let addSectionOpen = $state(false);
     let removeSectionOpen = $state(false);
     let removeTarget = $state<AddOnSection | null>(null);
@@ -299,6 +316,15 @@
                 description: string;
                 tag: string;
             }>;
+            const incomingMetadata = (d.metadata ?? {}) as Partial<ArtifactMetadata>;
+            metadata = {
+                owner: incomingMetadata.owner ?? "",
+                createdBy: incomingMetadata.createdBy ?? incomingMetadata.owner ?? "",
+                createdAt: incomingMetadata.createdAt ?? "",
+                lastEditedBy: incomingMetadata.lastEditedBy ?? incomingMetadata.owner ?? "",
+                lastEditedAt: incomingMetadata.lastEditedAt ?? incomingMetadata.lastUpdated ?? "",
+                lastUpdated: incomingMetadata.lastUpdated ?? ""
+            };
             story = s;
             addOnSections = a;
             savePhase = "idle";
@@ -1094,10 +1120,10 @@
             <Dialog.Description>Read-only metadata for this story.</Dialog.Description>
         </Dialog.Header>
         <div class="grid gap-2 text-sm">
-            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Avery Patel</span></div>
-            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-01 10:30</span></div>
-            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Nia Clark</span></div>
-            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 09:10</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>{metadata.createdBy || "Unknown"}</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>{metadata.createdAt || "Unknown"}</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>{metadata.lastEditedBy || "Unknown"}</span></div>
+            <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>{metadata.lastEditedAt || metadata.lastUpdated || "Unknown"}</span></div>
             <div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{story.status.toUpperCase()}</span></div>
         </div>
         <Dialog.Footer>

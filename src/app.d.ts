@@ -429,6 +429,7 @@ declare global {
 				permissionMask?: PermissionMask;
 				permissions?: EffectivePermissions;
 			};
+			projectPermissionMask?: PermissionMask;
 			session?: {
 				id?: string;
 				expiresAt?: TimestampString;

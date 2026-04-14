@@ -55,9 +55,13 @@ pnpm run dev
 
 ## Architecture Summary
 
-UI (`+page.svelte`) -> route load (`+page.ts`) -> remote functions (`src/lib/remote`) -> data modules (`src/lib/server/data`)
+UI (`+page.svelte`) -> route load (`+page.ts`) -> remote functions (`src/lib/remote`) -> API helpers (`src/lib/server/api`) -> backend (`/api/v1/*`)
 
 No service layer and no command-pattern abstraction are used.
+
+Auth and permission hydration:
+- Access/refresh tokens are stored in HttpOnly cookies.
+- Frontend server hooks hydrate locals from backend-issued `/api/v1/system/session-context` token snapshots (`projectbook_permission_ctx`) instead of per-request `whoami` calls.
 
 ## Contribution
 

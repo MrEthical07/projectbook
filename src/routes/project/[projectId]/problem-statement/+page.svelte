@@ -50,6 +50,7 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createError = $state("");
+	let isCreatingProblem = $state(false);
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
 	let stats = $derived({
@@ -87,6 +88,7 @@
 	const truncate = (text: string, max = 94) => (text.length > max ? `${text.slice(0, max)}...` : text);
 
 	const createProblem = async () => {
+		if (isCreatingProblem) return;
 		createError = "";
 		if (!canCreateProblem) return;
 		if (!permissions) {
@@ -100,6 +102,7 @@
 		}
 		const title = createTitle.trim();
 		if (!title) return;
+		isCreatingProblem = true;
 		const result = await createProblemRemote({
 			input: {
 				projectId: page.params.projectId,
@@ -107,6 +110,7 @@
 				statement: title
 			}
 });
+		isCreatingProblem = false;
 		if (!result.success) {
 			createError = result.error;
 			return;
@@ -171,7 +175,9 @@
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createProblem} disabled={!createTitle.trim()}>Create Problem</Button>
+							<Button onclick={createProblem} disabled={!createTitle.trim() || isCreatingProblem}>
+								{isCreatingProblem ? "Creating..." : "Create Problem"}
+							</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 					</Dialog.Root>

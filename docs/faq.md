@@ -1,8 +1,12 @@
 # FAQ
 
-## Why no backend yet?
+## How does the frontend talk to the backend?
 
-Current implementation uses in-memory datastore modules to validate product flow and architecture quickly. Remote contracts are already structured as a future API boundary.
+Route loaders and actions call remote functions, and remotes call backend endpoints through `src/lib/server/api/remote.ts` helpers. This keeps the page contract stable while allowing backend payload normalization in one place.
+
+## What happens if the API is down?
+
+Network and backend-unavailable failures are normalized into structured API errors. The UI receives a consistent message: backend API is unavailable, with a retry hint (and local-dev hint to start the backend server).
 
 ## Why no auto-save?
 
@@ -10,7 +14,7 @@ Explicit Save keeps writes intentional, avoids noisy updates during drafting, an
 
 ## Why no service layer?
 
-Remote files already contain boundary logic (validation, permissions, mutation). Adding a service layer would duplicate responsibility and increase complexity.
+Remote files already contain boundary logic (validation, permissions, mapping, mutation result handling). Adding a service layer would duplicate responsibility and increase complexity.
 
 ## Why full object replacement instead of patching?
 

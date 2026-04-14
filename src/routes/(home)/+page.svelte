@@ -81,6 +81,7 @@
 	let projects = $derived<Project[]>(structuredClone(data.projects) as Project[]);
 	let invites = $derived<Invite[]>(structuredClone(data.invites) as Invite[]);
 	let inviteActionError = $state("");
+	let inviteActionInFlight = $state<"accept" | "decline" | null>(null);
 
 	let acceptOpen = $state(false);
 	let acceptTarget = $state<Invite | null>(null);
@@ -98,10 +99,13 @@
 	};
 
 	const acceptInvite = async () => {
+		if (inviteActionInFlight) return;
 		inviteActionError = "";
 		const target = acceptTarget;
 		if (!target) return;
+		inviteActionInFlight = "accept";
 		const result = await acceptProjectInvite({ inviteId: target.id });
+		inviteActionInFlight = null;
 		if (!result.success) {
 			inviteActionError = result.error;
 			return;
@@ -112,10 +116,13 @@
 	};
 
 	const declineInvite = async () => {
+		if (inviteActionInFlight) return;
 		inviteActionError = "";
 		const target = declineTarget;
 		if (!target) return;
+		inviteActionInFlight = "decline";
 		const result = await declineProjectInvite({ inviteId: target.id });
+		inviteActionInFlight = null;
 		if (!result.success) {
 			inviteActionError = result.error;
 			return;
@@ -489,9 +496,9 @@
 		{/if}
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button onclick={acceptInvite}>
+			<Button onclick={acceptInvite} disabled={inviteActionInFlight !== null}>
 				<Check class="h-4 w-4" />
-				Accept invitation
+				{inviteActionInFlight === "accept" ? "Accepting..." : "Accept invitation"}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -513,9 +520,9 @@
 		{/if}
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button variant="destructive" onclick={declineInvite}>
+			<Button variant="destructive" onclick={declineInvite} disabled={inviteActionInFlight !== null}>
 				<Trash2 class="mr-2 h-4 w-4" />
-				Decline invitation
+				{inviteActionInFlight === "decline" ? "Declining..." : "Decline invitation"}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

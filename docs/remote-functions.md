@@ -6,7 +6,7 @@ A remote file (`*.remote.ts`) is the execution boundary between routes and data.
 
 - Reads use `query(...)`.
 - Writes use `command(...)`.
-- Both operate over datastore-backed domain state.
+- Both operate over backend API-backed domain state via shared API helpers.
 
 ## Rules
 
@@ -25,7 +25,7 @@ Standard read path:
 
 1. Parse/normalize input scope (for example, `projectId`).
 2. Guard existence and visibility constraints.
-3. Read from datastore collections.
+3. Read from backend endpoint via `remoteQueryRequest`.
 4. Return page-specific payload shape.
 
 ## Write Function Structure
@@ -35,7 +35,7 @@ Standard write path:
 1. Parse input with Zod.
 2. Check action permission for the domain.
 3. Validate status transitions and linked references.
-4. Update row state and detail cache state.
+4. Send normalized mutation payload via `remoteMutationRequest`.
 5. Return `{ success, data | error }`.
 
 ## Validation With Zod
@@ -46,6 +46,6 @@ Every mutation command parses unknown input using a schema before state mutation
 
 All writes enforce permissions in remote, not in page code. UI checks are UX controls; remote checks are authority controls.
 
-## Remote As Future API Boundary
+## Remote As Stable API Boundary
 
-Current implementation is in-process and datastore-backed. The remote contract is intentionally shaped so it can map to external API handlers later without changing route mental models.
+Current implementation is API-backed. Remote contracts remain the stable boundary so route/page mental models stay unchanged even when backend payloads evolve.

@@ -4,12 +4,20 @@ import { fail, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { signInSchema, signUpSchema } from "$lib/schemas/auth.schema";
 import {
-	clearSessionCookie,
+	clearApiAuthTokenCookies,
 	consumeAuthNoticeCookie,
-	getSessionCookie,
-	setSessionCookie
+	getAccessTokenCookie
 } from "$lib/server/auth/cookies";
-import { authService } from "$lib/server/auth/service";
+import { isApiRequestError } from "$lib/server/api/error-mapping";
+import {
+	loginRequest,
+	sessionContextRequest,
+	signupRequest
+} from "$lib/server/api/auth";
+import {
+	readPermissionContextToken,
+	writePermissionContextToken
+} from "$lib/server/auth/permission-context-token";
 import { checkRateLimit, withFormError } from "$lib/server/auth/rate-limit";
 
 const SIGN_IN_FORM_ID = "sign-in-form";
@@ -21,25 +29,31 @@ const loadForms = async () => {
 	return { loginForm, signupForm };
 };
 
-export const load: PageServerLoad = async ({ cookies }) => {
-	const sessionToken = getSessionCookie(cookies);
-	if (sessionToken) {
-		const sessionUser = authService.getUserBySessionToken(sessionToken);
-		if (sessionUser) {
+export const load: PageServerLoad = async (event) => {
+	const accessToken = getAccessTokenCookie(event.cookies);
+	if (accessToken) {
+		try {
+			const permissionContext = readPermissionContextToken(event.cookies);
+			if (!permissionContext) {
+				const sessionContext = await sessionContextRequest(event);
+				writePermissionContextToken(event.cookies, sessionContext);
+			}
 			redirect(303, "/");
+		} catch (err) {
+			console.error("[auth:load] session context failed", err);
+			clearApiAuthTokenCookies(event.cookies);
 		}
-		authService.invalidateSessionByToken(sessionToken);
-		clearSessionCookie(cookies);
 	}
 
-	const notice = consumeAuthNoticeCookie(cookies);
+	const notice = consumeAuthNoticeCookie(event.cookies);
 	const { loginForm, signupForm } = await loadForms();
 
 	return { loginForm, signupForm, notice };
 };
 
 export const actions: Actions = {
-	login: async ({ request, cookies, getClientAddress }) => {
+	login: async (event) => {
+		const { request, getClientAddress } = event;
 		const loginForm = await superValidate(request, zod4(signInSchema), { id: SIGN_IN_FORM_ID });
 		const signupForm = await superValidate(zod4(signUpSchema), { id: SIGN_UP_FORM_ID });
 
@@ -54,24 +68,38 @@ export const actions: Actions = {
 			return fail(429, { loginForm, signupForm });
 		}
 
-		const result = await authService.authenticate(loginForm.data.email, loginForm.data.password);
-		if (!result.ok) {
-			withFormError(
-				loginForm,
-				result.reason === "email_unverified"
-					? "Please verify your email before signing in."
-					: "Invalid credentials."
-			);
-			return fail(400, { loginForm, signupForm });
+		try {
+			await loginRequest(event, {
+				email: loginForm.data.email,
+				password: loginForm.data.password,
+				remember: loginForm.data.remember
+			});
+		} catch (err) {
+			console.error("[auth:login] request failed", err);
+			if (isApiRequestError(err)) {
+				const reason = err.reason.toLowerCase();
+				withFormError(
+					loginForm,
+					err.statusCode === 401 || reason.includes("credential")
+						? "Invalid credentials."
+						: reason.includes("verify")
+							? "Please verify your email before signing in."
+							: err.userMessage
+				);
+				return fail(err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 400, {
+					loginForm,
+					signupForm
+				});
+			}
+			withFormError(loginForm, "Sign-in failed. Please try again.");
+			return fail(500, { loginForm, signupForm });
 		}
-
-		const session = authService.createSession(result.user.id, loginForm.data.remember);
-		setSessionCookie(cookies, session.token, session.expiresAt);
 
 		redirect(303, "/");
 	},
 
-	signup: async ({ request, getClientAddress }) => {
+	signup: async (event) => {
+		const { request, getClientAddress } = event;
 		const signupForm = await superValidate(request, zod4(signUpSchema), { id: SIGN_UP_FORM_ID });
 		const loginForm = await superValidate(zod4(signInSchema), { id: SIGN_IN_FORM_ID });
 
@@ -86,16 +114,30 @@ export const actions: Actions = {
 			return fail(429, { loginForm, signupForm });
 		}
 
-		const result = await authService.registerUser(
-			signupForm.data.name,
-			signupForm.data.email,
-			signupForm.data.password
-		);
-
-		if (!result.ok) {
+		try {
+			await signupRequest(event, {
+				name: signupForm.data.name,
+				email: signupForm.data.email,
+				password: signupForm.data.password,
+				confirmPassword: signupForm.data.confirmPassword
+			});
+		} catch (err) {
+			console.error("[auth:signup] request failed", err);
+			if (isApiRequestError(err)) {
+				signupForm.valid = false;
+				signupForm.errors.email = [
+					err.statusCode === 409
+						? "Email is already registered. Sign in instead."
+						: err.userMessage
+				];
+				return fail(err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 400, {
+					loginForm,
+					signupForm
+				});
+			}
 			signupForm.valid = false;
-			signupForm.errors.email = ["Email is already registered. Sign in instead."];
-			return fail(400, { loginForm, signupForm });
+			signupForm.errors._errors = ["Signup failed. Please try again."];
+			return fail(500, { loginForm, signupForm });
 		}
 
 		signupForm.data.password = "";

@@ -1,5 +1,7 @@
 # Security Best Practices Report
 
+> Status note (2026-04-14): The frontend has since migrated auth and remote boundaries to backend API transport (`src/lib/server/api/*`) with access/refresh cookie handling. Some references below to legacy datastore/session-only behavior are historical and should be revalidated against current code before use as active findings.
+
 ## Executive summary
 
 This codebase has a few solid building blocks, including `HttpOnly` session cookies, Argon2 password hashing, and hashed reset/verification tokens. The highest-risk issues are architectural: privileged mutation paths still accept high-sensitivity caller-controlled fields (`actorId`, `isCustom`, and `permissionMask` payloads), the runtime seeds a known superadmin account with hard-coded credentials, and project access is derived from a global in-memory home user instead of the authenticated session. Those issues together make privilege escalation and full project compromise realistic if this code is exposed beyond a local prototype.

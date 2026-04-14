@@ -1,3 +1,5 @@
+> Status note (2026-04-14): This threat model was authored before the completed frontend API migration. Auth and remote flows now run through `src/lib/server/api/*` and access/refresh cookie auth. Legacy references to datastore-bound runtime assumptions should be treated as historical unless explicitly revalidated.
+
 ## Executive summary
 
 This repository models an internet-exposed, multi-user, multi-tenant project platform, but the current runtime implementation is not safe for that deployment model. The dominant risks are broken authorization in Svelte remote mutations, default superadmin bootstrapping with known credentials, and identity/tenant isolation being derived from global in-memory state rather than the authenticated session. The documented backend contract in `API-GUIDELINES.md:450-468` would reduce some of this risk if implemented faithfully, but the code that exists today in `src/lib/remote/*`, `src/hooks.server.ts`, and `src/lib/server/auth/*` leaves privilege escalation and cross-project compromise as the highest-priority manual review paths.
@@ -29,7 +31,7 @@ This repository models an internet-exposed, multi-user, multi-tenant project pla
 
 ### Primary components
 
-- Browser and API clients authenticate with either the `projectbook_session` cookie or future bearer tokens, per `API-GUIDELINES.md:84-135` and `openapi.yaml:62-79`.
+- Browser and API clients authenticate with `projectbook_access` and `projectbook_refresh` cookies (or equivalent bearer tokens for API clients), per `API-GUIDELINES.md` and `openapi.yaml:62-79`.
 - The SvelteKit web app performs session lookup and public-route gating in `src/hooks.server.ts:13-46`.
 - Auth flows are handled by server actions in `src/routes/auth/+page.server.ts:41-107`, `src/routes/auth/forgot-password/+page.server.ts:10-24`, `src/routes/auth/reset-password/+page.server.ts:20-42`, and `src/routes/auth/verify/+page.server.ts:32-64`.
 - Project data access and mutations currently go through Svelte remote functions in `src/lib/remote/*`; this matches the intended architecture in `API-GUIDELINES.md:466-508`.
@@ -43,8 +45,8 @@ This repository models an internet-exposed, multi-user, multi-tenant project pla
   - Channel: browser form POST/GET over HTTP(S)
   - Security guarantees: schema validation via Zod/superforms, process-local rate limiting, cookie issuance with `HttpOnly` and `SameSite=Strict` in `src/lib/server/auth/cookies.ts:5-20`
   - Validation: request schema checks in `src/routes/auth/+page.server.ts:43-46`, `src/routes/auth/reset-password/+page.server.ts:22-25`, and related files
-- Browser with session cookie -> SvelteKit hook/session lookup
-  - Data: `projectbook_session` cookie value
+- Browser with auth token cookies -> SvelteKit hook/session lookup
+  - Data: `projectbook_access` and `projectbook_refresh` cookie values
   - Channel: inbound request cookies
   - Security guarantees: hashed session lookup in `src/lib/server/auth/service.ts:184-194`; unauthenticated users redirected away from non-public routes in `src/hooks.server.ts:37-44`
   - Validation: no per-project authorization at this boundary

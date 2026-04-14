@@ -50,6 +50,7 @@
 
 	let createOpen = $state(false);
 	let createTitle = $state("");
+	let isCreatingPage = $state(false);
 	let mutationError = $state("");
 
 	let editingId = $state("");
@@ -102,6 +103,7 @@
 	};
 
 	const createPage = async () => {
+		if (isCreatingPage) return;
 		mutationError = "";
 		if (!permissions || !canCreatePage) {
 			mutationError = "You do not have permission to create pages.";
@@ -114,6 +116,7 @@
 		}
 		const title = createTitle.trim();
 		if (!title) return;
+		isCreatingPage = true;
 		const result = await createPageRemote({
 			input: {
 				projectId: page.params.projectId,
@@ -121,6 +124,7 @@
 				title
 			}
 });
+		isCreatingPage = false;
 		if (!result.success) {
 			mutationError = result.error;
 			return;
@@ -223,7 +227,9 @@
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createPage} disabled={!canCreatePage || !createTitle.trim()}>Create Page</Button>
+							<Button onclick={createPage} disabled={!canCreatePage || !createTitle.trim() || isCreatingPage}>
+								{isCreatingPage ? "Creating..." : "Create Page"}
+							</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 				</Dialog.Root>

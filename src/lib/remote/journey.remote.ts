@@ -1,36 +1,25 @@
 import { command, query } from "$app/server";
-import { error } from "@sveltejs/kit";
 import { z } from "zod";
-import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
-import { datastore } from "$lib/server/data/datastore";
 import {
-	getAuthenticatedRequestUser,
-	getTrustedProjectPermissionMask
-} from "$lib/server/auth/authorization";
-import {
-	journeyDraftTemplateData,
-	journeyEmotionsData
-} from "$lib/server/data/journeys.data";
-import {
-	journeyDetailsByKey,
-	journeyDetailKey
-} from "$lib/server/data/journey-cache";
-import { hasPerm } from "$lib/utils/permission";
+	encodePathSegment,
+	remoteMutationRequest,
+	remoteQueryRequest,
+	type MutationResult
+} from "$lib/server/api/remote";
 
 type JourneyPageInput = {
 	projectId: string;
 	slug: string;
 };
 
-type MutationResult<T> =
-	| {
-			success: true;
-			data: T;
-	  }
-	| {
-			success: false;
-			error: string;
-	  };
+type ArtifactMetadata = {
+	owner: string;
+	createdBy: string;
+	createdAt: string;
+	lastEditedBy: string;
+	lastEditedAt: string;
+	lastUpdated: string;
+};
 
 const createJourneySchema = z.object({
 	projectId: z.string().min(1),
@@ -43,217 +32,146 @@ const updateJourneySchema = z.object({
 	journey: z.record(z.string(), z.unknown())
 });
 
-const inProjectScope = (projectId: string, itemProjectId?: string) =>
-	itemProjectId === projectId;
-
-const projectExists = (projectId: string) =>
-	datastore.projects.some((item) => item.id === projectId);
-
-const requireProjectId = (projectId: string): string => {
-	const scopedProjectId = projectId.trim();
-	if (!scopedProjectId) {
-		error(400, "Project id is required.");
-	}
-	if (!projectExists(scopedProjectId)) {
-		error(404, "Project not found.");
-	}
-	return scopedProjectId;
+const defaultJourneyDraft = {
+	title: "",
+	description: "",
+	status: "draft",
+	persona: {
+		name: "",
+		bio: "",
+		role: "",
+		age: 0,
+		job: "",
+		edu: ""
+	},
+	context: "",
+	stages: [],
+	notes: ""
 };
 
-const slugify = (value: string) =>
-	value
-		.toLowerCase()
-		.trim()
-		.replace(/[^a-z0-9\s-]/g, "")
-		.replace(/\s+/g, "-")
-		.replace(/-+/g, "-");
+const asString = (value: unknown): string =>
+	typeof value === "string" ? value.trim() : "";
 
-const uniqueId = (title: string, existing: string[]): string | null => {
-	const base = slugify(title);
-	if (!base) return null;
-	if (!existing.includes(base)) return base;
-	let suffix = 2;
-	while (existing.includes(`${base}-${suffix}`)) {
-		suffix += 1;
+const normalizeJourneyStatus = (value: unknown): "draft" | "archived" => {
+	const normalized = asString(value).toLowerCase();
+	if (normalized === "archived") {
+		return "archived";
 	}
-	return `${base}-${suffix}`;
+	return "draft";
 };
 
-const actorNameFor = (): string | null => {
-	try {
-		return getAuthenticatedRequestUser().name;
-	} catch {
-		return null;
+const toApiJourneyStatus = (value: unknown): "Draft" | "Archived" | null => {
+	const normalized = asString(value).toLowerCase();
+	if (normalized === "draft") {
+		return "Draft";
 	}
+	if (normalized === "archived") {
+		return "Archived";
+	}
+	return null;
 };
 
-const canCreateJourney = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.create);
-const canEditJourney = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.edit);
-const canChangeJourneyStatus = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.story, permissionActionIndex.statusChange);
+const mapJourneyMetadata = (
+	payload: Record<string, unknown>,
+	journeyPayload: { owner?: unknown; lastUpdated?: unknown }
+): ArtifactMetadata => {
+	const owner = asString(payload.owner) || asString(journeyPayload.owner);
+	const createdBy = asString(payload.createdBy) || owner;
+	const createdAt = asString(payload.createdAt);
+	const lastEditedBy = asString(payload.lastEditedBy) || owner;
+	const lastEditedAt =
+		asString(payload.lastEditedAt) || asString(journeyPayload.lastUpdated);
+	const lastUpdated =
+		asString(payload.lastUpdated) || asString(journeyPayload.lastUpdated);
 
-export const getJourneys = query("unchecked", (projectId: string): JourneyRow[] => {
-	const scopedProjectId = requireProjectId(projectId);
-	return datastore.journeys.filter((item) => inProjectScope(scopedProjectId, item.projectId));
+	return {
+		owner,
+		createdBy,
+		createdAt,
+		lastEditedBy,
+		lastEditedAt,
+		lastUpdated
+	};
+};
+
+export const getJourneys = query("unchecked", async (projectId: string): Promise<JourneyRow[]> => {
+	const payload = await remoteQueryRequest<{ items?: JourneyRow[] }>({
+		path: `/projects/${encodePathSegment(projectId)}/journeys`,
+		method: "GET"
+	});
+	return Array.isArray(payload.items) ? payload.items : [];
 });
 
-export const getJourneyPageData = query("unchecked", (input: JourneyPageInput) => {
-	const scopedProjectId = requireProjectId(input.projectId);
-	const key = journeyDetailKey(scopedProjectId, input.slug);
-	const cached = journeyDetailsByKey.get(key);
-	const row = datastore.journeys.find(
-		(item) => item.id === input.slug && inProjectScope(scopedProjectId, item.projectId)
-	);
-	if (!row) {
-		error(404, "Journey not found.");
-	}
-	const baseJourney = {
-		...journeyDraftTemplateData,
-		title: row.title,
-		status: row.status.toLowerCase(),
-		persona: {
-			...journeyDraftTemplateData.persona,
-			name: row.linkedPersonas[0] ?? ""
-		}
+export const getJourneyPageData = query("unchecked", async (input: JourneyPageInput) => {
+	const payload = await remoteQueryRequest<{
+		journey?: { title?: string; status?: string; owner?: string; lastUpdated?: string };
+		metadata?: Record<string, unknown>;
+		detail?: Record<string, unknown>;
+		emotionOptions?: string[];
+	}>({
+		path: `/projects/${encodePathSegment(input.projectId)}/journeys/${encodePathSegment(input.slug)}`,
+		method: "GET"
+	});
+
+	const detail = payload.detail ?? {};
+	const metadataPayload =
+		payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
+	const journey = {
+		...defaultJourneyDraft,
+		...detail,
+		title:
+			typeof payload.journey?.title === "string"
+				? payload.journey.title
+				: (detail.title as string | undefined) ?? defaultJourneyDraft.title,
+		status: normalizeJourneyStatus(
+			(detail.status as string | undefined) ?? payload.journey?.status ?? "Draft"
+		)
 	};
-	const journey = structuredClone(cached ?? baseJourney);
-	journey.title = row.title;
-	journey.status = String(row.status).toLowerCase();
-	journey.persona = {
-		...journey.persona,
-		name: row.linkedPersonas[0] ?? ""
-	};
+
 	return {
 		journey,
-		emotions: journeyEmotionsData
+		metadata: mapJourneyMetadata(metadataPayload, payload.journey ?? {}),
+		emotions: Array.isArray(payload.emotionOptions) ? payload.emotionOptions : []
 	};
 });
 
 export const createJourney = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<JourneyRow> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canCreateJourney(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
+	async ({ input }: { input: unknown }): Promise<MutationResult<JourneyRow>> => {
 		const parsed = createJourneySchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actorName = actorNameFor();
-		if (!actorName) {
-			return { success: false, error: "Invalid actor" };
-		}
 
-		const projectId = requireProjectId(parsed.data.projectId);
-		const id = uniqueId(
-			parsed.data.title,
-			datastore.journeys
-				.filter((item) => inProjectScope(projectId, item.projectId))
-				.map((item) => item.id)
-		);
-		if (!id) {
-			return {
-				success: false,
-				error: "Title must include letters or numbers."
-			};
-		}
-
-		const created: JourneyRow = {
-			id,
-			projectId,
-			title: parsed.data.title.trim(),
-			linkedPersonas: [],
-			stagesCount: 0,
-			painPointsCount: 0,
-			owner: actorName,
-			lastUpdated: new Date().toISOString().slice(0, 10),
-			status: "Draft",
-			isOrphan: true
-		};
-
-		datastore.journeys.unshift(created);
-		return { success: true, data: created };
+		return remoteMutationRequest<JourneyRow>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/journeys`,
+			method: "POST",
+			body: {
+				title: parsed.data.title
+			}
+		});
 	}
 );
 
 export const updateJourney = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<JourneyRow> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canEditJourney(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
+	async ({ input }: { input: unknown }): Promise<MutationResult<JourneyRow>> => {
 		const parsed = updateJourneySchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-
-		const projectId = requireProjectId(parsed.data.projectId);
-		const row = datastore.journeys.find(
-			(item) => item.id === parsed.data.journeyId && inProjectScope(projectId, item.projectId)
-		);
-		if (!row) {
-			return { success: false, error: "Journey not found" };
+		const journeyPayload = structuredClone(parsed.data.journey) as Record<string, unknown>;
+		const canonicalStatus = toApiJourneyStatus(journeyPayload.status);
+		if (canonicalStatus) {
+			journeyPayload.status = canonicalStatus;
 		}
 
-		const candidate = parsed.data.journey;
-
-		const persona =
-			candidate.persona && typeof candidate.persona === "object"
-				? (candidate.persona as Record<string, unknown>)
-				: null;
-		const stages = Array.isArray(candidate.stages) ? candidate.stages : [];
-		const painPointsCount = stages.reduce((count, stage) => {
-			if (!stage || typeof stage !== "object") return count;
-			const points = (stage as { painPoints?: unknown }).painPoints;
-			if (!Array.isArray(points)) return count;
-			return count + points.filter((item) => String(item ?? "").trim().length > 0).length;
-		}, 0);
-		const personaName = String(persona?.name ?? "").trim();
-
-		if ("title" in candidate) {
-			const nextTitle = String(candidate.title).trim();
-			if (!nextTitle) {
-				return { success: false, error: "Title is required." };
+		return remoteMutationRequest<JourneyRow>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/journeys/${encodePathSegment(parsed.data.journeyId)}`,
+			method: "PUT",
+			body: {
+				journey: journeyPayload
 			}
-			row.title = nextTitle;
-		}
-		row.linkedPersonas = personaName ? [personaName] : [];
-		row.stagesCount = stages.length;
-		row.painPointsCount = painPointsCount;
-		if ("status" in candidate) {
-			const rawStatus = String(candidate.status).trim().toLowerCase();
-			const currentStatus = row.status.toLowerCase();
-			if (rawStatus !== currentStatus) {
-				if (!canChangeJourneyStatus(permissionMask)) {
-					return { success: false, error: "Permission denied: cannot change journey status." };
-				}
-				if (rawStatus !== "draft" && rawStatus !== "archived") {
-					return { success: false, error: "Invalid journey status." };
-				}
-				row.status = rawStatus === "archived" ? "Archived" : "Draft";
-			}
-		}
-		row.lastUpdated = new Date().toISOString().slice(0, 10);
-
-		const templateKeys = Object.keys(journeyDraftTemplateData);
-		const safeCandidate = Object.fromEntries(
-			Object.entries(candidate).filter(([key]) => templateKeys.includes(key))
-		);
-		const normalizedJourney: typeof journeyDraftTemplateData = {
-			...journeyDraftTemplateData,
-			...safeCandidate,
-			title: row.title,
-			status: row.status.toLowerCase()
-		};
-		journeyDetailsByKey.set(
-			journeyDetailKey(projectId, parsed.data.journeyId),
-			structuredClone(normalizedJourney)
-		);
-
-		return { success: true, data: row };
+		});
 	}
 );

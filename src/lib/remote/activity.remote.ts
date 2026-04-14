@@ -1,6 +1,8 @@
 import { query } from "$app/server";
-import { error } from "@sveltejs/kit";
-import { datastore } from "$lib/server/data/datastore";
+import {
+	encodePathSegment,
+	remoteQueryRequest
+} from "$lib/server/api/remote";
 
 type HomeActivityInput = {
 	limit?: number;
@@ -11,57 +13,33 @@ type ProjectActivityInput = {
 	limit?: number;
 };
 
-type LoggedActivity = ProjectActivityItem | HomeActivityItem;
-
-const sortByDateDesc = (a: LoggedActivity, b: LoggedActivity) => {
-	const aDate = "at" in a ? Date.parse(a.at) : Date.parse(a.occurredAt);
-	const bDate = "at" in b ? Date.parse(b.at) : Date.parse(b.occurredAt);
-	return bDate - aDate;
+const appendLimit = (path: string, limit?: number): string => {
+	if (typeof limit !== "number" || !Number.isFinite(limit) || limit <= 0) {
+		return path;
+	}
+	return `${path}?limit=${Math.trunc(limit)}`;
 };
 
-const inProjectScope = (projectId: string, itemProjectId?: string) =>
-	itemProjectId === projectId;
-
 export const getUserActivity = query("unchecked", (input: HomeActivityInput) => {
-	const limit = input.limit ?? 50;
-	return datastore.activity
-		.filter((item): item is HomeActivityItem => "projectName" in item && "occurredAt" in item)
-		.slice()
-		.sort(sortByDateDesc)
-		.slice(0, limit);
+	return remoteQueryRequest<HomeActivityItem[]>({
+		path: appendLimit("/home/activity", input.limit),
+		method: "GET"
+	});
 });
 
 export const getUserDashboardActivity = query("unchecked", (input: HomeActivityInput) => {
-	const limit = input.limit ?? 10;
-	const homeActivity = datastore.activity.filter(
-		(item): item is HomeActivityItem => "projectName" in item && "occurredAt" in item
-	);
-	const involved = homeActivity
-		.filter((item) => item.involved)
-		.slice()
-		.sort(sortByDateDesc);
-	const global = homeActivity
-		.filter((item) => !item.involved)
-		.slice()
-		.sort(sortByDateDesc);
-	return [...involved, ...global].slice(0, limit);
+	return remoteQueryRequest<HomeActivityItem[]>({
+		path: appendLimit("/home/dashboard-activity", input.limit),
+		method: "GET"
+	});
 });
 
 export const getProjectActivity = query("unchecked", (input: ProjectActivityInput) => {
-	const projectId = input.projectId?.trim();
-	if (!projectId) {
-		error(400, "Project id is required.");
-	}
-	const projectExists =
-		datastore.projects.some((item) => item.id === projectId);
-	if (!projectExists) {
-		error(404, "Project not found.");
-	}
-
-	const limit = input.limit ?? 20;
-	return datastore.projectDashboard.activity
-		.filter((item) => inProjectScope(projectId, item.projectId))
-		.slice()
-		.sort(sortByDateDesc)
-		.slice(0, limit);
+	return remoteQueryRequest<ProjectActivityItem[]>({
+		path: appendLimit(
+			`/projects/${encodePathSegment(input.projectId)}/activity`,
+			input.limit
+		),
+		method: "GET"
+	});
 });

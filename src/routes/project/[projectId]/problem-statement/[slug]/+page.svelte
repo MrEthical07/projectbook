@@ -1025,10 +1025,10 @@ $effect(() => {
 			<Dialog.Description>Read-only metadata for this problem statement.</Dialog.Description>
 		</Dialog.Header>
 		<div class="grid gap-2 text-sm">
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Alex Morgan</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-03 09:20</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Priya Shah</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 11:10</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>{data.metadata?.createdBy ?? data.metadata?.owner ?? "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>{data.metadata?.createdAt ?? "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>{data.metadata?.lastEditedBy ?? data.metadata?.owner ?? "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>{data.metadata?.lastEditedAt ?? data.metadata?.lastUpdated ?? "Unknown"}</span></div>
 			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{status}</span></div>
 		</div>
 		<Dialog.Footer>

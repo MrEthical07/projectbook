@@ -829,10 +829,10 @@
 			<Dialog.Description>Read-only metadata for this feedback artifact.</Dialog.Description>
 		</Dialog.Header>
 		<div class="grid gap-2 text-sm">
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>Rae Chen</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>2026-02-07 14:20</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>Alex Morgan</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>2026-02-09 13:05</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created by</span><span>{data.metadata?.createdBy ?? data.metadata?.owner ?? "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Created at</span><span>{data.metadata?.createdAt ?? data.metadata?.createdDate ?? "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited by</span><span>{data.metadata?.lastEditedBy ?? data.metadata?.owner ?? "Unknown"}</span></div>
+			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last edited at</span><span>{data.metadata?.lastEditedAt ?? data.metadata?.lastUpdated ?? "Unknown"}</span></div>
 			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{pageStatus}</span></div>
 		</div>
 		<Dialog.Footer>

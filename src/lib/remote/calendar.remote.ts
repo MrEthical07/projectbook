@@ -1,41 +1,44 @@
 import { command, query } from "$app/server";
-import { error } from "@sveltejs/kit";
 import { z } from "zod";
-import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
-import { datastore } from "$lib/server/data/datastore";
 import {
-	getAuthenticatedRequestUser,
-	getTrustedProjectPermissionMask
-} from "$lib/server/auth/authorization";
-import {
-	calendarEventDetailData,
-	calendarReferenceData
-} from "$lib/server/data/calendar.data";
-import { hasPerm } from "$lib/utils/permission";
+	encodePathSegment,
+	remoteMutationRequest,
+	remoteQueryRequest,
+	type MutationResult
+} from "$lib/server/api/remote";
 
 type CalendarEventInput = {
 	projectId: string;
 	eventId: string;
 };
 
-type MutationResult<T> =
-	| {
-			success: true;
-			data: T;
-	  }
-	| {
-			success: false;
-			error: string;
-	  };
+type CalendarEventDetail = {
+	id: string;
+	title: string;
+	type: "Derived" | "Manual";
+	date: string;
+	allDay: boolean;
+	owner: string;
+	eventKind?: string;
+	tags?: string[];
+	description?: string;
+	location?: string;
+	linkedArtifacts?: string[];
+	createdAt: string;
+	lastEdited: string;
+	sourceTitle?: string;
+	startTime?: string;
+	endTime?: string;
+};
 
 const createEventSchema = z.object({
 	projectId: z.string().min(1),
-	title: z.string().min(1),
-	start: z.string().min(1),
-	end: z.string().min(1),
+	title: z.string().trim().min(1),
+	start: z.string().trim().min(1),
+	end: z.string().trim().min(1),
 	allDay: z.boolean(),
-	startTime: z.string().optional(),
-	endTime: z.string().optional(),
+	startTime: z.string().trim().optional(),
+	endTime: z.string().trim().optional(),
 	owner: z.string().trim().min(1),
 	phase: z.enum(["Empathize", "Define", "Ideate", "Prototype", "Test", "None"]),
 	description: z.string(),
@@ -56,258 +59,305 @@ const deleteEventSchema = z.object({
 	eventId: z.string().min(1)
 });
 
-const inProjectScope = (projectId: string, itemProjectId?: string) =>
-	itemProjectId === projectId;
+const asRecord = (value: unknown): Record<string, unknown> =>
+	value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
 
-const projectExists = (projectId: string) =>
-	datastore.projects.some((item) => item.id === projectId);
+const asString = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 
-const requireProjectId = (projectId: string): string => {
-	const scopedProjectId = projectId.trim();
-	if (!scopedProjectId) {
-		error(400, "Project id is required.");
+const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+
+const asStringArray = (value: unknown): string[] =>
+	asArray(value)
+		.map((item) => asString(item))
+		.filter((item) => item.length > 0);
+
+const normalizeEventType = (value: string): CalendarEventType =>
+	value === "Derived" ? "Derived" : "Manual";
+
+const normalizeArtifactType = (value: string): CalendarEvent["artifactType"] => {
+	if (value === "Task" || value === "Feedback") {
+		return value;
 	}
-	if (!projectExists(scopedProjectId)) {
-		error(404, "Project not found.");
-	}
-	return scopedProjectId;
+	return "Manual";
 };
 
-const actorNameFor = (): string | null => {
-	try {
-		return getAuthenticatedRequestUser().name;
-	} catch {
+const normalizePhase = (value: string): CalendarEvent["phase"] => {
+	if (value === "Empathize" || value === "Define" || value === "Ideate" || value === "Prototype" || value === "Test") {
+		return value;
+	}
+	return "None";
+};
+
+const mapListEvent = (value: unknown): CalendarEvent | null => {
+	const row = asRecord(value);
+	const id = asString(row.id);
+	const title = asString(row.title);
+	const start = asString(row.start);
+	if (!id || !title || !start) {
 		return null;
 	}
-};
 
-const requiredString = (value: unknown, path: string): string => {
-	if (typeof value !== "string") {
-		error(500, `Calendar payload is missing '${path}'.`);
+	const createdAt = asString(row.createdAt) || start;
+	const allDay = typeof row.allDay === "boolean" ? row.allDay : true;
+
+	const event: CalendarEvent = {
+		id,
+		title,
+		type: normalizeEventType(asString(row.type)),
+		start,
+		end: asString(row.end) || start,
+		allDay,
+		owner: asString(row.owner),
+		phase: normalizePhase(asString(row.phase)),
+		artifactType: normalizeArtifactType(asString(row.artifactType)),
+		createdAt,
+		sourceTitle: asString(row.sourceTitle) || undefined,
+		description: asString(row.description) || undefined,
+		location: asString(row.location) || undefined,
+		eventKind: asString(row.eventKind) || undefined,
+		linkedArtifacts: asStringArray(row.linkedArtifacts),
+		tags: asStringArray(row.tags)
+	};
+
+	if (!allDay) {
+		event.startTime = asString(row.startTime) || undefined;
+		event.endTime = asString(row.endTime) || undefined;
 	}
-	return value;
+
+	return event;
 };
 
-const requiredStringArray = (value: unknown, path: string): string[] => {
-	if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
-		error(500, `Calendar payload has invalid '${path}'.`);
+const mapDetailEvent = (value: unknown): CalendarEventDetail | null => {
+	const row = asRecord(value);
+	const id = asString(row.id);
+	const title = asString(row.title);
+	const date = asString(row.date) || asString(row.start);
+	if (!id || !title || !date) {
+		return null;
 	}
-	return value;
+
+	const allDay = typeof row.allDay === "boolean" ? row.allDay : true;
+	const event: CalendarEventDetail = {
+		id,
+		title,
+		type: normalizeEventType(asString(row.type)),
+		date,
+		allDay,
+		owner: asString(row.owner),
+		eventKind: asString(row.eventKind) || undefined,
+		tags: asStringArray(row.tags),
+		description: asString(row.description) || undefined,
+		location: asString(row.location) || undefined,
+		linkedArtifacts: asStringArray(row.linkedArtifacts),
+		createdAt: asString(row.createdAt) || date,
+		lastEdited: asString(row.lastEdited) || asString(row.createdAt) || date,
+		sourceTitle: asString(row.sourceTitle) || undefined
+	};
+
+	if (!allDay) {
+		event.startTime = asString(row.startTime) || undefined;
+		event.endTime = asString(row.endTime) || undefined;
+	}
+
+	return event;
 };
 
-const canCreateEvent = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.calendar, permissionActionIndex.create);
-const canEditEvent = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.calendar, permissionActionIndex.edit);
-const canDeleteEvent = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.calendar, permissionActionIndex.delete);
+const mapPhaseChoices = (value: unknown): CalendarEvent["phase"][] => {
+	const output: CalendarEvent["phase"][] = [];
+	for (const item of asArray(value)) {
+		const phase = normalizePhase(asString(item));
+		if (!output.includes(phase)) {
+			output.push(phase);
+		}
+	}
+	if (output.length === 0) {
+		return ["None", "Empathize", "Define", "Ideate", "Prototype", "Test"];
+	}
+	return output;
+};
 
-export const getCalendarData = query("unchecked", (projectId: string) => {
-	const scopedProjectId = requireProjectId(projectId);
+const normalizeUpdateState = (value: unknown): Record<string, unknown> => {
+	const state = { ...asRecord(value) };
+	const date = asString(state.date);
+	if (date) {
+		state.start = date;
+		state.end = date;
+	}
+	delete state.date;
+
+	if (typeof state.title === "string") {
+		state.title = state.title.trim();
+	}
+	if (typeof state.eventKind === "string") {
+		state.eventKind = state.eventKind.trim();
+	}
+	if (typeof state.location === "string") {
+		state.location = state.location.trim();
+	}
+	if (typeof state.startTime === "string") {
+		state.startTime = state.startTime.trim();
+	}
+	if (typeof state.endTime === "string") {
+		state.endTime = state.endTime.trim();
+	}
+	if (Array.isArray(state.linkedArtifacts)) {
+		state.linkedArtifacts = asStringArray(state.linkedArtifacts);
+	}
+	if (Array.isArray(state.tags)) {
+		state.tags = asStringArray(state.tags);
+	}
+
+	return state;
+};
+
+export const getCalendarData = query("unchecked", async (projectId: string) => {
+	const payload = await remoteQueryRequest<{
+		events?: unknown[];
+		reference?: {
+			phaseChoices?: unknown[];
+			manualKinds?: unknown[];
+			linkedArtifactOptions?: unknown[];
+		};
+	}>({
+		path: `/projects/${encodePathSegment(projectId)}/calendar`,
+		method: "GET"
+	});
+
+	const reference = asRecord(payload.reference);
+
 	return {
-		events: datastore.calendar.filter((item) => inProjectScope(scopedProjectId, item.projectId)),
-		reference: calendarReferenceData
+		events: asArray(payload.events)
+			.map(mapListEvent)
+			.filter((item): item is CalendarEvent => item !== null),
+		reference: {
+			phaseChoices: mapPhaseChoices(reference.phaseChoices),
+			manualKinds: asStringArray(reference.manualKinds),
+			linkedArtifactOptions: asStringArray(reference.linkedArtifactOptions)
+		}
 	};
 });
 
-export const getCalendarEventData = query("unchecked", (input: CalendarEventInput) => {
-	const scopedProjectId = requireProjectId(input.projectId);
-	const event = datastore.calendar.find(
-		(item) => item.id === input.eventId && inProjectScope(scopedProjectId, item.projectId)
-	);
+export const getCalendarEventData = query("unchecked", async (input: CalendarEventInput) => {
+	const payload = await remoteQueryRequest<{
+		event?: unknown;
+		reference?: {
+			phaseChoices?: unknown[];
+			manualKinds?: unknown[];
+			linkedArtifactOptions?: unknown[];
+		};
+	}>({
+		path: `/projects/${encodePathSegment(input.projectId)}/calendar/${encodePathSegment(input.eventId)}`,
+		method: "GET"
+	});
+
+	const reference = asRecord(payload.reference);
+	const event = mapDetailEvent(payload.event);
 	if (!event) {
-		error(404, "Calendar event not found.");
+		throw new Error("Calendar event payload is invalid");
 	}
+
 	return {
-		event: {
-			...calendarEventDetailData,
-			id: event.id,
-			title: event.title,
-			type: event.type,
-			date: event.start,
-			allDay: event.allDay,
-			eventKind: typeof event.eventKind === "string" ? event.eventKind : "",
-			description: typeof event.description === "string" ? event.description : "",
-			location: typeof event.location === "string" ? event.location : "",
-			linkedArtifacts: Array.isArray(event.linkedArtifacts) ? event.linkedArtifacts : [],
-			tags: Array.isArray(event.tags) ? event.tags : [],
-			owner: event.owner,
-			createdAt: event.createdAt,
-			lastEdited: event.lastEdited ?? event.createdAt
-		},
-		reference: calendarReferenceData
+		event,
+		reference: {
+			phaseChoices: mapPhaseChoices(reference.phaseChoices),
+			manualKinds: asStringArray(reference.manualKinds),
+			linkedArtifactOptions: asStringArray(reference.linkedArtifactOptions)
+		}
 	};
 });
 
 export const createCalendarEvent = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<CalendarEvent> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canCreateEvent(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
+	async ({ input }: { input: unknown }): Promise<MutationResult<CalendarEvent>> => {
 		const parsed = createEventSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actorName = actorNameFor();
-		if (!actorName) {
-			return { success: false, error: "Invalid actor" };
+
+		const result = await remoteMutationRequest<Record<string, unknown>>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/calendar`,
+			method: "POST",
+			body: {
+				title: parsed.data.title,
+				start: parsed.data.start,
+				end: parsed.data.end,
+				allDay: parsed.data.allDay,
+				startTime: parsed.data.startTime,
+				endTime: parsed.data.endTime,
+				owner: parsed.data.owner,
+				phase: parsed.data.phase,
+				description: parsed.data.description,
+				location: parsed.data.location,
+				eventKind: parsed.data.eventKind,
+				linkedArtifacts: parsed.data.linkedArtifacts,
+				tags: parsed.data.tags
+			}
+		});
+
+		if (!result.success) {
+			return result;
 		}
-		const projectId = requireProjectId(parsed.data.projectId);
-		const created: CalendarEvent = {
-			id: `evt-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-			projectId,
-			title: parsed.data.title.trim(),
-			type: "Manual",
-			start: parsed.data.start,
-			end: parsed.data.end,
-			startTime: parsed.data.allDay ? undefined : parsed.data.startTime,
-			endTime: parsed.data.allDay ? undefined : parsed.data.endTime,
-			allDay: parsed.data.allDay,
-			owner: parsed.data.owner.trim(),
-			phase: parsed.data.phase,
-			artifactType: "Manual",
-			description: parsed.data.description,
-			location: parsed.data.location,
-			eventKind: parsed.data.eventKind,
-			linkedArtifacts: parsed.data.linkedArtifacts,
-			tags: parsed.data.tags,
-			createdAt: new Date().toISOString().slice(0, 10)
+
+		const merged = {
+			id: asString(result.data.id),
+			title: asString(result.data.title) || parsed.data.title,
+			type: asString(result.data.type) || "Manual",
+			start: asString(result.data.start) || parsed.data.start,
+			end: asString(result.data.end) || parsed.data.end,
+			allDay: typeof result.data.allDay === "boolean" ? result.data.allDay : parsed.data.allDay,
+			startTime: asString(result.data.startTime) || parsed.data.startTime,
+			endTime: asString(result.data.endTime) || parsed.data.endTime,
+			owner: asString(result.data.owner) || parsed.data.owner,
+			phase: asString(result.data.phase) || parsed.data.phase,
+			artifactType: asString(result.data.artifactType) || "Manual",
+			description: asString(result.data.description) || parsed.data.description,
+			location: asString(result.data.location) || parsed.data.location,
+			eventKind: asString(result.data.eventKind) || parsed.data.eventKind,
+			linkedArtifacts: result.data.linkedArtifacts ?? parsed.data.linkedArtifacts,
+			tags: result.data.tags ?? parsed.data.tags,
+			createdAt: asString(result.data.createdAt) || parsed.data.start
 		};
-		datastore.calendar.unshift(created);
-		return { success: true, data: created };
+
+		const mapped = mapListEvent(merged);
+		if (!mapped) {
+			return { success: false, error: "Invalid event payload" };
+		}
+		return { success: true, data: mapped };
 	}
 );
 
 export const updateCalendarEvent = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<CalendarEvent> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canEditEvent(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
+	async ({ input }: { input: unknown }): Promise<MutationResult<{ id: string; title: string; lastEdited: string }>> => {
 		const parsed = updateEventSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
 
-		const projectId = requireProjectId(parsed.data.projectId);
-		const event = datastore.calendar.find(
-			(item) => item.id === parsed.data.eventId && inProjectScope(projectId, item.projectId)
-		);
-		if (!event) {
-			return { success: false, error: "Event not found" };
-		}
-		if (event.type === "Derived") {
-			return { success: false, error: "Derived events are read-only" };
-		}
-
-		const state = parsed.data.state;
-
-		if ("title" in state) {
-			const title = String(state.title).trim();
-			if (!title) {
-				return { success: false, error: "Event title is required." };
+		const state = normalizeUpdateState(parsed.data.state);
+		return remoteMutationRequest<{ id: string; title: string; lastEdited: string }>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/calendar/${encodePathSegment(parsed.data.eventId)}`,
+			method: "PUT",
+			body: {
+				state
 			}
-			event.title = title;
-		}
-		if ("date" in state) {
-			const date = String(state.date).trim();
-			if (!date) {
-				return { success: false, error: "Event date is required." };
-			}
-			event.start = date;
-			event.end = date;
-		}
-		if ("allDay" in state) {
-			if (typeof state.allDay !== "boolean") {
-				return { success: false, error: "Invalid all-day flag." };
-			}
-			event.allDay = state.allDay;
-		}
-		if ("startTime" in state && !event.allDay) {
-			event.startTime = String(state.startTime).trim();
-		}
-		if ("endTime" in state && !event.allDay) {
-			event.endTime = String(state.endTime).trim();
-		}
-		if ("owner" in state) {
-			const owner = String(state.owner).trim();
-			if (!owner) {
-				return { success: false, error: "Event owner is required." };
-			}
-			event.owner = owner;
-		}
-		if ("phase" in state) {
-			const phase = String(state.phase).trim();
-			if (
-				phase !== "Empathize" &&
-				phase !== "Define" &&
-				phase !== "Ideate" &&
-				phase !== "Prototype" &&
-				phase !== "Test" &&
-				phase !== "None"
-			) {
-				return { success: false, error: "Invalid event phase." };
-			}
-			event.phase = phase;
-		}
-		if ("description" in state) {
-			event.description = String(state.description);
-		}
-		if ("location" in state) {
-			event.location = String(state.location);
-		}
-		if ("eventKind" in state) {
-			const eventKind = String(state.eventKind).trim();
-			if (!eventKind) {
-				return { success: false, error: "Event type is required." };
-			}
-			event.eventKind = eventKind;
-		}
-		if ("linkedArtifacts" in state) {
-			if (!Array.isArray(state.linkedArtifacts)) {
-				return { success: false, error: "Linked artifacts must be an array." };
-			}
-			const linkedArtifacts = state.linkedArtifacts.map((item) => String(item));
-			event.linkedArtifacts = linkedArtifacts;
-		}
-		if ("tags" in state) {
-			if (!Array.isArray(state.tags)) {
-				return { success: false, error: "Tags must be an array." };
-			}
-			const tags = state.tags.map((item) => String(item));
-			event.tags = tags;
-		}
-		event.lastEdited = new Date().toISOString().slice(0, 10);
-
-		return { success: true, data: event };
+		});
 	}
 );
 
 export const deleteCalendarEvent = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<{ eventId: string }> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canDeleteEvent(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
+	async ({ input }: { input: unknown }): Promise<MutationResult<{ eventId: string }>> => {
 		const parsed = deleteEventSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const projectId = requireProjectId(parsed.data.projectId);
-		const index = datastore.calendar.findIndex(
-			(item) => item.id === parsed.data.eventId && inProjectScope(projectId, item.projectId)
-		);
-		if (index < 0) {
-			return { success: false, error: "Event not found" };
-		}
-		if (datastore.calendar[index].type === "Derived") {
-			return { success: false, error: "Derived events cannot be deleted" };
-		}
-		datastore.calendar.splice(index, 1);
-		return { success: true, data: { eventId: parsed.data.eventId } };
+
+		return remoteMutationRequest<{ eventId: string }>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/calendar/${encodePathSegment(parsed.data.eventId)}`,
+			method: "DELETE"
+		});
 	}
 );

@@ -1,30 +1,49 @@
 import { command, query } from "$app/server";
-import { error } from "@sveltejs/kit";
 import { z } from "zod";
-import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
-import { datastore } from "$lib/server/data/datastore";
 import {
-	getAuthenticatedRequestUser,
-	getTrustedProjectPermissionMask
-} from "$lib/server/auth/authorization";
-import { getStoryCachedDetail } from "$lib/server/data/story-cache";
-import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
-import { hasPerm } from "$lib/utils/permission";
+	encodePathSegment,
+	remoteMutationRequest,
+	remoteQueryRequest,
+	type MutationResult
+} from "$lib/server/api/remote";
 
 type TaskPageInput = {
 	projectId: string;
 	slug: string;
 };
 
-type MutationResult<T> =
-	| {
-			success: true;
-			data: T;
-	  }
-	| {
-			success: false;
-			error: string;
-	  };
+type LinkedProblem = {
+	id: string;
+	title: string;
+	phase: "Define";
+	href: string;
+	status: "Locked" | "Archived";
+};
+
+type LinkedContext = {
+	type: "Persona" | "User Journey";
+	title: string;
+	detail: string;
+	phase: "Empathize";
+	href: string;
+	status: "Active" | "Archived";
+};
+
+type LinkedIdeaOption = {
+	id: string;
+	title: string;
+	phase: "Ideate";
+	href: string;
+	status: "Active" | "Rejected";
+	problem: LinkedProblem;
+	context: LinkedContext;
+};
+
+type AssigneeOption = {
+	id: string;
+	name: string;
+	role: string;
+};
 
 const createTaskSchema = z.object({
 	projectId: z.string().min(1),
@@ -43,399 +62,217 @@ const updateTaskSchema = z.object({
 	state: z.record(z.string(), z.unknown())
 });
 
-const statusTransitions: Record<TaskRow["status"], TaskRow["status"][]> = {
-	Planned: ["Planned", "In Progress", "Abandoned"],
-	"In Progress": ["In Progress", "Completed", "Blocked", "Abandoned"],
-	Blocked: ["Blocked", "In Progress", "Abandoned"],
-	Completed: ["Completed"],
-	Abandoned: ["Abandoned"]
+const asRecord = (value: unknown): Record<string, unknown> =>
+	value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
+
+const asString = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+
+const asStringArray = (value: unknown): string[] => {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+	return value
+		.map((item) => (typeof item === "string" ? item.trim() : ""))
+		.filter((item) => item.length > 0);
 };
 
-const inProjectScope = (projectId: string, itemProjectId?: string) =>
-	itemProjectId === projectId;
-
-const projectExists = (projectId: string) =>
-	datastore.projects.some((item) => item.id === projectId);
-
-const requireProjectId = (projectId: string): string => {
-	const scopedProjectId = projectId.trim();
-	if (!scopedProjectId) {
-		error(400, "Project id is required.");
+const normalizeTaskStatus = (value: string): TaskStatus => {
+	if (
+		value === "In Progress" ||
+		value === "Completed" ||
+		value === "Abandoned" ||
+		value === "Blocked"
+	) {
+		return value;
 	}
-	if (!projectExists(scopedProjectId)) {
-		error(404, "Project not found.");
-	}
-	return scopedProjectId;
+	return "Planned";
 };
 
-const slugify = (value: string) =>
-	value
-		.toLowerCase()
-		.trim()
-		.replace(/[^a-z0-9\s-]/g, "")
-		.replace(/\s+/g, "-")
-		.replace(/-+/g, "-");
-
-const uniqueId = (value: string, existing: string[]): string | null => {
-	const base = slugify(value);
-	if (!base) return null;
-	if (!existing.includes(base)) return base;
-	let suffix = 2;
-	while (existing.includes(`${base}-${suffix}`)) {
-		suffix += 1;
-	}
-	return `${base}-${suffix}`;
-};
-
-const actorNameFor = (): string | null => {
-	try {
-		return getAuthenticatedRequestUser().name;
-	} catch {
+const mapAssigneeOption = (value: unknown): AssigneeOption | null => {
+	const row = asRecord(value);
+	const id = asString(row.id);
+	const name = asString(row.name);
+	const role = asString(row.role);
+	if (!id || !name || !role) {
 		return null;
 	}
+	return { id, name, role };
 };
 
-const canCreateTask = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.task, permissionActionIndex.create);
-const canEditTask = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.task, permissionActionIndex.edit);
-const canChangeTaskStatus = (permissionMask: PermissionMask) =>
-	hasPerm(permissionMask, permissionDomainIndex.task, permissionActionIndex.statusChange);
-const canTransition = (current: TaskRow["status"], next: TaskRow["status"]) =>
-	statusTransitions[current]?.includes(next) ?? false;
+const mapIdeaOption = (value: unknown): LinkedIdeaOption | null => {
+	const row = asRecord(value);
+	const id = asString(row.id);
+	const title = asString(row.title);
+	const href = asString(row.href);
+	if (!id || !title || !href) {
+		return null;
+	}
 
-const taskDetailsByKey = new Map<string, Record<string, unknown>>();
-const detailKey = (projectId: string, taskId: string) => `${projectId}:${taskId}`;
+	const problemRow = asRecord(row.problem);
+	const contextRow = asRecord(row.context);
+	const problemId = asString(problemRow.id);
+	const problemTitle = asString(problemRow.title);
+	const problemHref = asString(problemRow.href);
+	if (!problemId || !problemTitle || !problemHref) {
+		return null;
+	}
 
-const sourceMatchesTitle = (
-	linkedSources: string[],
-	title: string,
-	type: "story" | "journey"
-) => {
-	const normalizedTitle = title.trim().toLowerCase();
-	if (!normalizedTitle) return false;
-	const candidates =
-		type === "story"
-			? [
-					normalizedTitle,
-					`story: ${normalizedTitle}`,
-					`user story: ${normalizedTitle}`
-				]
-			: [
-					normalizedTitle,
-					`journey: ${normalizedTitle}`,
-					`user journey: ${normalizedTitle}`
-				];
+	const problemStatusRaw = asString(problemRow.status);
+	const problemStatus: LinkedProblem["status"] =
+		problemStatusRaw === "Archived" ? "Archived" : "Locked";
 
-	return linkedSources.some((source) =>
-		candidates.includes(source.trim().toLowerCase())
-	);
+	const contextTypeRaw = asString(contextRow.type);
+	const contextType: LinkedContext["type"] =
+		contextTypeRaw === "User Journey" ? "User Journey" : "Persona";
+
+	const contextStatusRaw = asString(contextRow.status);
+	const contextStatus: LinkedContext["status"] =
+		contextStatusRaw === "Archived" ? "Archived" : "Active";
+
+	const contextTitle = asString(contextRow.title);
+	const contextHref = asString(contextRow.href);
+	if (!contextTitle || !contextHref) {
+		return null;
+	}
+
+	const statusRaw = asString(row.status);
+	const status: LinkedIdeaOption["status"] = statusRaw === "Rejected" ? "Rejected" : "Active";
+
+	return {
+		id,
+		title,
+		phase: "Ideate",
+		href,
+		status,
+		problem: {
+			id: problemId,
+			title: problemTitle,
+			phase: "Define",
+			href: problemHref,
+			status: problemStatus
+		},
+		context: {
+			type: contextType,
+			title: contextTitle,
+			detail: asString(contextRow.detail),
+			phase: "Empathize",
+			href: contextHref,
+			status: contextStatus
+		}
+	};
 };
 
-export const getTasks = query("unchecked", (projectId: string): TaskRow[] => {
-	const scopedProjectId = requireProjectId(projectId);
-	return datastore.tasks.filter((item) => inProjectScope(scopedProjectId, item.projectId));
+export const getTasks = query("unchecked", async (projectId: string): Promise<TaskRow[]> => {
+	const payload = await remoteQueryRequest<{ items?: TaskRow[] }>({
+		path: `/projects/${encodePathSegment(projectId)}/tasks`,
+		method: "GET"
+	});
+	return Array.isArray(payload.items) ? payload.items : [];
 });
 
-export const getTaskPageData = query("unchecked", (input: TaskPageInput) => {
-	const scopedProjectId = requireProjectId(input.projectId);
-	const row = datastore.tasks.find(
-		(item) => item.id === input.slug && inProjectScope(scopedProjectId, item.projectId)
-	);
-	if (!row) {
-		error(404, "Task not found.");
-	}
-	const key = detailKey(scopedProjectId, input.slug);
-	const cached = taskDetailsByKey.get(key);
-	const fallbackTask = {
-		title: row.title,
-		status: row.status as "Planned" | "In Progress" | "Completed" | "Abandoned" | "Blocked",
-		assignedToId: "",
-		selectedIdeaId: "",
-		deadline: row.deadline,
-		hypothesis: "",
-		planItems: [""],
-		executionLinks: [""],
-		notesText: "",
-		activeModules: ["plan", "execution"],
-		abandonReason: "",
-		hasFeedback: row.hasFeedback
-	};
-	const task = {
-		...fallbackTask,
-		...(cached ?? {})
-	};
-	task.title = row.title;
-	task.deadline = row.deadline;
-	task.hasFeedback = row.hasFeedback;
-	task.status = row.status as "Planned" | "In Progress" | "Completed" | "Abandoned" | "Blocked";
+export const getTaskPageData = query("unchecked", async (input: TaskPageInput) => {
+	const payload = await remoteQueryRequest<{
+		task?: {
+			id?: string;
+			title?: string;
+			status?: string;
+			owner?: string;
+			deadline?: string;
+		};
+		detail?: Record<string, unknown>;
+		reference?: {
+			assigneeOptions?: unknown[];
+			ideaOptions?: unknown[];
+		};
+	}>({
+		path: `/projects/${encodePathSegment(input.projectId)}/tasks/${encodePathSegment(input.slug)}`,
+		method: "GET"
+	});
 
-	const assigneeOptions = datastore.team.members
-		.filter((m) => inProjectScope(scopedProjectId, m.projectId))
-		.map((m) => ({ id: m.id, name: m.name, role: m.role }));
+	const task = asRecord(payload.task);
+	const detail = asRecord(payload.detail);
+	const reference = asRecord(payload.reference);
 
-	const ideaOptions = datastore.ideas
-		.filter((idea) =>
-			inProjectScope(scopedProjectId, idea.projectId) &&
-			(idea.status === "Selected" || idea.status === "Considered")
-		)
-		.map((idea) => {
-			const linkedProblem = idea.linkedProblemStatement
-				? datastore.problems.find(
-						(p) =>
-							inProjectScope(scopedProjectId, p.projectId) &&
-							p.statement === idea.linkedProblemStatement
-					)
-				: null;
-
-			const problem = linkedProblem
-				? {
-						id: linkedProblem.id,
-						title: linkedProblem.statement,
-						phase: "Define" as const,
-						href: `/project/${scopedProjectId}/problem-statement/${linkedProblem.id}`,
-						status: linkedProblem.status as "Locked" | "Archived"
-					}
-				: {
-						id: "",
-						title: "No linked problem",
-						phase: "Define" as const,
-						href: "",
-						status: "Draft" as "Locked" | "Archived"
-					};
-
-			let context: {
-				type: "Persona" | "User Journey";
-				title: string;
-				detail: string;
-				phase: "Empathize";
-				href: string;
-				status: "Active" | "Archived";
-			} = {
-				type: "Persona",
-				title: idea.persona || "Unknown",
-				detail: "",
-				phase: "Empathize",
-				href: "",
-				status: "Active"
-			};
-
-			if (linkedProblem) {
-				const linkedSources = linkedProblem.linkedSources ?? [];
-				for (const story of datastore.stories.filter((s) => inProjectScope(scopedProjectId, s.projectId))) {
-					if (sourceMatchesTitle(linkedSources, story.title, "story")) {
-						const cached = getStoryCachedDetail(scopedProjectId, story.id);
-						const personaName = cached?.persona?.name ?? story.personaName ?? "";
-						context = {
-							type: "Persona",
-							title: personaName || story.title,
-							detail: cached?.context ?? "",
-							phase: "Empathize",
-							href: `/project/${scopedProjectId}/stories/${story.id}`,
-							status: story.status === "Archived" ? "Archived" : "Active"
-						};
-						break;
-					}
-				}
-
-				if (!context.href) {
-					for (const journey of datastore.journeys.filter((j) => inProjectScope(scopedProjectId, j.projectId))) {
-						if (sourceMatchesTitle(linkedSources, journey.title, "journey")) {
-							const cached = getJourneyCachedDetail(scopedProjectId, journey.id);
-							const personaName = cached?.persona?.name ?? journey.linkedPersonas?.[0] ?? "";
-							context = {
-								type: "User Journey",
-								title: personaName || journey.title,
-								detail: cached?.context ?? "",
-								phase: "Empathize",
-								href: `/project/${scopedProjectId}/journeys/${journey.id}`,
-								status: journey.status === "Archived" ? "Archived" : "Active"
-							};
-							break;
-						}
-					}
-				}
-			}
-
-			return {
-				id: idea.id,
-				title: idea.title,
-				phase: "Ideate" as const,
-				href: `/project/${scopedProjectId}/ideas/${idea.id}`,
-				status: idea.status === "Selected" ? ("Active" as const) : ("Active" as const),
-				problem,
-				context
-			};
-		});
-
-		return {
-		assigneeOptions,
-		ideaOptions,
-		task,
+	return {
+		assigneeOptions: (Array.isArray(reference.assigneeOptions) ? reference.assigneeOptions : [])
+			.map(mapAssigneeOption)
+			.filter((item): item is AssigneeOption => item !== null),
+		ideaOptions: (Array.isArray(reference.ideaOptions) ? reference.ideaOptions : [])
+			.map(mapIdeaOption)
+			.filter((item): item is LinkedIdeaOption => item !== null),
+		task: {
+			title: asString(task.title) || asString(detail.title),
+			status: normalizeTaskStatus(asString(task.status)),
+			assignedToId: asString(detail.assignedToId),
+			selectedIdeaId: asString(detail.selectedIdeaId),
+			deadline: asString(detail.deadline) || asString(task.deadline),
+			hypothesis: asString(detail.hypothesis),
+			planItems: asStringArray(detail.planItems),
+			executionLinks: asStringArray(detail.executionLinks),
+			notesText: asString(detail.notesText) || asString(detail.notes),
+			activeModules: asStringArray(detail.activeModules),
+			abandonReason: asString(detail.abandonReason),
+			hasFeedback: Boolean(detail.hasFeedback)
+		},
 		metadata: {
-			owner: row.owner,
-			lastUpdated: row.lastUpdated
+			owner: asString(task.owner),
+			lastUpdated: asString(task.lastUpdated)
 		}
 	};
 });
 
 export const createTask = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<TaskRow> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canCreateTask(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
+	async ({ input }: { input: unknown }): Promise<MutationResult<TaskRow>> => {
 		const parsed = createTaskSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actorName = actorNameFor();
-		if (!actorName) {
-			return { success: false, error: "Invalid actor" };
-		}
-		const projectId = requireProjectId(parsed.data.projectId);
-		const id = uniqueId(
-			parsed.data.title,
-			datastore.tasks
-				.filter((item) => inProjectScope(projectId, item.projectId))
-				.map((item) => item.id)
-		);
-		if (!id) {
-			return {
-				success: false,
-				error: "Title must include letters or numbers."
-			};
-		}
-		const created: TaskRow = {
-			id,
-			projectId,
-			title: parsed.data.title.trim(),
-			linkedIdea: "",
-			linkedProblemStatement: "",
-			persona: "",
-			owner: actorName,
-			deadline: new Date().toISOString().slice(0, 10),
-			lastUpdated: new Date().toISOString().slice(0, 10),
-			status: "Planned",
-			ideaRejected: false,
-			hasFeedback: false,
-			isOrphan: true
-		};
-		datastore.tasks.unshift(created);
-		return { success: true, data: created };
+
+		return remoteMutationRequest<TaskRow>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks`,
+			method: "POST",
+			body: {
+				title: parsed.data.title
+			}
+		});
 	}
 );
 
 export const updateTaskStatus = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<TaskRow> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canChangeTaskStatus(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
+	async ({ input }: { input: unknown }): Promise<MutationResult<TaskRow>> => {
 		const parsed = updateTaskStatusSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const projectId = requireProjectId(parsed.data.projectId);
-		const row = datastore.tasks.find(
-			(item) => item.id === parsed.data.taskId && inProjectScope(projectId, item.projectId)
-		);
-		if (!row) {
-			return { success: false, error: "Task not found" };
-		}
-		if (!canTransition(row.status, parsed.data.status)) {
-			return { success: false, error: "Invalid status transition" };
-		}
-		row.status = parsed.data.status;
-		row.lastUpdated = new Date().toISOString().slice(0, 10);
-		return { success: true, data: row };
+
+		return remoteMutationRequest<TaskRow>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks/${encodePathSegment(parsed.data.taskId)}/status`,
+			method: "PUT",
+			body: {
+				status: parsed.data.status
+			}
+		});
 	}
 );
 
 export const updateTask = command(
 	"unchecked",
-	({ input }: { input: unknown }): MutationResult<TaskRow> => {
-		const permissionMask = getTrustedProjectPermissionMask(input);
-		if (!canEditTask(permissionMask)) {
-			return { success: false, error: "Permission denied" };
-		}
+	async ({ input }: { input: unknown }): Promise<MutationResult<TaskRow>> => {
 		const parsed = updateTaskSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const projectId = requireProjectId(parsed.data.projectId);
-		const row = datastore.tasks.find(
-			(item) => item.id === parsed.data.taskId && inProjectScope(projectId, item.projectId)
-		);
-		if (!row) {
-			return { success: false, error: "Task not found" };
-		}
 
-		const candidate = parsed.data.state;
-
-		if ("title" in candidate) {
-			const title = String(candidate.title).trim();
-			if (!title) {
-				return { success: false, error: "Title is required." };
+		return remoteMutationRequest<TaskRow>({
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks/${encodePathSegment(parsed.data.taskId)}`,
+			method: "PUT",
+			body: {
+				state: parsed.data.state
 			}
-			row.title = title;
-		}
-
-		if ("selectedIdeaId" in candidate) {
-			const selectedIdeaId = String(candidate.selectedIdeaId).trim();
-			if (!selectedIdeaId) {
-				row.linkedIdea = "";
-				row.linkedProblemStatement = "";
-				row.persona = "";
-				row.isOrphan = true;
-			} else {
-				const linkedIdeaRow = datastore.ideas.find(
-					(item) => item.id === selectedIdeaId && inProjectScope(projectId, item.projectId) &&
-						(item.status === "Selected" || item.status === "Considered")
-				);
-				if (!linkedIdeaRow) {
-					return { success: false, error: "Selected idea was not found." };
-				}
-				const linkedProblem = linkedIdeaRow.linkedProblemStatement
-					? datastore.problems.find(
-							(p) => inProjectScope(projectId, p.projectId) && p.statement === linkedIdeaRow.linkedProblemStatement
-						)
-					: null;
-				row.linkedIdea = linkedIdeaRow.title;
-				row.linkedProblemStatement = linkedProblem?.statement ?? "";
-				row.persona = linkedIdeaRow.persona || "";
-				row.isOrphan = false;
-			}
-		}
-
-		if ("deadline" in candidate) {
-			const deadline = String(candidate.deadline).trim();
-			if (!deadline) {
-				return { success: false, error: "Deadline is required." };
-			}
-			row.deadline = deadline;
-		}
-
-		if ("hasFeedback" in candidate) {
-			if (typeof candidate.hasFeedback !== "boolean") {
-				return { success: false, error: "Invalid feedback status value." };
-			}
-			row.hasFeedback = candidate.hasFeedback;
-		}
-		row.lastUpdated = new Date().toISOString().slice(0, 10);
-
-		taskDetailsByKey.set(
-			detailKey(projectId, parsed.data.taskId),
-			structuredClone({
-				...candidate,
-				title: row.title,
-				deadline: row.deadline,
-				hasFeedback: row.hasFeedback
-			})
-		);
-
-		return { success: true, data: row };
+		});
 	}
 );

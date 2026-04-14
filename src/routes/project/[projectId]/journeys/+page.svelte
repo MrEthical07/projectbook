@@ -47,6 +47,7 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createError = $state("");
+	let isCreatingJourney = $state(false);
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
 	let stats = $derived({
@@ -83,6 +84,7 @@
 	};
 
 	const createJourney = async () => {
+		if (isCreatingJourney) return;
 		createError = "";
 		if (!canCreateJourney) return;
 		if (!permissions) {
@@ -97,6 +99,7 @@
 		const title = createTitle.trim();
 		if (!title) return;
 		const projectId = page.params.projectId;
+		isCreatingJourney = true;
 		const result = await createJourneyRemote({
 			input: {
 				projectId,
@@ -104,6 +107,7 @@
 				title
 			}
 });
+		isCreatingJourney = false;
 		if (!result.success) {
 			createError = result.error;
 			return;
@@ -168,7 +172,9 @@
 							</div>
 							<Dialog.Footer>
 								<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-								<Button onclick={createJourney} disabled={!createTitle.trim()}>Create Journey</Button>
+								<Button onclick={createJourney} disabled={!createTitle.trim() || isCreatingJourney}>
+									{isCreatingJourney ? "Creating..." : "Create Journey"}
+								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>

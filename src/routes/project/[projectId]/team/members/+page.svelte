@@ -155,6 +155,8 @@
 
 	let searchQuery = $state("");
 	let isInviteOpen = $state(false);
+	let isSubmittingInvite = $state(false);
+	let pendingCancelEmail = $state("");
 	let inviteForm = $state({
 		name: "",
 		email: "",
@@ -217,6 +219,7 @@
 	 * Send an invite and surface a toast confirmation for the status update.
 	 */
 	const handleInviteSubmit = async () => {
+		if (isSubmittingInvite) return;
 		const email = inviteForm.email.trim();
 		if (!email) {
 			toast.error("Invite email is required.");
@@ -227,6 +230,7 @@
 			return;
 		}
 
+		isSubmittingInvite = true;
 		const result = await createProjectInvite({
 			input: {
 				projectId,
@@ -234,6 +238,7 @@
 				role: canEditMember ? inviteForm.role : "Limited Access"
 			}
 });
+		isSubmittingInvite = false;
 		if (!result.success) {
 			toast.error(result.error);
 			return;
@@ -246,16 +251,19 @@
 	};
 
 	const cancelInvite = async (email: string) => {
+		if (pendingCancelEmail === email) return;
 		if (!permissions) {
 			toast.error("Permissions context is unavailable.");
 			return;
 		}
+		pendingCancelEmail = email;
 		const result = await cancelProjectInvite({
 			input: {
 				projectId,
 				email
 			}
 });
+		pendingCancelEmail = "";
 		if (!result.success) {
 			toast.error(result.error);
 			return;
@@ -378,10 +386,13 @@
 											isInviteOpen = false;
 											resetInviteForm();
 										}}
+										disabled={isSubmittingInvite}
 									>
 										Cancel
 									</Button>
-									<Button onclick={handleInviteSubmit}>Send invite</Button>
+									<Button onclick={handleInviteSubmit} disabled={isSubmittingInvite}>
+										{isSubmittingInvite ? "Sending..." : "Send invite"}
+									</Button>
 								</div>
 							</div>
 						</Popover.Content>
@@ -458,7 +469,14 @@
 								<Table.Cell class="text-right">{invite.sentDate}</Table.Cell>
 								<Table.Cell class="text-right">
 									{#if canCancelInvite}
-										<Button variant="outline" size="sm" onclick={() => cancelInvite(invite.email)}>Cancel</Button>
+											<Button
+												variant="outline"
+												size="sm"
+												onclick={() => cancelInvite(invite.email)}
+												disabled={pendingCancelEmail === invite.email}
+											>
+												{pendingCancelEmail === invite.email ? "Cancelling..." : "Cancel"}
+											</Button>
 									{/if}
 								</Table.Cell>
 							</Table.Row>

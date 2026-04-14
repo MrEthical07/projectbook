@@ -38,6 +38,8 @@
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 	let createdProjectId = $state<string | null>(null);
+	let isCreatingProject = $state(false);
+	let isSendingInvites = $state(false);
 	let selectedIcon = $state<ProjectIconKey>(defaultProjectIconKey);
 	let iconSearch = $state("");
 
@@ -99,20 +101,25 @@
 	};
 
 	const createProjectAction = async () => {
+		if (isCreatingProject) return;
 		actionError = "";
 		if (!validateName()) return;
 		const trimmed = projectName.trim();
 		const description = projectDescription.trim();
+		isCreatingProject = true;
 		const result = await createProject({ name: trimmed, description, icon: selectedIcon });
 		if (!result.success) {
 			actionError = result.error;
+			isCreatingProject = false;
 			return;
 		}
 		const created = result.data as { projectId: string };
 		createdProjectId = created.projectId;
 		projectName = trimmed;
 		projectDescription = description;
+		createConfirmOpen = false;
 		startSave(() => {
+			isCreatingProject = false;
 			step = "invite";
 		});
 	};
@@ -140,6 +147,7 @@
 	};
 
 	const sendInvites = async () => {
+		if (isSendingInvites) return;
 		actionError = "";
 		if (!validateEmails() || !createdProjectId) return;
 		const inviteList = inviteEmails
@@ -155,7 +163,9 @@
 			return;
 		}
 
+		isSendingInvites = true;
 		const result = await sendProjectInvites({ projectId: createdProjectId, invites: inviteList });
+		isSendingInvites = false;
 		if (!result.success) {
 			actionError = result.error;
 			emailErrors = inviteEmails.map((email) => (email.trim() ? result.error : ""));
@@ -290,7 +300,7 @@
 				</div>
 				<div class="flex items-center justify-end gap-2">
 					<Dialog.Root bind:open={createConfirmOpen}>
-						<Dialog.Trigger class={buttonVariants()} disabled={!isNameValid}>
+						<Dialog.Trigger class={buttonVariants()} disabled={!isNameValid || isCreatingProject}>
 							Create Project
 						</Dialog.Trigger>
 						<Dialog.Content>
@@ -304,9 +314,9 @@
 								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 									Cancel
 								</Dialog.Close>
-								<Dialog.Close class={buttonVariants()} onclick={createProjectAction}>
-									Create project
-								</Dialog.Close>
+								<Button onclick={createProjectAction} disabled={isCreatingProject}>
+									{isCreatingProject ? "Creating..." : "Create project"}
+								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
@@ -378,9 +388,9 @@
 								</Dialog.Footer>
 							</Dialog.Content>
 						</Dialog.Root>
-						<Button onclick={sendInvites}>
+						<Button onclick={sendInvites} disabled={isSendingInvites || savePhase === "saving"}>
 							<MailPlus class="mr-2 h-4 w-4" />
-							Invite
+							{isSendingInvites ? "Inviting..." : "Invite"}
 						</Button>
 					</div>
 				</div>

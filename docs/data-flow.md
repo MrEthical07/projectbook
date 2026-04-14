@@ -2,30 +2,31 @@
 
 ## Read Flow
 
-page -> `page.ts` -> remote -> data
+page -> `page.ts` -> remote -> API client -> backend
 
 1. `+page.svelte` renders props.
 2. `+page.ts` calls a remote query.
-3. Remote query validates scope and loads from datastore.
+3. Remote query validates scope and calls backend API through `remoteQueryRequest`.
 4. Page receives shaped data.
 
 ## Write Flow
 
-UI edit -> Save button -> remote update command -> datastore update
+UI edit -> Save button -> remote update command -> backend mutation
 
 1. User edits local page state.
 2. User clicks Save.
 3. UI sends a full editor state payload to remote command.
-4. Remote validates input and permissions.
-5. Remote updates normalized row fields and stored detail state.
+4. Remote validates input, permissions, and payload shape.
+5. Remote sends mutation payload through `remoteMutationRequest`.
+6. Remote maps backend response to the page contract.
 
 ## Full Replacement Strategy
 
-Write commands are snapshot-based, not patch endpoint-based.
+Write commands are snapshot-based at the UI contract level, even when backend endpoints support partial updates.
 
 - UI sends full editable state for the screen.
-- Remote derives persisted fields from that state.
-- Detail state caches are replaced with the new normalized snapshot.
+- Remote derives and normalizes backend payload fields from that state.
+- Remote maps backend responses back to stable page-friendly shapes.
 
 This keeps behavior deterministic and reduces partial-update drift.
 
@@ -39,4 +40,4 @@ This keeps behavior deterministic and reduces partial-update drift.
 
 - UI state can be stale or manipulated.
 - Remote is the trust boundary before mutation.
-- Centralized validation keeps behavior consistent across pages.
+- Centralized validation and mapping keeps behavior consistent across pages.

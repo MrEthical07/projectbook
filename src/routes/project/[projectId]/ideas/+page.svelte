@@ -51,6 +51,7 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createError = $state("");
+	let isCreatingIdea = $state(false);
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
 	let stats = $derived({
@@ -84,6 +85,7 @@
 	};
 
 	const createIdea = async () => {
+		if (isCreatingIdea) return;
 		createError = "";
 		if (!canCreateIdea) return;
 		if (!permissions) {
@@ -97,6 +99,7 @@
 		}
 		const title = createTitle.trim();
 		if (!title) return;
+		isCreatingIdea = true;
 		const result = await createIdeaRemote({
 			input: {
 				projectId: page.params.projectId,
@@ -104,6 +107,7 @@
 				title
 			}
 });
+		isCreatingIdea = false;
 		if (!result.success) {
 			createError = result.error;
 			return;
@@ -168,7 +172,9 @@
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createIdea} disabled={!createTitle.trim()}>Create Idea</Button>
+							<Button onclick={createIdea} disabled={!createTitle.trim() || isCreatingIdea}>
+								{isCreatingIdea ? "Creating..." : "Create Idea"}
+							</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 					</Dialog.Root>

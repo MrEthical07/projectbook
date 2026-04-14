@@ -2,13 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased] - 2026-04-08
+## [Unreleased] - 2026-04-14
 
 ### Changed
 
 - Completed migration to a home/project information model across routes, remotes, datastore, and shared types.
 - Unified API contracts and implementation naming around `/home/*` and project-centric terminology.
 - Updated architecture, security, and legal documentation to match the new home/project model.
+- Migrated all frontend remote modules in `src/lib/remote` from datastore-backed logic to backend API-backed requests via `src/lib/server/api/remote.ts`.
+- Updated artifact remotes (`problem`, `idea`, `task`, `feedback`, `page`, `resource`, `calendar`) to preserve page payload contracts while mapping backend response shapes.
+- Switched frontend auth actions and request lifecycle to backend auth API integration with access/refresh token cookie handling (`projectbook_access`, `projectbook_refresh`).
+- Switched permission context from frontend-signed cookies to backend-issued session-context tokens (`projectbook_permission_ctx`) with 30-minute expiry and hook-level locals hydration.
+
+### Fixed
+
+- API transport now normalizes network-unavailable failures into structured 503 responses with user-facing guidance, instead of leaking low-level fetch errors.
+- Removed redundant per-request identity fetch path by consuming backend session-context token snapshots in hooks.
 
 ### Removed
 

@@ -50,6 +50,7 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createError = $state("");
+	let isCreatingFeedback = $state(false);
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
 	let stats = $derived({
@@ -82,6 +83,7 @@
 	};
 
 	const createFeedback = async () => {
+		if (isCreatingFeedback) return;
 		createError = "";
 		if (!canCreateFeedback) return;
 		if (!permissions) {
@@ -95,6 +97,7 @@
 		}
 		const title = createTitle.trim();
 		if (!title) return;
+		isCreatingFeedback = true;
 		const result = await createFeedbackRemote({
 			input: {
 				projectId: page.params.projectId,
@@ -102,6 +105,7 @@
 				title
 			}
 });
+		isCreatingFeedback = false;
 		if (!result.success) {
 			createError = result.error;
 			return;
@@ -166,7 +170,9 @@
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createFeedback} disabled={!createTitle.trim()}>Create Feedback</Button>
+							<Button onclick={createFeedback} disabled={!createTitle.trim() || isCreatingFeedback}>
+								{isCreatingFeedback ? "Creating..." : "Create Feedback"}
+							</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 					</Dialog.Root>

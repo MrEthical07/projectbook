@@ -15,6 +15,7 @@
 
 	let { data } = $props();
 	let actionError = $state("");
+	let inviteActionInFlight = $state<"accept" | "decline" | null>(null);
 
 	type InviteStatus = "Active" | "Archived";
 	type Invite = {
@@ -55,10 +56,13 @@
 	};
 
 	const acceptInvite = async () => {
+		if (inviteActionInFlight) return;
 		actionError = "";
 		const target = acceptTarget;
 		if (!target || target.expired) return;
+		inviteActionInFlight = "accept";
 		const result = await acceptProjectInvite({ inviteId: target.id });
+		inviteActionInFlight = null;
 		if (!result.success) {
 			actionError = result.error;
 			return;
@@ -69,10 +73,13 @@
 	};
 
 	const declineInvite = async () => {
+		if (inviteActionInFlight) return;
 		actionError = "";
 		const target = declineTarget;
 		if (!target) return;
+		inviteActionInFlight = "decline";
 		const result = await declineProjectInvite({ inviteId: target.id });
+		inviteActionInFlight = null;
 		if (!result.success) {
 			actionError = result.error;
 			return;
@@ -237,9 +244,9 @@
 		{/if}
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button onclick={acceptInvite}>
+			<Button onclick={acceptInvite} disabled={inviteActionInFlight !== null}>
 				<Check class="mr-2 h-4 w-4" />
-				Accept invitation
+				{inviteActionInFlight === "accept" ? "Accepting..." : "Accept invitation"}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -261,9 +268,9 @@
 		{/if}
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button variant="destructive" onclick={declineInvite}>
+			<Button variant="destructive" onclick={declineInvite} disabled={inviteActionInFlight !== null}>
 				<Trash2 class="mr-2 h-4 w-4" />
-				Decline invitation
+				{inviteActionInFlight === "decline" ? "Declining..." : "Decline invitation"}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

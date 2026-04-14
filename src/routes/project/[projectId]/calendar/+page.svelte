@@ -109,6 +109,7 @@
 	let newLinked = $state<string[]>([]);
 	let newTags = $state("");
 	let createError = $state("");
+	let isCreatingEvent = $state(false);
 
 	let filteredEvents = $derived(
 		events.filter((event) => {
@@ -256,6 +257,7 @@
 	};
 
 	const createEvent = async () => {
+		if (isCreatingEvent) return;
 		createError = "";
 		if (!permissions || !canCreateEvent) {
 			createError = "You do not have permission to create events.";
@@ -280,6 +282,7 @@
 		}
 		const eventKind = newKind === "Other" ? newCustomKind.trim() : newKind;
 		const tags = parseTags(newTags);
+		isCreatingEvent = true;
 		const result = await createCalendarEvent({
 			input: {
 				projectId: page.params.projectId,
@@ -299,6 +302,7 @@
 				tags
 			}
 });
+		isCreatingEvent = false;
 		if (!result.success) {
 			createError = result.error;
 			return;
@@ -718,8 +722,8 @@
 		</div>
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button class={buttonVariants()} onclick={createEvent} disabled={!canCreateEvent || !newTitle.trim()}>
-				Add event
+			<Button class={buttonVariants()} onclick={createEvent} disabled={!canCreateEvent || !newTitle.trim() || isCreatingEvent}>
+				{isCreatingEvent ? "Creating..." : "Add event"}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

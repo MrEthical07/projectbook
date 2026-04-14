@@ -65,6 +65,7 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createError = $state("");
+	let isCreatingTask = $state(false);
 
 	let draggingTaskId = $state("");
 
@@ -146,6 +147,7 @@
 	};
 
 	const createTask = async () => {
+		if (isCreatingTask) return;
 		createError = "";
 		if (!canCreateTask) return;
 		if (!permissions) {
@@ -159,6 +161,7 @@
 		}
 		const title = createTitle.trim();
 		if (!title) return;
+		isCreatingTask = true;
 		const result = await createTaskRemote({
 			input: {
 				projectId: page.params.projectId,
@@ -166,6 +169,7 @@
 				title
 			}
 });
+		isCreatingTask = false;
 		if (!result.success) {
 			createError = result.error;
 			return;
@@ -230,7 +234,9 @@
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createTask} disabled={!createTitle.trim()}>Create Task</Button>
+							<Button onclick={createTask} disabled={!createTitle.trim() || isCreatingTask}>
+								{isCreatingTask ? "Creating..." : "Create Task"}
+							</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 					</Dialog.Root>

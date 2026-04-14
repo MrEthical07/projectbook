@@ -51,6 +51,7 @@
 	let createOpen = $state(false);
 	let createTitle = $state("");
 	let createError = $state("");
+	let isCreatingStory = $state(false);
 
 	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
 
@@ -96,6 +97,7 @@
 	};
 
 	const createStory = async () => {
+		if (isCreatingStory) return;
 		createError = "";
 		if (!canCreateStory) return;
 		if (!permissions) {
@@ -110,6 +112,7 @@
 		const title = createTitle.trim();
 		if (!title) return;
 		const projectId = page.params.projectId;
+		isCreatingStory = true;
 		const result = await createStoryRemote({
 			input: {
 				projectId,
@@ -117,6 +120,7 @@
 				title
 			}
 });
+		isCreatingStory = false;
 		if (!result.success) {
 			createError = result.error;
 			return;
@@ -183,7 +187,9 @@
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createStory} disabled={!createTitle.trim()}>Create Story</Button>
+							<Button onclick={createStory} disabled={!createTitle.trim() || isCreatingStory}>
+								{isCreatingStory ? "Creating..." : "Create Story"}
+							</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
 					</Dialog.Root>

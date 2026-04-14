@@ -4,7 +4,7 @@
 
 - No service layer.
 - No command-pattern abstraction.
-- No direct datastore imports inside route pages.
+- No direct backend API calls inside route pages.
 - Use remote files as the only read/write boundary for route code.
 
 ## PR Expectations
@@ -17,7 +17,6 @@
 ## Naming Conventions
 
 - Remote files: `<domain>.remote.ts`
-- Data files: `<domain>.data.ts`
 - Route detail params: `[slug]` unless domain-specific id is already established.
 - Remote function names:
   - Reads: `get<Domain...>`
@@ -29,7 +28,7 @@
 2. Parse input.
 3. Check permission.
 4. Validate domain rules.
-5. Mutate datastore.
+5. Call backend API via `remoteQueryRequest`/`remoteMutationRequest`.
 6. Return typed success/error object.
 
 ## Anti-Patterns To Reject In Review

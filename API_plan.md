@@ -14,7 +14,7 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | API style | REST | User selected |
-| Auth | JWT Bearer + Session Cookies | Dual support for browsers and API clients |
+| Auth | JWT Bearer + Access/Refresh HttpOnly Cookies | Dual support for browsers and API clients with token refresh flow |
 | Versioning | `/api/v1` prefix | Industry standard, allows future versions |
 | Pagination | Offset-based (`?offset=0&limit=25`) | Maps naturally to current array-based data access patterns |
 | Date format | ISO 8601 | Already used throughout the codebase |
@@ -30,9 +30,9 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 ```
 1. Overview (base URL, versioning, content-type, dates)
 2. Authentication
-   2.1 Session Cookies (browser flow)
+   2.1 Access + Refresh Cookies (browser flow)
    2.2 JWT Bearer Tokens (API client flow)
-   2.3 Session lifecycle (7-day default, 30-day remember-me)
+   2.3 Auth lifecycle (refresh-based, remember-me aware)
 3. Standard Conventions
    3.1 Request format
    3.2 Success response envelope
@@ -86,13 +86,13 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 ### Authentication (7)
 | Method | Path | Source Function |
 |--------|------|----------------|
-| POST | /api/v1/auth/signup | `authService.registerUser()` |
-| POST | /api/v1/auth/login | `authService.authenticate()` |
-| POST | /api/v1/auth/logout | `authService.invalidateSessionByToken()` |
-| POST | /api/v1/auth/verify-email | `authService.verifyEmailToken()` |
-| POST | /api/v1/auth/resend-verification | `authService.resendVerificationEmail()` |
-| POST | /api/v1/auth/forgot-password | `authService.requestPasswordReset()` |
-| POST | /api/v1/auth/reset-password | `authService.resetPassword()` |
+| POST | /api/v1/auth/signup | `signupRequest()` |
+| POST | /api/v1/auth/login | `loginRequest()` |
+| POST | /api/v1/auth/logout | `logoutRequest()` |
+| POST | /api/v1/auth/verify-email | `verifyEmailRequest()` |
+| POST | /api/v1/auth/resend-verification | `resendVerificationRequest()` |
+| POST | /api/v1/auth/forgot-password | `forgotPasswordRequest()` |
+| POST | /api/v1/auth/reset-password | `resetPasswordRequest()` |
 
 ### Home (13)
 | Method | Path | Source Function |
@@ -263,12 +263,13 @@ Write all ~80 path operations referencing the component schemas, with full reque
 |------|---------|
 | `src/app.d.ts` | All TypeScript interfaces and enum types |
 | `src/lib/remote/*.remote.ts` (14 files) | All function signatures, Zod schemas, business logic |
-| `src/lib/server/auth/service.ts` | Auth operations and error conditions |
+| `src/lib/server/api/auth.ts` | Auth API wrappers used by frontend server actions |
+| `src/lib/server/api/client.ts` | API transport, retry, refresh, and envelope handling |
 | `src/lib/schemas/auth.schema.ts` | Auth validation rules and password policy |
-| `src/lib/server/auth/constants.ts` | Session TTLs, rate limit values |
+| `src/lib/server/auth/constants.ts` | Auth cookie names and token/session TTL defaults |
 | `src/lib/server/auth/rate-limit.ts` | Rate limiting implementation |
 | `src/lib/constants/member-roles.ts` | Role definitions |
-| `src/lib/server/data/datastore.ts` | Master data shape |
+| `src/lib/server/api/remote.ts` | Shared remote query/mutation helpers |
 
 ---
 
