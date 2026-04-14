@@ -1,9 +1,9 @@
 import { datastore } from "./datastore";
 import { dashboardActivityData } from "./project.data";
-import { workspaceActivityData, workspaceActivityPageData } from "./workspace.data";
+import { homeActivityData, homeActivityPageData } from "./home.data";
 
 export const projectActivityData = dashboardActivityData;
-export const workspaceDashboardActivityData = workspaceActivityData;
-export const workspaceActivityStreamData = workspaceActivityPageData;
+export const homeDashboardActivityData = homeActivityData;
+export const homeActivityStreamData = homeActivityPageData;
 
-datastore.activity = [...projectActivityData, ...workspaceActivityStreamData];
+datastore.activity = [...projectActivityData, ...homeActivityStreamData];

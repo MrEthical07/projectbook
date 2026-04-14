@@ -57,12 +57,12 @@
 			name: "ProjectBook",
 			plan: "Free"
 		},
-		workspace: [
+		home: [
 			{
 				name: "Dashboard",
 				url: "/",
 				icon: LayoutDashboard,
-				tooltip: "Workspace Overview",
+				tooltip: "Home Overview",
 				isActive: pathname === "/"
 			},
 			{
@@ -124,7 +124,7 @@
 							</div>
 							<div class="grid flex-1 text-start text-sm leading-tight">
 								<span class="truncate font-semibold">{data.branding.name}</span>
-								<span class="truncate text-xs text-muted-foreground">Workspace</span>
+								<span class="truncate text-xs text-muted-foreground">Home</span>
 							</div>
 							<Badge.Badge variant="outline" class="text-[10px]">{data.branding.plan}</Badge.Badge>
 						</a>
@@ -135,9 +135,9 @@
 	</Sidebar.Header>
 	<Sidebar.Content>
 		<Sidebar.Group>
-			<Sidebar.GroupLabel>Workspace</Sidebar.GroupLabel>
+			<Sidebar.GroupLabel>Home</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
-				{#each data.workspace as item (item.name)}
+				{#each data.home as item (item.name)}
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton class={item.isActive ? activeClass : ""} tooltipContent={item.tooltip}>
 							{#snippet child({ props })}

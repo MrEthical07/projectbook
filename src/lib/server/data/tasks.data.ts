@@ -7,7 +7,7 @@ export const tasksData: TaskRow[] = [
 		linkedIdea: "Progressive onboarding checklist",
 		linkedProblemStatement: "New users need clearer onboarding guidance.",
 		persona: "Participant 1",
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		deadline: "2026-02-18",
 		lastUpdated: "2026-02-14",
 		status: "Planned",
@@ -19,7 +19,7 @@ export const tasksData: TaskRow[] = [
 
 export const taskDetailData = {
 	assigneeOptions: [
-		{ id: "user-1", name: "Workspace User", role: "Product" }
+		{ id: "user-1", name: "ProjectBook User", role: "Product" }
 	],
 	ideaOptions: [
 		{

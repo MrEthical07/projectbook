@@ -1,6 +1,6 @@
 # ProjectBook
 
-A Design Thinking-first workspace for building people-centric projects without context fragmentation.
+A Design Thinking-first platform for building people-centric projects without context fragmentation.
 
 ## What It Is
 
@@ -25,7 +25,7 @@ Story -> Problem -> Idea -> Task -> Feedback
 - Design Thinking phase-based workflow.
 - Linked artifacts with traceable context.
 - Explicit orphan-state visibility.
-- Role/permission-aware project workspace.
+- Role/permission-aware project access.
 
 ## Tech Stack
 

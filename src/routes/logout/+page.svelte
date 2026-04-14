@@ -2,7 +2,7 @@
 	<title>Logged Out • ProjectBook</title>
 	<meta
 		name="description"
-		content="You have been signed out of your ProjectBook workspace."
+		content="You have been signed out of your ProjectBook account."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />

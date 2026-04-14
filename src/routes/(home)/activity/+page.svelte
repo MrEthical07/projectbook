@@ -104,7 +104,7 @@
 	<title>Activity • ProjectBook</title>
 	<meta
 		name="description"
-		content="Review workspace activity across projects and recent updates."
+		content="Review home activity across projects and recent updates."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
@@ -120,7 +120,7 @@
 			<Breadcrumb.Root>
 				<Breadcrumb.List>
 					<Breadcrumb.Item>
-						<Breadcrumb.Page>Workspace Activity</Breadcrumb.Page>
+						<Breadcrumb.Page>Home Activity</Breadcrumb.Page>
 					</Breadcrumb.Item>
 				</Breadcrumb.List>
 			</Breadcrumb.Root>
@@ -129,10 +129,10 @@
 
 	<div class="flex flex-col gap-5 py-2 md:px-20">
 		<section class="rounded-lg bg-white p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Workspace activity</div>
+			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Home activity</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="grid gap-1">
-					<h1 class="text-3xl font-semibold">Workspace Activity</h1>
+					<h1 class="text-3xl font-semibold">Home Activity</h1>
 					<p class="text-sm text-muted-foreground">Recent activity across your projects</p>
 				</div>
 			</div>

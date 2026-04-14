@@ -6,7 +6,7 @@ export const resourcesData: ResourceRow[] = [
 		name: "Sample interview summary",
 		fileType: "PDF",
 		docType: "Research Paper",
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		version: "v1",
 		lastUpdated: "Feb 14, 2026",
 		linkedCount: 1,
@@ -17,7 +17,7 @@ export const resourcesData: ResourceRow[] = [
 export const resourcesReferenceData = {
 	docTypes: ["Pitch Deck", "Research Paper", "Specification", "Design File", "Other"],
 	fileTypes: ["PDF", "PPTX", "DOCX"],
-	owners: ["Workspace User"],
+	owners: ["ProjectBook User"],
 	sortOptions: ["Last Updated", "Name", "Upload Date"],
 	storyOptions: ["Participant 1 - New user"],
 	problemOptions: ["New users need clearer onboarding guidance"],
@@ -31,7 +31,7 @@ export const resourceDetailData = {
 	docType: "Research Paper",
 	status: "Active",
 	description: "Condensed findings from sample onboarding interviews.",
-	owner: "Workspace User",
+	owner: "ProjectBook User",
 	createdAt: "Feb 14, 2026",
 	updatedAt: "Feb 14, 2026",
 	fileSize: "1.1 MB",
@@ -47,7 +47,7 @@ export const resourceDetailData = {
 	versions: [
 		{
 			version: "v1",
-			uploadedBy: "Workspace User",
+			uploadedBy: "ProjectBook User",
 			uploadDate: "Feb 14, 2026",
 			description: "Initial sample upload"
 		}

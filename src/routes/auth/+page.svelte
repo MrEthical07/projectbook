@@ -97,7 +97,7 @@
 	<title>Login • ProjectBook</title>
 	<meta
 		name="description"
-		content="Sign in to your workspace or create a new ProjectBook account."
+		content="Sign in to your account or create a new ProjectBook account."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
@@ -116,12 +116,12 @@
 				</div>
 				<div>
 					<div class="text-sm font-semibold">ProjectBook</div>
-					<div class="text-xs text-muted-foreground">Workspace</div>
+					<div class="text-xs text-muted-foreground">Home</div>
 				</div>
 			</div>
 
 			<div class="space-y-4">
-				<h1 class="text-3xl font-semibold leading-tight">Design Thinking Workspace</h1>
+				<h1 class="text-3xl font-semibold leading-tight">Design Thinking Project Hub</h1>
 				<p class="text-sm text-muted-foreground">From empathy to learning - in one place.</p>
 
 				<ul class="space-y-2 pt-2 text-sm text-muted-foreground">
@@ -157,7 +157,7 @@
 					</div>
 					<div>
 						<div class="text-sm font-semibold">ProjectBook</div>
-						<div class="text-xs text-muted-foreground">Design Thinking Workspace</div>
+						<div class="text-xs text-muted-foreground">Design Thinking Project Hub</div>
 					</div>
 				</div>
 

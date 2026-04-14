@@ -87,8 +87,7 @@ const inProjectScope = (projectId: string, itemProjectId?: string) =>
 	itemProjectId === projectId;
 
 const projectExists = (projectId: string) =>
-	datastore.projects.some((item) => item.id === projectId) ||
-	datastore.workspace.projects.some((item) => item.id === projectId);
+	datastore.projects.some((item) => item.id === projectId);
 
 const requireProjectId = (projectId: string): string => {
 	const scopedProjectId = projectId.trim();
@@ -116,8 +115,7 @@ const canProjectEdit = (permissionMask: PermissionMask) =>
 
 export const getProjectDashboard = query("unchecked", (projectId: string) => {
 	const scopedProjectId = requireProjectId(projectId);
-	const project = datastore.projects.find((item) => item.id === scopedProjectId)
-		?? datastore.workspace.projects.find((item) => item.id === scopedProjectId);
+	const project = datastore.projects.find((item) => item.id === scopedProjectId);
 	if (!project) {
 		error(404, "Project not found.");
 	}
@@ -467,17 +465,6 @@ export const updateProjectSettings = command(
 		datastore.settings.deliveryChannel =
 			parsed.data.settings.deliveryChannel ?? datastore.settings.deliveryChannel;
 
-		for (const workspaceProject of datastore.workspace.projects) {
-			if (workspaceProject.id === scopedProjectId) {
-				workspaceProject.name = nextName;
-				workspaceProject.status = parsed.data.settings.projectStatus;
-				workspaceProject.lastUpdatedAt = new Date().toISOString();
-				if (parsed.data.settings.projectDescription !== undefined) {
-					workspaceProject.description = parsed.data.settings.projectDescription.trim();
-				}
-			}
-		}
-
 		if (datastore.projectDashboard.project.id === scopedProjectId) {
 			datastore.projectDashboard.project.name = nextName;
 			datastore.projectDashboard.project.status = parsed.data.settings.projectStatus;
@@ -507,11 +494,6 @@ export const archiveProject = command(
 			return { success: false, error: "Project already archived" };
 		}
 		project.status = "Archived";
-		for (const workspaceProject of datastore.workspace.projects) {
-			if (workspaceProject.id === scopedProjectId) {
-				workspaceProject.status = "Archived";
-			}
-		}
 		if (datastore.projectDashboard.project.id === scopedProjectId) {
 			datastore.projectDashboard.project.status = "Archived";
 			datastore.settings.projectStatus = "Archived";
@@ -537,11 +519,6 @@ export const deleteProject = command(
 			return { success: false, error: "Project not found" };
 		}
 		project.status = "Archived";
-		for (const workspaceProject of datastore.workspace.projects) {
-			if (workspaceProject.id === scopedProjectId) {
-				workspaceProject.status = "Archived";
-			}
-		}
 		for (const row of datastore.stories) {
 			if (inProjectScope(scopedProjectId, row.projectId)) row.isOrphan = true;
 		}

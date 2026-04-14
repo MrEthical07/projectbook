@@ -2,9 +2,13 @@ import { command, query } from "$app/server";
 import { z } from "zod";
 import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
+import {
+	getAuthenticatedRequestUser,
+	getTrustedProjectPermissionMask,
+	resolveProjectAccessForRequest
+} from "$lib/server/auth/authorization";
 import { hasPerm } from "$lib/utils/permission";
-import { workspaceProjectsData } from "../server/data/workspace.data";
+import { defaultProjectIconKey } from "$lib/constants/project-icons";
 import "$lib/server/data/project.data";
 import "$lib/server/data/stories.data";
 import "$lib/server/data/journeys.data";
@@ -13,8 +17,6 @@ import "$lib/server/data/ideas.data";
 import "$lib/server/data/tasks.data";
 import "$lib/server/data/feedback.data";
 import "$lib/server/data/pages.data";
-
-void workspaceProjectsData;
 
 type SidebarPrefix =
 	| "stories"
@@ -86,7 +88,6 @@ const prefixSchema = z.enum([
 const createSidebarArtifactSchema = z.object({
 	projectId: z.string().min(1),
 	prefix: prefixSchema,
-	actorId: z.string().min(1),
 	title: z.string().trim().min(1)
 });
 
@@ -94,23 +95,20 @@ const renameSidebarArtifactSchema = z.object({
 	projectId: z.string().min(1),
 	prefix: prefixSchema,
 	artifactId: z.string().min(1),
-	actorId: z.string().min(1),
 	title: z.string().trim().min(1)
 });
 
 const deleteSidebarArtifactSchema = z.object({
 	projectId: z.string().min(1),
 	prefix: prefixSchema,
-	artifactId: z.string().min(1),
-	actorId: z.string().min(1)
+	artifactId: z.string().min(1)
 });
 
 const inProjectScope = (projectId: string, itemProjectId?: string) =>
 	itemProjectId === projectId;
 
 const projectExists = (projectId: string) =>
-	datastore.projects.some((project) => project.id === projectId) ||
-	datastore.workspace.projects.some((project) => project.id === projectId);
+	datastore.projects.some((project) => project.id === projectId);
 
 const slugify = (value: string) =>
 	value
@@ -131,15 +129,12 @@ const uniqueId = (value: string, existing: string[]): string | null => {
 	return `${base}-${suffix}`;
 };
 
-const actorNameFor = (projectId: string, actorId: string): string | null => {
-	if (datastore.workspace.user.id === actorId) {
-		const userHasProject = datastore.workspace.projects.some((project) => project.id === projectId);
-		return userHasProject ? datastore.workspace.user.name : null;
+const actorNameFor = (projectId: string): string | null => {
+	try {
+		return resolveProjectAccessForRequest(projectId).user.name;
+	} catch {
+		return null;
 	}
-	const member = datastore.team.members.find(
-		(item) => item.id === actorId && item.projectId === projectId
-	);
-	return member?.name ?? null;
 };
 
 const initialsFor = (name: string) =>
@@ -495,19 +490,26 @@ export const getProjectSidebarData = query("unchecked", (projectId: string): Sid
 	if (!projectExists(scopedProjectId)) {
 		return { success: false, error: "Project not found for sidebar data." };
 	}
+	const actor = (() => {
+		try {
+			return getAuthenticatedRequestUser();
+		} catch {
+			return null;
+		}
+	})();
 
 	return {
 		success: true,
 		data: {
 			user: {
-				name: datastore.workspace.user.name,
-				email: datastore.workspace.user.email,
+				name: actor?.name ?? "User",
+				email: actor?.email ?? "",
 				avatar: "/avatars/shadcn.jpg"
 			},
-			projects: datastore.workspace.projects.map((project) => ({
+			projects: datastore.projects.map((project) => ({
 				id: project.id,
 				name: project.name,
-				icon: project.icon,
+				icon: defaultProjectIconKey,
 				status: project.status
 			})),
 			artifacts: {
@@ -546,7 +548,7 @@ export const createSidebarArtifact = command(
 		if (!canCreate(permissionMask, parsed.data.prefix)) {
 			return { success: false, error: "Permission denied" };
 		}
-		const owner = actorNameFor(scopedProjectId, parsed.data.actorId);
+		const owner = actorNameFor(scopedProjectId);
 		if (!owner) {
 			return { success: false, error: "Invalid actor" };
 		}
@@ -595,7 +597,7 @@ export const renameSidebarArtifact = command(
 		if (!canEdit(permissionMask, parsed.data.prefix)) {
 			return { success: false, error: "Permission denied" };
 		}
-		const actorName = actorNameFor(scopedProjectId, parsed.data.actorId);
+		const actorName = actorNameFor(scopedProjectId);
 		if (!actorName) {
 			return { success: false, error: "Invalid actor" };
 		}
@@ -640,7 +642,7 @@ export const deleteSidebarArtifact = command(
 		if (!canDelete(permissionMask, parsed.data.prefix)) {
 			return { success: false, error: "Permission denied" };
 		}
-		const actorName = actorNameFor(scopedProjectId, parsed.data.actorId);
+		const actorName = actorNameFor(scopedProjectId);
 		if (!actorName) {
 			return { success: false, error: "Invalid actor" };
 		}

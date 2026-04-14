@@ -37,6 +37,6 @@ UI (`page.svelte`)
 ## Folder Structure Snapshot
 
 - `src/routes/project/[projectId]/**`: project-scoped pages and artifact detail screens.
-- `src/lib/remote/*.remote.ts`: domain and workspace boundary functions.
+- `src/lib/remote/*.remote.ts`: domain and user-home boundary functions.
 - `src/lib/server/data/*.data.ts`: domain seed data.
 - `src/lib/server/data/datastore.ts`: in-memory state container.

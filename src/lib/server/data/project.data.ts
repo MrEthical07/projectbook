@@ -10,7 +10,7 @@ export const projectInfoData: ProjectInfo = {
 export const projectMembersData: TeamMember[] = [
 	{
 		id: "u-1",
-		name: "Workspace User",
+		name: "ProjectBook User",
 		email: "user@example.com",
 		role: "Owner",
 		status: "Active",
@@ -21,7 +21,7 @@ export const projectMembersData: TeamMember[] = [
 export const teamMembersPageData: TeamMember[] = [
 	{
 		id: "u-1",
-		name: "Workspace User",
+		name: "ProjectBook User",
 		email: "user@example.com",
 		role: "Owner",
 		status: "Active",
@@ -42,7 +42,7 @@ export const dashboardEventsData: ProjectEventItem[] = [
 		title: "Sample planning session",
 		type: "Workshop",
 		startAt: "2026-02-14T16:00:00.000Z",
-		creator: "Workspace User",
+		creator: "ProjectBook User",
 		initials: "WU"
 	}
 ];
@@ -50,7 +50,7 @@ export const dashboardEventsData: ProjectEventItem[] = [
 export const dashboardActivityData: ProjectActivityItem[] = [
 	{
 		id: "a-1",
-		user: "Workspace User",
+		user: "ProjectBook User",
 		initials: "WU",
 		action: "updated Story",
 		artifact: "Sample Story",
@@ -71,7 +71,7 @@ export const dashboardRecentEditsData = [
 
 export const projectSettingsData = {
 	projectName: "Sample Project",
-	projectDescription: "Minimal neutral sample workspace.",
+	projectDescription: "Minimal neutral sample project.",
 	projectStatus: "Active" as const,
 	whiteboardsEnabled: true,
 	advancedDatabasesEnabled: true,

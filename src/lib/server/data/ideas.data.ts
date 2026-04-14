@@ -8,7 +8,7 @@ export const ideasData: IdeaRow[] = [
 		persona: "Participant 1",
 		status: "Considered",
 		tasksCount: 1,
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		lastUpdated: "2026-02-14",
 		linkedProblemLocked: false,
 		isOrphan: false

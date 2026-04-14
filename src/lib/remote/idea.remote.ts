@@ -3,7 +3,10 @@ import { error } from "@sveltejs/kit";
 import { z } from "zod";
 import { permissionActionIndex, permissionDomainIndex } from "$lib/constants/permissions";
 import { datastore } from "$lib/server/data/datastore";
-import { getTrustedProjectPermissionMask } from "$lib/server/auth/authorization";
+import {
+	getAuthenticatedRequestUser,
+	getTrustedProjectPermissionMask
+} from "$lib/server/auth/authorization";
 import { getStoryCachedDetail } from "$lib/server/data/story-cache";
 import { getJourneyCachedDetail } from "$lib/server/data/journey-cache";
 import { hasPerm } from "$lib/utils/permission";
@@ -25,7 +28,6 @@ type MutationResult<T> =
 
 const createIdeaSchema = z.object({
 	projectId: z.string().min(1),
-	actorId: z.string().min(1),
 	title: z.string().trim().min(1)
 });
 
@@ -57,8 +59,7 @@ const inProjectScope = (projectId: string, itemProjectId?: string) =>
 	itemProjectId === projectId;
 
 const projectExists = (projectId: string) =>
-	datastore.projects.some((item) => item.id === projectId) ||
-	datastore.workspace.projects.some((item) => item.id === projectId);
+	datastore.projects.some((item) => item.id === projectId);
 
 const requireProjectId = (projectId: string): string => {
 	const scopedProjectId = projectId.trim();
@@ -90,10 +91,12 @@ const uniqueId = (value: string, existing: string[]): string | null => {
 	return `${base}-${suffix}`;
 };
 
-const actorNameFor = (actorId: string): string | null => {
-	if (datastore.workspace.user.id === actorId) return datastore.workspace.user.name;
-	const member = datastore.team.members.find((item) => item.id === actorId);
-	return member?.name ?? null;
+const actorNameFor = (): string | null => {
+	try {
+		return getAuthenticatedRequestUser().name;
+	} catch {
+		return null;
+	}
 };
 
 const canCreateIdea = (permissionMask: PermissionMask) =>
@@ -277,7 +280,7 @@ export const createIdea = command(
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actorName = actorNameFor(parsed.data.actorId);
+		const actorName = actorNameFor();
 		if (!actorName) {
 			return { success: false, error: "Invalid actor" };
 		}

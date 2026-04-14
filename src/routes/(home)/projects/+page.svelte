@@ -56,7 +56,7 @@
 	<title>Projects • ProjectBook</title>
 	<meta
 		name="description"
-		content="Browse and manage all projects in your workspace."
+		content="Browse and manage all of your projects."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />

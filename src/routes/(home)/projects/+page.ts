@@ -1,7 +1,7 @@
-import { getWorkspaceProjects } from "$lib/remote/workspace.remote";
+import { getUserProjects } from "$lib/remote/user-home.remote";
 
 export async function load() {
 	return {
-		projects: await getWorkspaceProjects()
+		projects: await getUserProjects()
 	};
 }

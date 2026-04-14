@@ -7,7 +7,7 @@
 	<title>Privacy Policy - ProjectBook</title>
 	<meta
 		name="description"
-		content="Read the ProjectBook Privacy Policy, including how the service handles account data, workspace content, and cookies."
+		content="Read the ProjectBook Privacy Policy, including how the service handles account data, project content, and cookies."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />

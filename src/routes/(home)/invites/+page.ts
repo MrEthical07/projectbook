@@ -1,9 +1,12 @@
-import { getWorkspaceDashboard, getWorkspaceInvitesPage } from "$lib/remote/workspace.remote";
+import {
+	getUserDashboard,
+	getUserInvitesPage
+} from "$lib/remote/user-home.remote";
 
 export async function load() {
-	const dashboard = await getWorkspaceDashboard();
+	const dashboard = await getUserDashboard();
 	return {
-		invites: await getWorkspaceInvitesPage(),
+		invites: await getUserInvitesPage(),
 		userId: dashboard.user.id
 	};
 }

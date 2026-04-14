@@ -8,13 +8,12 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import {
-		acceptWorkspaceInvite,
-		declineWorkspaceInvite
-	} from "$lib/remote/workspace.remote";
+		acceptProjectInvite,
+		declineProjectInvite
+	} from "$lib/remote/user-home.remote";
 	import { Check, Inbox, Trash2 } from "@lucide/svelte";
 
 	let { data } = $props();
-	const actorId = $derived(data.userId);
 	let actionError = $state("");
 
 	type InviteStatus = "Active" | "Archived";
@@ -59,14 +58,7 @@
 		actionError = "";
 		const target = acceptTarget;
 		if (!target || target.expired) return;
-		if (!actorId) {
-			actionError = "Active user id is missing.";
-			return;
-		}
-		const result = await acceptWorkspaceInvite({
-			actorId,
-			inviteId: target.id
-		});
+		const result = await acceptProjectInvite({ inviteId: target.id });
 		if (!result.success) {
 			actionError = result.error;
 			return;
@@ -80,14 +72,7 @@
 		actionError = "";
 		const target = declineTarget;
 		if (!target) return;
-		if (!actorId) {
-			actionError = "Active user id is missing.";
-			return;
-		}
-		const result = await declineWorkspaceInvite({
-			actorId,
-			inviteId: target.id
-		});
+		const result = await declineProjectInvite({ inviteId: target.id });
 		if (!result.success) {
 			actionError = result.error;
 			return;
@@ -102,7 +87,7 @@
 	<title>Invites • ProjectBook</title>
 	<meta
 		name="description"
-		content="Review and respond to workspace and project invitations."
+		content="Review and respond to project invitations."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
@@ -245,7 +230,7 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-			This action will add the project to your workspace.
+			This action will add the project to your list.
 		</div>
 		{#if actionError}
 			<p class="text-xs text-destructive">{actionError}</p>

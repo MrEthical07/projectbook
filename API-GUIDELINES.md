@@ -16,7 +16,7 @@
 6. [API Endpoints](#6-api-endpoints)
    - 6.0 [Remote Function Coverage](#60-remote-function-coverage)
    - 6.1 [Authentication](#61-authentication)
-   - 6.2 [Workspace](#62-workspace)
+   - 6.2 [Home](#62-home)
    - 6.3 [Project](#63-project)
    - 6.4 [Team Management](#64-team-management)
    - 6.5 [Stories](#65-stories)
@@ -327,7 +327,7 @@ Rate limits are applied to authentication endpoints. Specific limits are configu
 | `INVALID_STATUS_TRANSITION` | 400 | Status change violates transition rules | server |
 | `LOCKED_REQUIRED` | 400 | Operation requires artifact to be in Locked status | server |
 | `DERIVED_READ_ONLY` | 400 | Derived calendar events cannot be edited or deleted | server |
-| `INVITE_EXPIRED` | 400 | Workspace invite has expired | server |
+| `INVITE_EXPIRED` | 400 | Home invite has expired | server |
 | `INVITE_NOT_FOUND` | 404 | Invite does not exist | server |
 | `TOKEN_INVALID` | 400 | Verification or reset token is invalid or expired | server |
 | `RATE_LIMITED` | 429 | Too many requests | server |
@@ -413,26 +413,26 @@ Authorization flow on every protected operation:
 
 The Svelte remote layer is the canonical client/server boundary for the web app. Client-facing pages, components, and client actions should call only these remote functions. When the external API is connected, each remote function should delegate directly to the REST endpoint listed below, with no business logic left in the client.
 
-#### `workspace.remote`
+#### `user-home.remote`
 
-- `getWorkspaceDashboard` -> `GET /api/v1/workspace/dashboard`
-- `getWorkspaceProjects` -> `GET /api/v1/workspace/projects`
-- `getWorkspaceInvitesPage` -> `GET /api/v1/workspace/invites`
-- `getWorkspaceNotificationsPage` -> `GET /api/v1/workspace/notifications`
-- `getWorkspaceActivityPage` -> `GET /api/v1/workspace/activity`
-- `getAddProjectReference` -> `GET /api/v1/workspace/projects/reference`
-- `getDocsSections` -> `GET /api/v1/workspace/docs`
-- `getAccountSettings` -> `GET /api/v1/workspace/account`
-- `createWorkspaceProject` -> `POST /api/v1/workspace/projects`
-- `acceptWorkspaceInvite` -> `POST /api/v1/workspace/invites/{inviteId}/accept`
-- `declineWorkspaceInvite` -> `POST /api/v1/workspace/invites/{inviteId}/decline`
-- `updateAccountSettings` -> `PUT /api/v1/workspace/account`
-- `sendWorkspaceProjectInvites` -> `POST /api/v1/projects/{projectId}/team/invites/batch`
+- `getUserDashboard` -> `GET /api/v1/home/dashboard`
+- `getUserProjects` -> `GET /api/v1/home/projects`
+- `getUserInvitesPage` -> `GET /api/v1/home/invites`
+- `getUserNotificationsPage` -> `GET /api/v1/home/notifications`
+- `getUserActivityPage` -> `GET /api/v1/home/activity`
+- `getProjectCreationReference` -> `GET /api/v1/home/projects/reference`
+- `getUserDocsSections` -> `GET /api/v1/home/docs`
+- `getUserAccountSettings` -> `GET /api/v1/home/account`
+- `createProject` -> `POST /api/v1/home/projects`
+- `acceptProjectInvite` -> `POST /api/v1/home/invites/{inviteId}/accept`
+- `declineProjectInvite` -> `POST /api/v1/home/invites/{inviteId}/decline`
+- `updateUserAccountSettings` -> `PUT /api/v1/home/account`
+- `sendProjectInvites` -> `POST /api/v1/projects/{projectId}/team/invites/batch`
 
 #### `activity.remote`
 
-- `getWorkspaceActivity` -> `GET /api/v1/workspace/activity`
-- `getWorkspaceDashboardActivity` -> `GET /api/v1/workspace/dashboard-activity`
+- `getUserActivity` -> `GET /api/v1/home/activity`
+- `getUserDashboardActivity` -> `GET /api/v1/home/dashboard-activity`
 - `getProjectActivity` -> `GET /api/v1/projects/{projectId}/activity`
 
 #### `access.remote`
@@ -812,17 +812,17 @@ Reset a user's password using the token from the forgot-password email.
 
 ---
 
-### 6.2 Workspace
+### 6.2 Home
 
-Workspace endpoints operate at the user level — they return data across all projects the user belongs to.
+Home endpoints operate at the user level — they return data across all projects the user belongs to.
 
-All workspace endpoints require authentication.
+All home endpoints require authentication.
 
 ---
 
-#### GET `/api/v1/workspace/dashboard`
+#### GET `/api/v1/home/dashboard`
 
-Get the workspace dashboard overview including user info, projects, upcoming events, and recent activity.
+Get the home dashboard overview including user info, projects, upcoming events, and recent activity.
 
 **Auth:** Required
 
@@ -859,7 +859,7 @@ Get the workspace dashboard overview including user info, projects, upcoming eve
 
 ---
 
-#### GET `/api/v1/workspace/projects`
+#### GET `/api/v1/home/projects`
 
 List all projects the authenticated user has access to.
 
@@ -888,9 +888,9 @@ List all projects the authenticated user has access to.
 
 ---
 
-#### POST `/api/v1/workspace/projects`
+#### POST `/api/v1/home/projects`
 
-Create a new project in the workspace. The creating user becomes the project Owner.
+Create a new project in the home. The creating user becomes the project Owner.
 
 **Auth:** Required
 
@@ -941,7 +941,7 @@ Create a new project in the workspace. The creating user becomes the project Own
 
 ---
 
-#### GET `/api/v1/workspace/projects/reference`
+#### GET `/api/v1/home/projects/reference`
 
 Get reference data for the project creation form — existing project names (for duplicate detection) and known user emails (for invite auto-complete).
 
@@ -966,9 +966,9 @@ Get reference data for the project creation form — existing project names (for
 
 ---
 
-#### GET `/api/v1/workspace/invites`
+#### GET `/api/v1/home/invites`
 
-Get all pending workspace invites for the authenticated user.
+Get all pending project invites for the authenticated user.
 
 **Auth:** Required
 
@@ -999,9 +999,9 @@ Get all pending workspace invites for the authenticated user.
 
 ---
 
-#### POST `/api/v1/workspace/invites/{inviteId}/accept`
+#### POST `/api/v1/home/invites/{inviteId}/accept`
 
-Accept a workspace invite and join the project.
+Accept a project invite and join the project.
 
 **Auth:** Required
 
@@ -1033,9 +1033,9 @@ Accept a workspace invite and join the project.
 
 ---
 
-#### POST `/api/v1/workspace/invites/{inviteId}/decline`
+#### POST `/api/v1/home/invites/{inviteId}/decline`
 
-Decline a workspace invite.
+Decline a project invite.
 
 **Auth:** Required
 
@@ -1065,7 +1065,7 @@ Decline a workspace invite.
 
 ---
 
-#### GET `/api/v1/workspace/notifications`
+#### GET `/api/v1/home/notifications`
 
 Get all notifications for the authenticated user.
 
@@ -1091,9 +1091,9 @@ Get all notifications for the authenticated user.
 
 ---
 
-#### GET `/api/v1/workspace/activity`
+#### GET `/api/v1/home/activity`
 
-Get the full workspace activity stream with filtering support.
+Get the full home activity stream with filtering support.
 
 **Auth:** Required
 
@@ -1128,7 +1128,7 @@ Get the full workspace activity stream with filtering support.
 
 ---
 
-#### GET `/api/v1/workspace/dashboard-activity`
+#### GET `/api/v1/home/dashboard-activity`
 
 Get a compact activity feed for the dashboard widget. Returns both "involved" and global activity.
 
@@ -1160,7 +1160,7 @@ Get a compact activity feed for the dashboard widget. Returns both "involved" an
 
 ---
 
-#### GET `/api/v1/workspace/account`
+#### GET `/api/v1/home/account`
 
 Get the current user's account settings.
 
@@ -1186,7 +1186,7 @@ Get the current user's account settings.
 
 ---
 
-#### PUT `/api/v1/workspace/account`
+#### PUT `/api/v1/home/account`
 
 Update the current user's account settings.
 
@@ -1239,7 +1239,7 @@ Update the current user's account settings.
 
 ---
 
-#### GET `/api/v1/workspace/docs`
+#### GET `/api/v1/home/docs`
 
 Get the documentation/help sections available to the user.
 
@@ -1606,7 +1606,7 @@ Permanently delete a project. All artifacts within the project are orphaned.
 
 **Side effects:**
 - All artifacts (stories, journeys, problems, ideas, tasks, feedback, resources, pages, calendar events) are marked as orphaned
-- Project is removed from workspace project list
+- Project is removed from home project list
 - Project dashboard data is cleared
 
 ---
@@ -4722,21 +4722,21 @@ Delete an artifact from the sidebar.
 
 ### 6.15 Activity
 
-Activity endpoints provide chronological logs of actions performed within the workspace and individual projects.
+Activity endpoints provide chronological logs of actions performed within the home and individual projects.
 
 ---
 
-#### GET `/api/v1/workspace/activity`
+#### GET `/api/v1/home/activity`
 
-*(Documented in [Section 6.2 Workspace](#62-workspace))*
+*(Documented in [Section 6.2 Home](#62-home))*
 
-Full workspace activity stream with filtering support.
+Full home activity stream with filtering support.
 
 ---
 
-#### GET `/api/v1/workspace/dashboard-activity`
+#### GET `/api/v1/home/dashboard-activity`
 
-*(Documented in [Section 6.2 Workspace](#62-workspace))*
+*(Documented in [Section 6.2 Home](#62-home))*
 
 Compact dashboard activity with "involved" flag.
 
@@ -4972,7 +4972,7 @@ type PermissionMask = string // decimal-encoded uint64-compatible bitset
 }
 ```
 
-#### WorkspaceUser
+#### HomeUser
 ```typescript
 {
   id: string
@@ -4981,7 +4981,7 @@ type PermissionMask = string // decimal-encoded uint64-compatible bitset
 }
 ```
 
-#### WorkspaceProject
+#### HomeProject
 ```typescript
 {
   id: string

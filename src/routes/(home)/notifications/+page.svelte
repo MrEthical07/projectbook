@@ -103,7 +103,7 @@
 	<title>Notifications • ProjectBook</title>
 	<meta
 		name="description"
-		content="View and manage your workspace notifications and updates."
+		content="View and manage your project notifications and updates."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />

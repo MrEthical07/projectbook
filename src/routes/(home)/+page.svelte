@@ -9,9 +9,9 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { resolveProjectIcon } from "$lib/utils/project-icons";
 	import {
-		acceptWorkspaceInvite,
-		declineWorkspaceInvite
-	} from "$lib/remote/workspace.remote";
+		acceptProjectInvite,
+		declineProjectInvite
+	} from "$lib/remote/user-home.remote";
 	import {
 		Activity,
 		Bell,
@@ -80,7 +80,6 @@
 	let user = $derived(structuredClone(data.user));
 	let projects = $derived<Project[]>(structuredClone(data.projects) as Project[]);
 	let invites = $derived<Invite[]>(structuredClone(data.invites) as Invite[]);
-	const actorId = $derived(data.user.id);
 	let inviteActionError = $state("");
 
 	let acceptOpen = $state(false);
@@ -102,14 +101,7 @@
 		inviteActionError = "";
 		const target = acceptTarget;
 		if (!target) return;
-		if (!actorId) {
-			inviteActionError = "Active user id is missing.";
-			return;
-		}
-		const result = await acceptWorkspaceInvite({
-			actorId,
-			inviteId: target.id
-		});
+		const result = await acceptProjectInvite({ inviteId: target.id });
 		if (!result.success) {
 			inviteActionError = result.error;
 			return;
@@ -123,14 +115,7 @@
 		inviteActionError = "";
 		const target = declineTarget;
 		if (!target) return;
-		if (!actorId) {
-			inviteActionError = "Active user id is missing.";
-			return;
-		}
-		const result = await declineWorkspaceInvite({
-			actorId,
-			inviteId: target.id
-		});
+		const result = await declineProjectInvite({ inviteId: target.id });
 		if (!result.success) {
 			inviteActionError = result.error;
 			return;
@@ -197,7 +182,7 @@
 	let hasPendingInvites = $derived(pendingInvites.length > 0);
 	let notificationItems = $derived(notifications.slice(0, 5));
 	let unreadNotificationCount = $derived(notifications.filter((item) => item.unread).length);
-	let isEmptyWorkspace = $derived(projects.length === 0 && invites.length === 0);
+	let isEmptyState = $derived(projects.length === 0 && invites.length === 0);
 
 	let activityFeedReady = $state(false);
 	let orderedActivity = $derived.by(() => {
@@ -234,19 +219,19 @@
 			<Breadcrumb.Root>
 				<Breadcrumb.List>
 					<Breadcrumb.Item>
-						<Breadcrumb.Page>Workspace</Breadcrumb.Page>
+						<Breadcrumb.Page>Home</Breadcrumb.Page>
 					</Breadcrumb.Item>
 				</Breadcrumb.List>
 			</Breadcrumb.Root>
 		</div>
 	</header>
 
-	{#if isEmptyWorkspace}
+	{#if isEmptyState}
 		<section class="mx-auto flex min-h-[72vh] w-full max-w-2xl flex-col items-center justify-center gap-6 rounded-2xl bg-card p-10 text-center shadow-sm">
 			<div class="grid gap-2">
 				<h1 class="text-3xl font-semibold tracking-tight">Welcome to ProjectBook</h1>
 				<p class="text-sm text-muted-foreground">
-					Start your first workspace project to plan research, align ideas, and move from
+					Start your first project to plan research, align ideas, and move from
 					problem framing to validated outcomes.
 				</p>
 			</div>
@@ -262,7 +247,7 @@
 					<div class="flex flex-wrap items-start justify-between gap-3">
 						<div class="grid gap-1">
 							<h1 class="text-3xl font-semibold tracking-tight">Good Morning, {user.name}</h1>
-							<p class="text-sm text-muted-foreground">Here's your workspace overview.</p>
+							<p class="text-sm text-muted-foreground">Here's your project overview.</p>
 						</div>
 						<div class="flex items-center gap-2 text-xs text-muted-foreground">
 							<Clock3 class="h-3.5 w-3.5" />
@@ -493,7 +478,7 @@
 		<Dialog.Header>
 			<Dialog.Title>Accept this invitation?</Dialog.Title>
 			<Dialog.Description>
-				You'll join this project in your workspace immediately.
+				You'll join this project immediately.
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">

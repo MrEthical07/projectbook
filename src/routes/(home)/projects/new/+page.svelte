@@ -10,9 +10,9 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
 	import {
-		createWorkspaceProject,
-		sendWorkspaceProjectInvites
-	} from "$lib/remote/workspace.remote";
+		createProject,
+		sendProjectInvites
+	} from "$lib/remote/user-home.remote";
 	import { defaultProjectIconKey } from "$lib/constants/project-icons";
 	import { projectIconOptions } from "$lib/utils/project-icons";
 	import { Check, MailPlus, Plus, Trash2 } from "@lucide/svelte";
@@ -22,7 +22,6 @@
 
 	let { data } = $props();
 	const reference = () => data.reference;
-	const actorId = $derived(data.userId);
 	const existingProjects = structuredClone(reference().existingProjects) as string[];
 	const existingUsers = structuredClone(reference().existingUsers) as string[];
 
@@ -99,21 +98,12 @@
 		}, 900);
 	};
 
-	const createProject = async () => {
+	const createProjectAction = async () => {
 		actionError = "";
 		if (!validateName()) return;
-		if (!actorId) {
-			actionError = "Active user id is missing.";
-			return;
-		}
 		const trimmed = projectName.trim();
 		const description = projectDescription.trim();
-		const result = await createWorkspaceProject({
-			actorId,
-			name: trimmed,
-			description,
-			icon: selectedIcon
-		});
+		const result = await createProject({ name: trimmed, description, icon: selectedIcon });
 		if (!result.success) {
 			actionError = result.error;
 			return;
@@ -152,10 +142,6 @@
 	const sendInvites = async () => {
 		actionError = "";
 		if (!validateEmails() || !createdProjectId) return;
-		if (!actorId) {
-			actionError = "Active user id is missing.";
-			return;
-		}
 		const inviteList = inviteEmails
 			.map((value) => value.trim().toLowerCase())
 			.filter(Boolean)
@@ -169,11 +155,7 @@
 			return;
 		}
 
-		const result = await sendWorkspaceProjectInvites({
-			actorId,
-			projectId: createdProjectId,
-			invites: inviteList
-		});
+		const result = await sendProjectInvites({ projectId: createdProjectId, invites: inviteList });
 		if (!result.success) {
 			actionError = result.error;
 			emailErrors = inviteEmails.map((email) => (email.trim() ? result.error : ""));
@@ -222,7 +204,7 @@
 	<div class="flex flex-col gap-5 py-2 md:px-20">
 		<div class="flex flex-col gap-2 rounded-lg bg-white p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
-				Add project - Create a new workspace
+					Add project - Create a new project
 			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<h1 class="text-3xl font-semibold">Add Project</h1>
@@ -322,7 +304,7 @@
 								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 									Cancel
 								</Dialog.Close>
-								<Dialog.Close class={buttonVariants()} onclick={createProject}>
+								<Dialog.Close class={buttonVariants()} onclick={createProjectAction}>
 									Create project
 								</Dialog.Close>
 							</Dialog.Footer>

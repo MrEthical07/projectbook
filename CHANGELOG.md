@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased] - 2026-04-08
+
+### Changed
+
+- Completed migration to a home/project information model across routes, remotes, datastore, and shared types.
+- Unified API contracts and implementation naming around `/home/*` and project-centric terminology.
+- Updated architecture, security, and legal documentation to match the new home/project model.
+
+### Removed
+
+- Deprecated compatibility modules tied to the legacy tenant-oriented model.
+
+### Security
+
+- Enforced session-principal ownership for mutation actor resolution in remote handlers.
+
 ## [0.5.0] - 2026-04-05
 
 ### Added

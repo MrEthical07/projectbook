@@ -391,7 +391,7 @@
 		</Card.Header>
 			<Card.Content>
 				<Table.Root>
-					<Table.Caption>Active members with access to this workspace.</Table.Caption>
+					<Table.Caption>Active members with access to this project.</Table.Caption>
 					<Table.Header>
 						<Table.Row>
 							<Table.Head>Name</Table.Head>

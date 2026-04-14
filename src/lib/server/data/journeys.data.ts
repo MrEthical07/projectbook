@@ -7,7 +7,7 @@ export const journeysData: JourneyRow[] = [
 		linkedPersonas: ["Participant 1"],
 		stagesCount: 3,
 		painPointsCount: 1,
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		lastUpdated: "2026-02-14",
 		status: "Draft",
 		isOrphan: false

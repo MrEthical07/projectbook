@@ -1,6 +1,6 @@
 import { datastore } from "./datastore";
 
-export const workspaceProjectsData: WorkspaceProject[] = [
+export const homeProjectsData: HomeProject[] = [
 	{
 		id: "atlas-2026",
 		name: "Sample Project",
@@ -15,7 +15,7 @@ export const workspaceProjectsData: WorkspaceProject[] = [
 	}
 ];
 
-export const workspaceInvitesData: WorkspaceInvite[] = [
+export const homeInvitesData: HomeInvite[] = [
 	{
 		id: "inv-1",
 		projectName: "Sample Project",
@@ -25,11 +25,11 @@ export const workspaceInvitesData: WorkspaceInvite[] = [
 	}
 ];
 
-export const invitesInboxData: WorkspaceInvite[] = [
+export const invitesInboxData: HomeInvite[] = [
 	{
 		id: "inv-1",
 		projectName: "Sample Project",
-		projectDescription: "Minimal neutral sample workspace.",
+		projectDescription: "Minimal neutral sample project.",
 		projectStatus: "Active",
 		projectId: "atlas-2026",
 		organizationName: "ProjectBook contributors",
@@ -42,7 +42,7 @@ export const invitesInboxData: WorkspaceInvite[] = [
 	}
 ];
 
-export const workspaceNotificationsData: WorkspaceNotification[] = [
+export const homeNotificationsData: HomeNotification[] = [
 	{
 		id: "n-1",
 		text: "Welcome to Sample Project",
@@ -52,11 +52,11 @@ export const workspaceNotificationsData: WorkspaceNotification[] = [
 	}
 ];
 
-export const notificationsInboxData: WorkspaceNotification[] = [
+export const notificationsInboxData: HomeNotification[] = [
 	{
 		id: "n-1",
 		title: "Welcome",
-		description: "Your workspace is ready.",
+		description: "Your home is ready.",
 		project: "Sample Project",
 		sourceType: "System Notification",
 		read: false,
@@ -64,11 +64,11 @@ export const notificationsInboxData: WorkspaceNotification[] = [
 	}
 ];
 
-export const workspaceActivityData: WorkspaceActivityItem[] = [
+export const homeActivityData: HomeActivityItem[] = [
 	{
 		id: "a-1",
-		userName: "Workspace User",
-		userInitials: "WU",
+		userName: "ProjectBook User",
+		userInitials: "PU",
 		action: "created Sample Project",
 		projectName: "Sample Project",
 		timestamp: "Just now",
@@ -77,11 +77,11 @@ export const workspaceActivityData: WorkspaceActivityItem[] = [
 	}
 ];
 
-export const workspaceActivityPageData: WorkspaceActivityItem[] = [
+export const homeActivityPageData: HomeActivityItem[] = [
 	{
 		id: "a-1",
-		userName: "Workspace User",
-		userInitials: "WU",
+		userName: "ProjectBook User",
+		userInitials: "PU",
 		action: "updated",
 		artifactName: "Sample Story",
 		artifactUrl: "/project/atlas-2026/stories/sample-story-1",
@@ -106,8 +106,8 @@ export const docsSectionsData = [
 ] as const;
 
 export const accountSettingsData = {
-	displayName: "Workspace User",
-	handle: "workspace-user",
+	displayName: "ProjectBook User",
+	handle: "projectbook-user",
 	email: "user@example.com",
 	accountStatus: "Active",
 	bio: "Sample account for local development.",
@@ -128,7 +128,7 @@ export const accountSettingsData = {
 	]
 };
 
-datastore.workspace.projects = workspaceProjectsData;
-datastore.workspace.invites = invitesInboxData;
-datastore.workspace.notifications = workspaceNotificationsData;
-datastore.workspace.activity = workspaceActivityData;
+datastore.home.projects = homeProjectsData;
+datastore.home.invites = invitesInboxData;
+datastore.home.notifications = homeNotificationsData;
+datastore.home.activity = homeActivityData;

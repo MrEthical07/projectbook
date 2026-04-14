@@ -50,7 +50,7 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
    5.5 Member-level overrides (`isCustom`, `permissionMask`)
 6. API Endpoints (every endpoint with: method, URL, auth, permissions, request body, query params, success response, error responses, examples)
    6.1  Authentication (7 endpoints)
-   6.2  Workspace (12 endpoints)
+   6.2  Home (12 endpoints)
    6.3  Project (7 endpoints)
    6.4  Team Management (6 endpoints)
    6.5  Stories (4 endpoints)
@@ -94,22 +94,22 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 | POST | /api/v1/auth/forgot-password | `authService.requestPasswordReset()` |
 | POST | /api/v1/auth/reset-password | `authService.resetPassword()` |
 
-### Workspace (13)
+### Home (13)
 | Method | Path | Source Function |
 |--------|------|----------------|
-| GET | /api/v1/workspace/dashboard | `getWorkspaceDashboard()` |
-| GET | /api/v1/workspace/projects | `getWorkspaceProjects()` |
-| POST | /api/v1/workspace/projects | `createWorkspaceProject()` |
-| GET | /api/v1/workspace/projects/reference | `getAddProjectReference()` |
-| GET | /api/v1/workspace/invites | `getWorkspaceInvitesPage()` |
-| POST | /api/v1/workspace/invites/{inviteId}/accept | `acceptWorkspaceInvite()` |
-| POST | /api/v1/workspace/invites/{inviteId}/decline | `declineWorkspaceInvite()` |
-| GET | /api/v1/workspace/notifications | `getWorkspaceNotificationsPage()` |
-| GET | /api/v1/workspace/activity | `getWorkspaceActivityPage()` |
-| GET | /api/v1/workspace/dashboard-activity | `getWorkspaceDashboardActivity()` |
-| GET | /api/v1/workspace/account | `getAccountSettings()` |
-| PUT | /api/v1/workspace/account | `updateAccountSettings()` |
-| GET | /api/v1/workspace/docs | `getDocsSections()` |
+| GET | /api/v1/home/dashboard | `getUserDashboard()` |
+| GET | /api/v1/home/projects | `getUserProjects()` |
+| POST | /api/v1/home/projects | `createProject()` |
+| GET | /api/v1/home/projects/reference | `getProjectCreationReference()` |
+| GET | /api/v1/home/invites | `getUserInvitesPage()` |
+| POST | /api/v1/home/invites/{inviteId}/accept | `acceptProjectInvite()` |
+| POST | /api/v1/home/invites/{inviteId}/decline | `declineProjectInvite()` |
+| GET | /api/v1/home/notifications | `getUserNotificationsPage()` |
+| GET | /api/v1/home/activity | `getUserActivityPage()` |
+| GET | /api/v1/home/dashboard-activity | `getUserDashboardActivity()` |
+| GET | /api/v1/home/account | `getUserAccountSettings()` |
+| PUT | /api/v1/home/account | `updateUserAccountSettings()` |
+| GET | /api/v1/home/docs | `getUserDocsSections()` |
 
 ### Project (7)
 | Method | Path | Source Function |
@@ -128,7 +128,7 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 | GET | /api/v1/projects/{projectId}/team/members | `getProjectTeamMembers()` |
 | GET | /api/v1/projects/{projectId}/team/roles | `getProjectTeamRoles()` |
 | POST | /api/v1/projects/{projectId}/team/invites | `createProjectInvite()` |
-| POST | /api/v1/projects/{projectId}/team/invites/batch | `sendWorkspaceProjectInvites()` |
+| POST | /api/v1/projects/{projectId}/team/invites/batch | `sendProjectInvites()` |
 | DELETE | /api/v1/projects/{projectId}/team/invites/{email} | `cancelProjectInvite()` |
 | PUT | /api/v1/projects/{projectId}/team/members/{memberId}/permissions | `updateProjectMemberPermissions()` |
 | PUT | /api/v1/projects/{projectId}/team/roles/{role}/permissions | `updateProjectRolePermissions()` |
@@ -223,8 +223,8 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 ### Activity (3)
 | Method | Path | Source Function |
 |--------|------|----------------|
-| GET | /api/v1/workspace/activity | `getWorkspaceActivity()` |
-| GET | /api/v1/workspace/dashboard-activity | `getWorkspaceDashboardActivity()` |
+| GET | /api/v1/home/activity | `getUserActivity()` |
+| GET | /api/v1/home/dashboard-activity | `getUserDashboardActivity()` |
 | GET | /api/v1/projects/{projectId}/activity | `getProjectActivity()` |
 
 ---
@@ -234,8 +234,8 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 ### Step 1: Create `API-GUIDELINES.md` - Foundation sections
 Write sections 1-5: Overview, Authentication, Conventions, Error Codes, Permission System.
 
-### Step 2: Create `API-GUIDELINES.md` - Auth & Workspace endpoints
-Write sections 6.1 (Auth - 7 endpoints) and 6.2 (Workspace - 12 endpoints) with full request/response details.
+### Step 2: Create `API-GUIDELINES.md` - Auth & Home endpoints
+Write sections 6.1 (Auth - 7 endpoints) and 6.2 (Home - 12 endpoints) with full request/response details.
 
 ### Step 3: Create `API-GUIDELINES.md` - Project & Team endpoints
 Write sections 6.3 (Project - 7 endpoints) and 6.4 (Team - 6 endpoints).

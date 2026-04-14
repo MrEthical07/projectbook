@@ -10,8 +10,8 @@ import {
 	addProjectReferenceData,
 	docsSectionsData,
 	notificationsInboxData,
-	workspaceActivityPageData
-} from "$lib/server/data/workspace.data";
+	homeActivityPageData
+} from "$lib/server/data/home.data";
 import {
 	defaultProjectIconKey,
 	projectIconKeys,
@@ -29,18 +29,16 @@ type MutationResult<T> =
 	  };
 
 const createProjectSchema = z.object({
-	actorId: z.string().min(1),
 	name: z.string().trim().min(1),
 	description: z.string().optional(),
 	icon: z.enum(projectIconKeys)
 });
 
 const inviteActionSchema = z.object({
-	actorId: z.string().min(1),
 	inviteId: z.string().min(1)
 });
 
-const workspaceInviteRoleSchema = z.enum([
+const projectInviteRoleSchema = z.enum([
 	"Owner",
 	"Admin",
 	"Editor",
@@ -48,19 +46,17 @@ const workspaceInviteRoleSchema = z.enum([
 	"Limited Access"
 ]);
 
-const sendWorkspaceProjectInvitesSchema = z.object({
-	actorId: z.string().min(1),
+const sendProjectInvitesSchema = z.object({
 	projectId: z.string().min(1),
 	invites: z.array(
 		z.object({
 			email: z.string().email(),
-			role: workspaceInviteRoleSchema
+			role: projectInviteRoleSchema
 		})
 	)
 });
 
 const updateAccountSettingsSchema = z.object({
-	actorId: z.string().min(1),
 	settings: z.object({
 		displayName: z.string().min(1),
 		bio: z.string().optional(),
@@ -102,24 +98,23 @@ const iconForProjectName = (name: string): ProjectIconKey => {
 	return projectIconKeys[hash % projectIconKeys.length] ?? defaultProjectIconKey;
 };
 
-const resolveAuthenticatedWorkspaceActor = (actorId: string): ProjectAccess["user"] | null => {
+const resolveAuthenticatedActor = (): ProjectAccess["user"] | null => {
 	try {
-		const actor = getAuthenticatedRequestUser();
-		return actor.id === actorId ? actor : null;
+		return getAuthenticatedRequestUser();
 	} catch {
 		return null;
 	}
 };
 
-const syncWorkspaceUserFromActor = (actor: ProjectAccess["user"]) => {
-	datastore.workspace.user = {
+const syncHomeUserFromActor = (actor: ProjectAccess["user"]) => {
+	datastore.home.user = {
 		id: actor.id,
 		name: actor.name,
-		email: actor.email ?? datastore.workspace.user.email
+		email: actor.email ?? datastore.home.user.email
 	};
 };
 
-export type WorkspaceSidebarData = {
+export type HomeSidebarData = {
 	user: {
 		name: string;
 		email: string;
@@ -127,81 +122,81 @@ export type WorkspaceSidebarData = {
 	};
 };
 
-export const getWorkspaceSidebarData = query((): WorkspaceSidebarData => {
+export const getHomeSidebarData = query((): HomeSidebarData => {
 	return {
 		user: {
-			name: datastore.workspace.user.name,
-			email: datastore.workspace.user.email,
+			name: datastore.home.user.name,
+			email: datastore.home.user.email,
 			avatar: "/avatars/shadcn.jpg"
 		}
 	};
 });
 
-export const getWorkspaceDashboard = query(() => {
+export const getUserDashboard = query(() => {
 	return {
-		user: datastore.workspace.user,
-		projects: datastore.workspace.projects,
-		invites: datastore.workspace.invites,
-		notifications: datastore.workspace.notifications,
-		activity: datastore.workspace.activity
+		user: datastore.home.user,
+		projects: datastore.home.projects,
+		invites: datastore.home.invites,
+		notifications: datastore.home.notifications,
+		activity: datastore.home.activity
 	};
 });
 
-export const getWorkspaceProjects = query(() => {
-	return datastore.workspace.projects;
+export const getUserProjects = query(() => {
+	return datastore.home.projects;
 });
 
-export const getWorkspaceInvitesPage = query(() => {
-	return datastore.workspace.invites;
+export const getUserInvitesPage = query(() => {
+	return datastore.home.invites;
 });
 
-export const getWorkspaceNotificationsPage = query(() => {
+export const getUserNotificationsPage = query(() => {
 	return notificationsInboxData;
 });
 
-export const getWorkspaceActivityPage = query(() => {
-	return workspaceActivityPageData;
+export const getUserActivityPage = query(() => {
+	return homeActivityPageData;
 });
 
-export const getAddProjectReference = query(() => {
+export const getProjectCreationReference = query(() => {
 	return addProjectReferenceData;
 });
 
-export const getDocsSections = query(() => {
+export const getUserDocsSections = query(() => {
 	return docsSectionsData;
 });
 
-export const getAccountSettings = query(() => {
+export const getUserAccountSettings = query(() => {
 	return accountSettingsData;
 });
 
-export const createWorkspaceProject = command(
+export const createProject = command(
 	"unchecked",
-	(input: unknown): MutationResult<{ projectId: string; project: WorkspaceProject }> => {
+	(input: unknown): MutationResult<{ projectId: string; project: HomeProject }> => {
 		const parsed = createProjectSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actor = resolveAuthenticatedWorkspaceActor(parsed.data.actorId);
+		const actor = resolveAuthenticatedActor();
 		if (!actor) {
 			return { success: false, error: "Permission denied" };
 		}
-		syncWorkspaceUserFromActor(actor);
+		syncHomeUserFromActor(actor);
 		const name = parsed.data.name.trim();
-		const duplicate = datastore.workspace.projects.some(
+		const duplicate = datastore.home.projects.some(
 			(item) => item.name.toLowerCase() === name.toLowerCase()
 		);
 		if (duplicate) {
 			return { success: false, error: "Project already exists" };
 		}
-		const projectId = uniqueId(name, datastore.workspace.projects.map((item) => item.id));
+		const projectId = uniqueId(name, datastore.home.projects.map((item) => item.id));
 		if (!projectId) {
 			return {
 				success: false,
 				error: "Project name must include letters or numbers."
 			};
 		}
-		const project: WorkspaceProject = {
+		const project: HomeProject = {
 			id: projectId,
 			name,
 			organization: "League Studio",
@@ -214,7 +209,7 @@ export const createWorkspaceProject = command(
 		};
 		const rolePermissionMasks = ensureProjectRolePermissionMasks(projectId);
 		const ownerPermissionMask = rolePermissionMasks.Owner;
-		datastore.workspace.projects.unshift(project);
+		datastore.home.projects.unshift(project);
 		datastore.projects.unshift({
 			id: projectId,
 			name,
@@ -222,14 +217,14 @@ export const createWorkspaceProject = command(
 		});
 		if (
 			!datastore.team.members.some(
-				(item) => item.id === parsed.data.actorId && item.projectId === projectId
+				(item) => item.id === actor.id && item.projectId === projectId
 			)
 		) {
 			datastore.team.members.unshift({
 				id: actor.id,
 				projectId,
 				name: actor.name,
-				email: actor.email ?? datastore.workspace.user.email,
+				email: actor.email ?? datastore.home.user.email,
 				role: "Owner",
 				isCustom: false,
 				permissionMask: ownerPermissionMask,
@@ -242,25 +237,25 @@ export const createWorkspaceProject = command(
 	}
 );
 
-export const acceptWorkspaceInvite = command(
+export const acceptProjectInvite = command(
 	"unchecked",
 	(input: unknown): MutationResult<{ inviteId: string; projectId: string }> => {
 		const parsed = inviteActionSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actor = resolveAuthenticatedWorkspaceActor(parsed.data.actorId);
+		const actor = resolveAuthenticatedActor();
 		if (!actor) {
 			return { success: false, error: "Permission denied" };
 		}
-		syncWorkspaceUserFromActor(actor);
-		const inviteIndex = datastore.workspace.invites.findIndex(
+		syncHomeUserFromActor(actor);
+		const inviteIndex = datastore.home.invites.findIndex(
 			(item) => item.id === parsed.data.inviteId
 		);
 		if (inviteIndex < 0) {
 			return { success: false, error: "Invite not found" };
 		}
-		const invite = datastore.workspace.invites[inviteIndex];
+		const invite = datastore.home.invites[inviteIndex];
 		if (invite.expired) {
 			return { success: false, error: "Invite expired" };
 		}
@@ -270,9 +265,9 @@ export const acceptWorkspaceInvite = command(
 		if (!invite.projectStatus) {
 			return { success: false, error: "Invite is missing project status" };
 		}
-		datastore.workspace.invites.splice(inviteIndex, 1);
+		datastore.home.invites.splice(inviteIndex, 1);
 		const projectId = invite.projectId.trim();
-		const exists = datastore.workspace.projects.some((item) => item.id === projectId);
+		const exists = datastore.home.projects.some((item) => item.id === projectId);
 		const role =
 			invite.assignedRole === "Viewer"
 				? "Viewer"
@@ -280,7 +275,7 @@ export const acceptWorkspaceInvite = command(
 					? "Limited Access"
 					: "Member";
 		if (!exists) {
-			datastore.workspace.projects.unshift({
+			datastore.home.projects.unshift({
 				id: projectId,
 				name: invite.projectName,
 				organization: invite.organizationName,
@@ -298,7 +293,7 @@ export const acceptWorkspaceInvite = command(
 				id: actor.id,
 				projectId,
 				name: actor.name,
-				email: actor.email ?? datastore.workspace.user.email,
+				email: actor.email ?? datastore.home.user.email,
 				role,
 				isCustom: false,
 				permissionMask: rolePermissionMasks[role],
@@ -311,41 +306,41 @@ export const acceptWorkspaceInvite = command(
 	}
 );
 
-export const declineWorkspaceInvite = command(
+export const declineProjectInvite = command(
 	"unchecked",
 	(input: unknown): MutationResult<{ inviteId: string }> => {
 		const parsed = inviteActionSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actor = resolveAuthenticatedWorkspaceActor(parsed.data.actorId);
+		const actor = resolveAuthenticatedActor();
 		if (!actor) {
 			return { success: false, error: "Permission denied" };
 		}
-		syncWorkspaceUserFromActor(actor);
-		const inviteIndex = datastore.workspace.invites.findIndex(
+		syncHomeUserFromActor(actor);
+		const inviteIndex = datastore.home.invites.findIndex(
 			(item) => item.id === parsed.data.inviteId
 		);
 		if (inviteIndex < 0) {
 			return { success: false, error: "Invite not found" };
 		}
-		datastore.workspace.invites.splice(inviteIndex, 1);
+		datastore.home.invites.splice(inviteIndex, 1);
 		return { success: true, data: { inviteId: parsed.data.inviteId } };
 	}
 );
 
-export const updateAccountSettings = command(
+export const updateUserAccountSettings = command(
 	"unchecked",
 	(input: unknown): MutationResult<{ updatedAt: string }> => {
 		const parsed = updateAccountSettingsSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actor = resolveAuthenticatedWorkspaceActor(parsed.data.actorId);
+		const actor = resolveAuthenticatedActor();
 		if (!actor) {
 			return { success: false, error: "Permission denied" };
 		}
-		syncWorkspaceUserFromActor(actor);
+		syncHomeUserFromActor(actor);
 
 		const nextName = parsed.data.settings.displayName.trim();
 		if (!nextName) {
@@ -366,27 +361,27 @@ export const updateAccountSettings = command(
 		accountSettingsData.emailNotifications =
 			parsed.data.settings.emailNotifications ?? accountSettingsData.emailNotifications;
 
-		datastore.workspace.user.name = nextName;
+		datastore.home.user.name = nextName;
 
 		return { success: true, data: { updatedAt: new Date().toISOString() } };
 	}
 );
 
-export const sendWorkspaceProjectInvites = command(
+export const sendProjectInvites = command(
 	"unchecked",
 	(
 		input: unknown
 	): MutationResult<{ projectId: string; invited: Array<{ email: string; role: string }> }> => {
-		const parsed = sendWorkspaceProjectInvitesSchema.safeParse(input);
+		const parsed = sendProjectInvitesSchema.safeParse(input);
 		if (!parsed.success) {
 			return { success: false, error: "Invalid input" };
 		}
-		const actor = resolveAuthenticatedWorkspaceActor(parsed.data.actorId);
+		const actor = resolveAuthenticatedActor();
 		if (!actor) {
 			return { success: false, error: "Permission denied" };
 		}
-		syncWorkspaceUserFromActor(actor);
-		const hasProject = datastore.workspace.projects.some(
+		syncHomeUserFromActor(actor);
+		const hasProject = datastore.home.projects.some(
 			(item) => item.id === parsed.data.projectId
 		);
 		if (!hasProject) {
@@ -395,10 +390,10 @@ export const sendWorkspaceProjectInvites = command(
 		const memberRole = datastore.team.members.find(
 			(m) => m.id === actor.id && m.projectId === parsed.data.projectId
 		);
-		const workspaceRole = datastore.workspace.projects.find(
+		const homeRole = datastore.home.projects.find(
 			(item) => item.id === parsed.data.projectId && item.id === parsed.data.projectId
 		)?.role;
-		const actorRole = memberRole?.role ?? workspaceRole;
+		const actorRole = memberRole?.role ?? homeRole;
 		if (!actorRole || !["Owner", "Admin"].includes(actorRole)) {
 			return { success: false, error: "Permission denied: insufficient role on target project." };
 		}

@@ -1,9 +1,12 @@
-import { getAddProjectReference, getWorkspaceDashboard } from "$lib/remote/workspace.remote";
+import {
+	getProjectCreationReference,
+	getUserDashboard
+} from "$lib/remote/user-home.remote";
 
 export async function load() {
-	const dashboard = await getWorkspaceDashboard();
+	const dashboard = await getUserDashboard();
 	return {
-		reference: await getAddProjectReference(),
+		reference: await getProjectCreationReference(),
 		userId: dashboard.user.id
 	};
 }

@@ -2,7 +2,7 @@ import { query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { datastore } from "$lib/server/data/datastore";
 
-type WorkspaceActivityInput = {
+type HomeActivityInput = {
 	limit?: number;
 };
 
@@ -11,7 +11,7 @@ type ProjectActivityInput = {
 	limit?: number;
 };
 
-type LoggedActivity = ProjectActivityItem | WorkspaceActivityItem;
+type LoggedActivity = ProjectActivityItem | HomeActivityItem;
 
 const sortByDateDesc = (a: LoggedActivity, b: LoggedActivity) => {
 	const aDate = "at" in a ? Date.parse(a.at) : Date.parse(a.occurredAt);
@@ -22,22 +22,25 @@ const sortByDateDesc = (a: LoggedActivity, b: LoggedActivity) => {
 const inProjectScope = (projectId: string, itemProjectId?: string) =>
 	itemProjectId === projectId;
 
-export const getWorkspaceActivity = query("unchecked", (input: WorkspaceActivityInput) => {
+export const getUserActivity = query("unchecked", (input: HomeActivityInput) => {
 	const limit = input.limit ?? 50;
 	return datastore.activity
-		.filter((item): item is WorkspaceActivityItem => "projectName" in item && "occurredAt" in item)
+		.filter((item): item is HomeActivityItem => "projectName" in item && "occurredAt" in item)
 		.slice()
 		.sort(sortByDateDesc)
 		.slice(0, limit);
 });
 
-export const getWorkspaceDashboardActivity = query("unchecked", (input: WorkspaceActivityInput) => {
+export const getUserDashboardActivity = query("unchecked", (input: HomeActivityInput) => {
 	const limit = input.limit ?? 10;
-	const involved = datastore.workspace.activity
+	const homeActivity = datastore.activity.filter(
+		(item): item is HomeActivityItem => "projectName" in item && "occurredAt" in item
+	);
+	const involved = homeActivity
 		.filter((item) => item.involved)
 		.slice()
 		.sort(sortByDateDesc);
-	const global = datastore.workspace.activity
+	const global = homeActivity
 		.filter((item) => !item.involved)
 		.slice()
 		.sort(sortByDateDesc);
@@ -50,8 +53,7 @@ export const getProjectActivity = query("unchecked", (input: ProjectActivityInpu
 		error(400, "Project id is required.");
 	}
 	const projectExists =
-		datastore.projects.some((item) => item.id === projectId) ||
-		datastore.workspace.projects.some((item) => item.id === projectId);
+		datastore.projects.some((item) => item.id === projectId);
 	if (!projectExists) {
 		error(404, "Project not found.");
 	}

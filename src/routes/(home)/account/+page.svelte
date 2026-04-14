@@ -11,7 +11,7 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Switch } from "$lib/components/ui/switch";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { updateAccountSettings } from "$lib/remote/workspace.remote";
+	import { updateUserAccountSettings } from "$lib/remote/user-home.remote";
 	import { onMount } from "svelte";
 	import { LogOut, Shield, Trash2, UserCircle2 } from "@lucide/svelte";
 
@@ -29,7 +29,6 @@
 	};
 
 	let { data } = $props();
-	const actorId = $derived(data.userId);
 	const initialAccount = () => data.account;
 	const required = <T>(value: T | null | undefined, field: string): T => {
 		if (value === undefined || value === null) {
@@ -99,14 +98,9 @@
 	const triggerSave = async () => {
 		if (savePhase === "saving" || !isDirty) return;
 		actionError = "";
-		if (!actorId) {
-			actionError = "Active user id is missing.";
-			return;
-		}
 		if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
 		savePhase = "saving";
-		const result = await updateAccountSettings({
-			actorId,
+		const result = await updateUserAccountSettings({
 			settings: {
 				displayName: displayName.trim(),
 				bio: bio.trim(),

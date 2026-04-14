@@ -13,19 +13,6 @@ import {
 	validatePermissionMaskValue
 } from "$lib/utils/permission";
 
-const resolveRoleFromWorkspace = (actorId: string, projectId: string): ProjectRole | null => {
-	if (datastore.workspace.user.id !== actorId) return null;
-	const workspaceProject = datastore.workspace.projects.find((item) => item.id === projectId);
-	if (!workspaceProject) return null;
-	if (workspaceProject.role === "Owner") return "Owner";
-	if (workspaceProject.role === "Admin") return "Admin";
-	if (workspaceProject.role === "Editor") return "Editor";
-	if (workspaceProject.role === "Viewer") return "Viewer";
-	if (workspaceProject.role === "Limited Access") return "Limited Access";
-	if (workspaceProject.role === "Member") return "Member";
-	return null;
-};
-
 const resolveRoleFromTeam = (actorId: string, projectId: string): ProjectRole | null => {
 	const member = datastore.team.members.find(
 		(item) => item.id === actorId && item.projectId === projectId
@@ -75,25 +62,22 @@ export const ensureProjectRolePermissionMasks = (
 };
 
 const projectExists = (projectId: string) =>
-	datastore.projects.some((item) => item.id === projectId) ||
-	datastore.workspace.projects.some((item) => item.id === projectId);
+	datastore.projects.some((item) => item.id === projectId);
 
 export const getAuthenticatedRequestUser = (): ProjectAccess["user"] => {
 	const event = getRequestEvent();
 	if (!event.locals.user?.id) {
 		error(401, "Authentication required.");
 	}
+	const authenticatedUserId = event.locals.user.id;
+	const fallbackMember = datastore.team.members.find(
+		(item) => item.id === authenticatedUserId
+	);
 
 	const authenticatedUser = {
-		id: event.locals.user.id,
-		name: event.locals.user.name ?? datastore.workspace.user.name,
-		email: event.locals.user.email ?? datastore.workspace.user.email
-	};
-
-	datastore.workspace.user = {
-		id: authenticatedUser.id,
-		name: authenticatedUser.name,
-		email: authenticatedUser.email ?? datastore.workspace.user.email
+		id: authenticatedUserId,
+		name: event.locals.user.name ?? fallbackMember?.name ?? "User",
+		email: event.locals.user.email ?? fallbackMember?.email ?? ""
 	};
 
 	return authenticatedUser;
@@ -111,9 +95,7 @@ export const resolveProjectAccessForRequest = (projectId: string): ProjectAccess
 
 	const actor = getAuthenticatedRequestUser();
 	const member = resolveMemberFromTeam(actor.id, scopedProjectId);
-	const role =
-		resolveRoleFromTeam(actor.id, scopedProjectId) ??
-		resolveRoleFromWorkspace(actor.id, scopedProjectId);
+	const role = resolveRoleFromTeam(actor.id, scopedProjectId);
 	if (!role) {
 		error(403, "No project membership was found for the active user.");
 	}

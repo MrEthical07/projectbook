@@ -44,8 +44,8 @@ export const privacyPolicy: LegalDocumentData = {
 			id: "scope",
 			title: "Scope and purpose",
 			paragraphs: [
-				"This Privacy Policy describes how ProjectBook handles information when people sign in, create accounts, collaborate in workspaces, and use project tools across the application.",
-				"It is written for the current ProjectBook repository, which is a SvelteKit application with account authentication, workspace collaboration, project artifacts, and browser cookies that support sign-in, notices, sidebar preferences.",
+				"This Privacy Policy describes how ProjectBook handles information when people sign in, create accounts, collaborate in projects, and use project tools across the application.",
+				"It is written for the current ProjectBook repository, which is a SvelteKit application with account authentication, project collaboration, project artifacts, and browser cookies that support sign-in, notices, sidebar preferences.",
 				"If a specific deployment of ProjectBook adds third-party services, integrations, or regulatory disclosures that are not present in this repository, that deployment should publish supplemental privacy details."
 			]
 		},
@@ -63,7 +63,7 @@ export const privacyPolicy: LegalDocumentData = {
 						"Examples include name, email address, login credentials, account verification state, and password-reset related records."
 				},
 				{
-					title: "Workspace and project content",
+					title: "Project content",
 					description:
 						"Examples include projects, stories, journeys, problem statements, ideas, tasks, feedback, pages, resources, calendars, notifications, invites, and other collaboration records users create or view in the product."
 				},
@@ -113,7 +113,7 @@ export const privacyPolicy: LegalDocumentData = {
 			id: "use-of-information",
 			title: "How ProjectBook may use information",
 			paragraphs: [
-				"ProjectBook may use information to create and manage accounts, authenticate sessions, protect the application from abuse, and make workspace collaboration possible.",
+				"ProjectBook may use information to create and manage accounts, authenticate sessions, protect the application from abuse, and make project collaboration possible.",
 				"Information may also be used to render dashboards, load project artifacts, support password reset and email verification flows, enforce permissions, and preserve product state that users expect across requests.",
 				"Where a deployment adds support, operational teams may also use information to troubleshoot service issues, respond to support requests, maintain reliability, or comply with legal obligations."
 			]
@@ -122,7 +122,7 @@ export const privacyPolicy: LegalDocumentData = {
 			id: "sharing",
 			title: "How information may be shared",
 			paragraphs: [
-				"Within the product, information is shared with authorized workspace or project participants according to account permissions, role assignments, and the pages they can access.",
+				"Within the product, information is shared with authorized project participants according to account permissions, role assignments, and the pages they can access.",
 				"Outside the product, information may be disclosed when reasonably necessary to host, secure, maintain, investigate, or legally protect a ProjectBook deployment.",
 				"This repository does not describe selling personal information. If a production deployment introduces third-party processors, analytics, or other integrations, the operator of that deployment should disclose them clearly."
 			]
@@ -132,7 +132,7 @@ export const privacyPolicy: LegalDocumentData = {
 			title: "Retention",
 			paragraphs: [
 				"ProjectBook retains information for as long as needed to operate the service, maintain account continuity, support collaboration records, and satisfy security or legal needs appropriate for the deployment.",
-				"Production operators should align retention schedules with contractual requirements, legal obligations, and the practical need to preserve workspace history."
+				"Production operators should align retention schedules with contractual requirements, legal obligations, and the practical need to preserve project history."
 			]
 		},
 		{
@@ -205,7 +205,7 @@ export const termsAndConditions: LegalDocumentData = {
 				"You may not attempt to bypass permissions, misuse another person's account, introduce harmful code, reverse engineer protected parts of the service beyond what law permits, or use ProjectBook to store or distribute unlawful or infringing material."
 			],
 			bullets: [
-				"Do not attempt unauthorized access to workspaces, projects, or accounts.",
+				"Do not attempt unauthorized access to projects or accounts.",
 				"Do not use the service to disrupt availability, abuse rate limits, or degrade other users' experience.",
 				"Do not upload or publish material you do not have the right to use."
 			]
@@ -214,7 +214,7 @@ export const termsAndConditions: LegalDocumentData = {
 			id: "content-license",
 			title: "User content and service license",
 			paragraphs: [
-				"Users retain responsibility for the content they submit to ProjectBook, including workspace records, project artifacts, uploaded resources, and collaboration notes.",
+				"Users retain responsibility for the content they submit to ProjectBook, including project records, project artifacts, uploaded resources, and collaboration notes.",
 				"To operate the service, users grant ProjectBook and the relevant deployment operator a limited license to host, process, display, back up, and transmit submitted content as necessary to provide the product's features and maintain the environment.",
 				"That license ends when the content is deleted or the account relationship ends, except where retention is reasonably required for backups, legal obligations, dispute resolution, or security review."
 			]
@@ -249,7 +249,7 @@ export const termsAndConditions: LegalDocumentData = {
 			title: "Suspension and termination",
 			paragraphs: [
 				"ProjectBook may suspend or terminate access if a user violates these terms, creates security risk, misuses the service, or if continued access would expose the operator or other users to harm.",
-				"Users may also stop using the service at any time, subject to any organization-specific access or recordkeeping obligations that apply to their workspace."
+				"Users may also stop using the service at any time, subject to any organization-specific access or recordkeeping obligations that apply to their projects."
 			]
 		},
 		{

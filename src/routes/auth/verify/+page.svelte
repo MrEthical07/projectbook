@@ -29,7 +29,7 @@
 	<title>Verify Email • ProjectBook</title>
 	<meta
 		name="description"
-		content="Verify your email address to activate access to your workspace."
+		content="Verify your email address to activate your ProjectBook account."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />

@@ -4,7 +4,7 @@ export const pagesData: PageRow[] = [
 	{
 		id: "sample-page-1",
 		title: "Sample research notes",
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		lastEdited: "2026-02-14",
 		linkedArtifactsCount: 1,
 		status: "Draft",
@@ -25,7 +25,7 @@ export const pageDetailData = {
 	defaultValues: {
 		status: "Draft",
 		title: "Untitled Page",
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		createdAt: "Feb 14, 2026",
 		lastEdited: "Feb 14, 2026",
 		description: ""
@@ -45,7 +45,7 @@ export const pageDetailData = {
 			title: "Capture onboarding observations",
 			status: "Backlog",
 			date: "2026-02-14",
-			owner: "Workspace User",
+			owner: "ProjectBook User",
 			tag: "Research",
 			docHeading: "Notes",
 			docBody: "Capture the key observations from the session."

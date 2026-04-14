@@ -1,11 +1,11 @@
 
 export interface DataStore {
-	workspace: {
-		user: WorkspaceUser;
-		projects: WorkspaceProject[];
-		invites: WorkspaceInvite[];
-		notifications: WorkspaceNotification[];
-		activity: WorkspaceActivityItem[];
+	home: {
+		user: HomeUser;
+		projects: HomeProject[];
+		invites: HomeInvite[];
+		notifications: HomeNotification[];
+		activity: HomeActivityItem[];
 	};
 	projects: ProjectInfo[];
 	projectDashboard: {
@@ -24,7 +24,7 @@ export interface DataStore {
 	resources: ResourceRow[];
 	pages: PageRow[];
 	calendar: CalendarEvent[];
-	activity: Array<ProjectActivityItem | WorkspaceActivityItem>;
+	activity: Array<ProjectActivityItem | HomeActivityItem>;
 	team: {
 		members: TeamMember[];
 		invites: Array<{ email: string; role: "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access"; sentDate: string; status: "pending" | "accepted"; projectId?: string }>;
@@ -48,8 +48,8 @@ export interface DataStore {
 }
 
 export const datastore: DataStore = {
-	workspace: {
-		user: { id: "u-1", name: "Workspace User", email: "user@example.com" },
+	home: {
+		user: { id: "u-1", name: "ProjectBook User", email: "user@example.com" },
 		projects: [],
 		invites: [],
 		notifications: [],
@@ -58,7 +58,7 @@ export const datastore: DataStore = {
 	projects: [],
 	projectDashboard: {
 		project: { id: "atlas-2026", name: "Sample Project", status: "Active" },
-		me: { id: "u-1", name: "Workspace User", initials: "WU" },
+		me: { id: "u-1", name: "ProjectBook User", initials: "PU" },
 		events: [],
 		activity: [],
 		recentEdits: []
@@ -80,7 +80,7 @@ export const datastore: DataStore = {
 	},
 	settings: {
 		projectName: "Sample Project",
-		projectDescription: "Minimal neutral sample workspace.",
+		projectDescription: "Minimal neutral sample project.",
 		projectStatus: "Active",
 		whiteboardsEnabled: true,
 		advancedDatabasesEnabled: true,

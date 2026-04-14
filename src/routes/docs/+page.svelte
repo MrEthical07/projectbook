@@ -91,7 +91,7 @@
 					</div>
 					<div>
 						<h3 class="font-medium text-foreground">Where can I see cross-project activity?</h3>
-						<p class="mt-1">Go to <strong>/activity</strong> for the workspace-level stream.</p>
+						<p class="mt-1">Go to <strong>/activity</strong> for the home-level stream.</p>
 					</div>
 				</div>
 			</section>

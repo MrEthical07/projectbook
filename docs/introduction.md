@@ -1,6 +1,6 @@
 # Introduction
 
-ProjectBook is a Design Thinking workspace for product teams. It keeps research context, problem statements, ideas, tasks, and feedback connected inside one project scope.
+ProjectBook is a Design Thinking platform for product teams. It keeps research context, problem statements, ideas, tasks, and feedback connected inside each project scope.
 
 ## Problem It Solves
 

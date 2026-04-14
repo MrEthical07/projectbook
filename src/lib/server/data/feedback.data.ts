@@ -7,7 +7,7 @@ export const feedbackData: FeedbackRow[] = [
 		linkedArtifacts: ["Task: Prototype onboarding checklist flow"],
 		outcome: "Validated",
 		linkedTaskOrIdea: "Task: Prototype onboarding checklist flow",
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		createdDate: "2026-02-14",
 		hasTaskLink: true,
 		isOrphan: false

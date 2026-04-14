@@ -8,7 +8,7 @@
 	<title>ProjectBook</title>
 	<meta
 		name="description"
-		content="Design Thinking workspace for people-centric teams."
+		content="Design Thinking project hub for people-centric teams."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />

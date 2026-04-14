@@ -30,8 +30,8 @@ servers:
 tags:
   - name: Authentication
     description: User registration, login, logout, email verification, and password reset
-  - name: Workspace
-    description: Cross-project workspace operations — dashboard, projects, invites, notifications, activity, account settings
+  - name: Home
+    description: Cross-project home operations — dashboard, projects, invites, notifications, activity, account settings
   - name: Project
     description: Project-scoped operations — dashboard, access, sidebar, settings, archive, delete
   - name: Team
@@ -283,9 +283,9 @@ components:
           $ref: '#/components/schemas/PermissionMask'
       description: Map of role name to role default permission mask
 
-    # ── User / Workspace Schemas ────────────────────────────────────────
+    # ── User / Home Schemas ────────────────────────────────────────
 
-    WorkspaceUser:
+    HomeUser:
       type: object
       required: [id, name, email]
       properties:
@@ -297,7 +297,7 @@ components:
           type: string
           format: email
 
-    WorkspaceProject:
+    HomeProject:
       type: object
       required: [id, name, organization, icon, lastUpdatedAt]
       properties:
@@ -324,7 +324,7 @@ components:
         status:
           $ref: '#/components/schemas/ProjectStatus'
 
-    WorkspaceInvite:
+    HomeInvite:
       type: object
       properties:
         id:
@@ -1791,13 +1791,13 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  # ── Workspace ───────────────────────────────────────────────────────
+  # ── Home ───────────────────────────────────────────────────────
 
-  /workspace/dashboard:
+  /home/dashboard:
     get:
-      tags: [Workspace]
-      summary: Get workspace dashboard overview
-      operationId: getWorkspaceDashboard
+      tags: [Home]
+      summary: Get home dashboard overview
+      operationId: getUserDashboard
       responses:
         '200':
           description: Dashboard data
@@ -1813,15 +1813,15 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/WorkspaceUser'
+                        $ref: '#/components/schemas/HomeUser'
                       projects:
                         type: array
                         items:
-                          $ref: '#/components/schemas/WorkspaceProject'
+                          $ref: '#/components/schemas/HomeProject'
                       invites:
                         type: array
                         items:
-                          $ref: '#/components/schemas/WorkspaceInvite'
+                          $ref: '#/components/schemas/HomeInvite'
                       notifications:
                         type: array
                         items:
@@ -1833,11 +1833,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /workspace/projects:
+  /home/projects:
     get:
-      tags: [Workspace]
+      tags: [Home]
       summary: List all projects the user has access to
-      operationId: getWorkspaceProjects
+      operationId: getUserProjects
       responses:
         '200':
           description: Project list
@@ -1852,14 +1852,14 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/WorkspaceProject'
+                      $ref: '#/components/schemas/HomeProject'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
     post:
-      tags: [Workspace]
+      tags: [Home]
       summary: Create a new project
-      operationId: createWorkspaceProject
+      operationId: createProject
       requestBody:
         required: true
         content:
@@ -1892,7 +1892,7 @@ paths:
                       projectId:
                         type: string
                       project:
-                        $ref: '#/components/schemas/WorkspaceProject'
+                        $ref: '#/components/schemas/HomeProject'
         '400':
           $ref: '#/components/responses/BadRequest'
         '403':
@@ -1900,9 +1900,9 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
-  /workspace/projects/reference:
+  /home/projects/reference:
     get:
-      tags: [Workspace]
+      tags: [Home]
       summary: Get reference data for project creation form
       operationId: getProjectCreationReference
       responses:
@@ -1933,11 +1933,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /workspace/invites:
+  /home/invites:
     get:
-      tags: [Workspace]
-      summary: Get pending workspace invites
-      operationId: getWorkspaceInvites
+      tags: [Home]
+      summary: Get pending project invites
+      operationId: getUserInvites
       responses:
         '200':
           description: Invite list
@@ -1952,15 +1952,15 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/WorkspaceInvite'
+                      $ref: '#/components/schemas/HomeInvite'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /workspace/invites/{inviteId}/accept:
+  /home/invites/{inviteId}/accept:
     post:
-      tags: [Workspace]
-      summary: Accept a workspace invite
-      operationId: acceptWorkspaceInvite
+      tags: [Home]
+      summary: Accept a project invite
+      operationId: acceptProjectInvite
       parameters:
         - $ref: '#/components/parameters/inviteId'
       responses:
@@ -1988,11 +1988,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /workspace/invites/{inviteId}/decline:
+  /home/invites/{inviteId}/decline:
     post:
-      tags: [Workspace]
-      summary: Decline a workspace invite
-      operationId: declineWorkspaceInvite
+      tags: [Home]
+      summary: Decline a project invite
+      operationId: declineProjectInvite
       parameters:
         - $ref: '#/components/parameters/inviteId'
       responses:
@@ -2016,11 +2016,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /workspace/notifications:
+  /home/notifications:
     get:
-      tags: [Workspace]
+      tags: [Home]
       summary: Get all notifications
-      operationId: getWorkspaceNotifications
+      operationId: getUserNotifications
       responses:
         '200':
           description: Notification list
@@ -2039,11 +2039,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /workspace/activity:
+  /home/activity:
     get:
-      tags: [Workspace, Activity]
-      summary: Get full workspace activity stream
-      operationId: getWorkspaceActivity
+      tags: [Home, Activity]
+      summary: Get full home activity stream
+      operationId: getUserActivity
       parameters:
         - name: limit
           in: query
@@ -2077,11 +2077,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /workspace/dashboard-activity:
+  /home/dashboard-activity:
     get:
-      tags: [Workspace, Activity]
+      tags: [Home, Activity]
       summary: Get compact dashboard activity feed
-      operationId: getWorkspaceDashboardActivity
+      operationId: getUserDashboardActivity
       parameters:
         - name: limit
           in: query
@@ -2106,11 +2106,11 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /workspace/account:
+  /home/account:
     get:
-      tags: [Workspace]
+      tags: [Home]
       summary: Get account settings
-      operationId: getAccountSettings
+      operationId: getUserAccountSettings
       responses:
         '200':
           description: Account settings
@@ -2128,9 +2128,9 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
     put:
-      tags: [Workspace]
+      tags: [Home]
       summary: Update account settings
-      operationId: updateAccountSettings
+      operationId: updateUserAccountSettings
       requestBody:
         required: true
         content:
@@ -2163,11 +2163,11 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  /workspace/docs:
+  /home/docs:
     get:
-      tags: [Workspace]
+      tags: [Home]
       summary: Get documentation sections
-      operationId: getDocsSections
+      operationId: getUserDocsSections
       responses:
         '200':
           description: Documentation sections
@@ -2262,7 +2262,7 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/WorkspaceUser'
+                        $ref: '#/components/schemas/HomeUser'
                       role:
                         $ref: '#/components/schemas/ProjectRole'
                       permissionMask:
@@ -2298,7 +2298,7 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/WorkspaceUser'
+                        $ref: '#/components/schemas/HomeUser'
                       projects:
                         type: array
                         items:

@@ -1,8 +1,8 @@
 import type { LayoutLoad } from "./$types";
-import { getWorkspaceSidebarData } from "$lib/remote/workspace.remote";
+import { getHomeSidebarData } from "$lib/remote/user-home.remote";
 
 export const load: LayoutLoad = async () => {
 	return {
-		homeSidebarData: await getWorkspaceSidebarData()
+		homeSidebarData: await getHomeSidebarData()
 	};
 };

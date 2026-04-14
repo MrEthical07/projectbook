@@ -2,7 +2,7 @@
 
 ## Executive summary
 
-This codebase has a few solid building blocks, including `HttpOnly` session cookies, Argon2 password hashing, and hashed reset/verification tokens. The highest-risk issues are architectural: privileged mutation paths still accept high-sensitivity caller-controlled fields (`actorId`, `isCustom`, and `permissionMask` payloads), the runtime seeds a known superadmin account with hard-coded credentials, and project access is derived from a global in-memory workspace user instead of the authenticated session. Those issues together make privilege escalation and full project compromise realistic if this code is exposed beyond a local prototype.
+This codebase has a few solid building blocks, including `HttpOnly` session cookies, Argon2 password hashing, and hashed reset/verification tokens. The highest-risk issues are architectural: privileged mutation paths still accept high-sensitivity caller-controlled fields (`actorId`, `isCustom`, and `permissionMask` payloads), the runtime seeds a known superadmin account with hard-coded credentials, and project access is derived from a global in-memory home user instead of the authenticated session. Those issues together make privilege escalation and full project compromise realistic if this code is exposed beyond a local prototype.
 
 ## Critical findings
 
@@ -69,7 +69,7 @@ Impact: Anyone who knows the repository can sign in as a privileged account usin
 
 ### SBP-003: Authenticated session state is disconnected from project identity and authorization
 
-Impact: Different signed-in users can collapse onto the same effective workspace identity, causing cross-user data exposure, privilege confusion, and broken tenant isolation.
+Impact: Different signed-in users can collapse onto the same effective home identity, causing cross-user data exposure, privilege confusion, and broken tenant isolation.
 
 - Severity: High
 - Locations:
@@ -83,14 +83,14 @@ Impact: Different signed-in users can collapse onto the same effective workspace
   - `src/routes/project/[projectId]/+layout.svelte:12`
 - Evidence:
   - The request hook authenticates the session cookie and places the user in `event.locals.user` in `src/hooks.server.ts:21-33`.
-  - Project access does not use `event.locals.user`; instead `getProjectAccess()` derives the actor from `datastore.workspace.user` in `src/lib/remote/access.remote.ts:52-53`.
+  - Project access does not use `event.locals.user`; instead `getProjectAccess()` derives the actor from `datastore.home.user` in `src/lib/remote/access.remote.ts:52-53`.
   - That backing user is a single hard-coded global object, `user: { id: "u-1", name: "Ayush", email: "ayush@projectbook.dev" }`, in `src/lib/server/data/datastore.ts:50-57`.
   - The project layout then exposes `data.access.permissionMask` (and derived UI access state) to the client context in `src/routes/project/[projectId]/+layout.svelte:12-23`.
 - Why this fails secure-by-default:
   - Authentication and authorization are handled by separate, inconsistent identity sources.
   - The code does not preserve per-user or per-tenant isolation once a request enters the project data layer.
 - Recommended remediation:
-  - Replace the global workspace user with a real per-session principal lookup.
+  - Replace the global home user with a real per-session principal lookup.
   - Pass request-local identity into project loaders and remote commands, or move access derivation into server-only load functions that use `event.locals.user`.
   - Make membership and role resolution data-driven per user and per project.
   - Add integration tests proving that two different users receive different access results and cannot read or mutate each other's project data.

@@ -285,14 +285,14 @@ declare global {
 		status: "pending" | "accepted";
 	}
 
-	// Shared workspace model types.
-	interface WorkspaceUser {
+	// Shared home model types.
+	interface HomeUser {
 		id: string;
 		name: string;
 		email: string;
 	}
 
-	interface WorkspaceProject {
+	interface HomeProject {
 		id: string;
 		name: string;
 		organization: string;
@@ -305,7 +305,7 @@ declare global {
 		status?: ProjectStatus;
 	}
 
-	interface WorkspaceInvite {
+	interface HomeInvite {
 		id: string;
 		projectName: string;
 		organizationName: string;
@@ -322,7 +322,7 @@ declare global {
 		expiresAt?: string;
 	}
 
-	interface WorkspaceNotification {
+	interface HomeNotification {
 		id: string;
 		title?: string;
 		text?: string;
@@ -337,7 +337,7 @@ declare global {
 		dismissed?: boolean;
 	}
 
-	interface WorkspaceActivityItem {
+	interface HomeActivityItem {
 		id: string;
 		userName: string;
 		userInitials: string;
@@ -395,7 +395,7 @@ declare global {
 		code?: string;
 		message?: string;
 		requestId?: string;
-		user?: WorkspaceUser | ProjectAccess["user"] | null;
+		user?: HomeUser | ProjectAccess["user"] | null;
 		project?: ProjectInfo | null;
 		projectId?: string;
 		data?: Record<string, unknown>;

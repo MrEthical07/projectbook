@@ -7,7 +7,7 @@ export const storiesData: StoryRow[] = [
 		personaName: "Participant 1",
 		painPointsCount: 1,
 		problemHypothesesCount: 1,
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		lastUpdated: "2026-02-14",
 		status: "Draft",
 		isOrphan: false

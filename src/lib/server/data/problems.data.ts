@@ -9,7 +9,7 @@ export const problemsData: ProblemRow[] = [
 		painPointsCount: 1,
 		ideasCount: 1,
 		status: "Draft",
-		owner: "Workspace User",
+		owner: "ProjectBook User",
 		lastUpdated: "2026-02-14",
 		isOrphan: false
 	}

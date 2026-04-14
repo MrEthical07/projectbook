@@ -12,7 +12,7 @@ This document defines the production database model for ProjectBook based on:
 - Runtime mutation contracts in [src/lib/remote](src/lib/remote)
 - Auth/session model in [src/lib/server/auth](src/lib/server/auth)
 
-The design covers auth, workspace/project tenancy, RBAC, all artifact types, links, activity, and notifications.
+The design covers auth, project-centric access, RBAC, all artifact types, links, activity, and notifications.
 
 ## 2. Architecture Decision
 
@@ -145,39 +145,14 @@ Constraints:
 | email_notifications | boolean | NOT NULL | true | Preference |
 | updated_at | timestamptz | NOT NULL | now() | Updated |
 
-### 4.3 Workspace, Project, Team, RBAC
-
-#### `workspaces`
-
-| Column | Type | Nullability | Default | Notes |
-| --- | --- | --- | --- | --- |
-| id | uuid | NOT NULL | gen_random_uuid() | Primary key |
-| name | text | NOT NULL | - | Workspace label |
-| organization_name | text | NOT NULL | - | Display org |
-| owner_user_id | uuid | NOT NULL | - | FK to users |
-| created_at | timestamptz | NOT NULL | now() | Audit |
-| updated_at | timestamptz | NOT NULL | now() | Audit |
-
-#### `workspace_members`
-
-| Column | Type | Nullability | Default | Notes |
-| --- | --- | --- | --- | --- |
-| workspace_id | uuid | NOT NULL | - | FK to workspaces |
-| user_id | uuid | NOT NULL | - | FK to users |
-| role | text | NOT NULL | `Member` | Workspace-level role |
-| joined_at | timestamptz | NOT NULL | now() | Join timestamp |
-
-Constraints:
-
-- `PRIMARY KEY (workspace_id, user_id)`
+### 4.3 Project, Team, RBAC
 
 #### `projects`
 
 | Column | Type | Nullability | Default | Notes |
 | --- | --- | --- | --- | --- |
 | id | uuid | NOT NULL | gen_random_uuid() | Primary key |
-| workspace_id | uuid | NOT NULL | - | FK to workspaces |
-| slug | text | NOT NULL | - | Route-safe id per workspace |
+| slug | text | NOT NULL | - | Global route-safe id |
 | name | text | NOT NULL | - | Project name |
 | organization_name | text | NOT NULL | - | Snapshot for UI |
 | icon | text | NOT NULL | - | Matches `ProjectIconKey` enum |
@@ -191,8 +166,8 @@ Constraints:
 
 Constraints:
 
-- `UNIQUE (workspace_id, slug)`
-- `UNIQUE (workspace_id, name)`
+- `UNIQUE (slug)`
+- `UNIQUE (created_by_user_id, name)`
 
 #### `project_members`
 
@@ -549,8 +524,7 @@ Constraints:
 | Column | Type | Nullability | Default | Notes |
 | --- | --- | --- | --- | --- |
 | id | bigserial | NOT NULL | - | Primary key |
-| workspace_id | uuid | NOT NULL | - | Workspace scope |
-| project_id | uuid | NULL | - | Null for workspace-only events |
+| project_id | uuid | NOT NULL | - | Project scope |
 | actor_user_id | uuid | NULL | - | Optional actor FK |
 | actor_name_cache | text | NOT NULL | - | Display name |
 | actor_initials | text | NOT NULL | - | 2-char initials |
@@ -567,7 +541,6 @@ Constraints:
 | Column | Type | Nullability | Default | Notes |
 | --- | --- | --- | --- | --- |
 | id | uuid | NOT NULL | gen_random_uuid() | Primary key |
-| workspace_id | uuid | NOT NULL | - | FK to workspace |
 | user_id | uuid | NOT NULL | - | Recipient |
 | project_id | uuid | NULL | - | Optional project |
 | source_type | notification_source_type | NULL | - | Optional source |
@@ -611,7 +584,7 @@ All artifact document collections should include common required metadata.
 | --- | --- | --- | --- |
 | _id | Yes | ObjectId | Mongo primary key |
 | artifact_id | Yes | UUID string | SQL artifact id |
-| project_id | Yes | UUID string | Tenant/project scope |
+| project_id | Yes | UUID string | Project scope |
 | schema_version | Yes | int | Document schema version |
 | revision | Yes | int | Monotonic revision |
 | updated_at | Yes | ISO date | Last write |
@@ -656,7 +629,7 @@ All artifact document collections should include common required metadata.
 
 ## 6. Relationships and Cardinality
 
-- one `workspace` to many `projects`
+- one `user` to many created `projects`
 - one `project` to many `project_members`
 - one `user` to many `project_members` (many-to-many users/projects)
 - one `project` to many artifacts (`stories`, `journeys`, `problems`, `ideas`, `tasks`, `feedback`, `resources`, `pages`, `calendar_events`)
@@ -664,7 +637,7 @@ All artifact document collections should include common required metadata.
 - `ideas` one-to-many `tasks` (optional from task side)
 - `resources` one-to-many `resource_versions`
 - artifacts many-to-many through `artifact_links`
-- one `workspace` to many `activity_log` entries and `notifications`
+- one `project` to many `activity_log` entries and `notifications`
 
 ## 7. Index Plan
 
@@ -675,8 +648,8 @@ Create these high-value indexes:
 - `users(email)` unique
 - `auth_sessions(token_hash)` unique
 - `auth_sessions(user_id, revoked_at, expires_at desc)`
-- `projects(workspace_id, slug)` unique
-- `projects(workspace_id, status, last_updated_at desc)`
+- `projects(slug)` unique
+- `projects(created_by_user_id, status, last_updated_at desc)`
 - `project_members(project_id, user_id)` unique
 - `project_members(user_id, project_id)`
 - `project_invites(project_id, email)` partial unique where `status = 'pending'`
@@ -689,7 +662,6 @@ Create these high-value indexes:
 - `artifact_links(project_id, source_type, source_id)`
 - `artifact_links(project_id, target_type, target_id)`
 - `activity_log(project_id, occurred_at desc)`
-- `activity_log(workspace_id, occurred_at desc)`
 - `notifications(user_id, read, created_at desc)`
 - `document_sync_outbox(status, next_attempt_at)`
 
@@ -721,7 +693,7 @@ For `resource_version_documents`:
 
 1. Create all SQL enums and tables.
 2. Migrate identity/auth datasets first.
-3. Migrate workspace/project/member/RBAC datasets.
+3. Migrate project/member/RBAC datasets.
 4. Migrate artifact row metadata into SQL tables.
 5. Migrate rich artifact details into MongoDB collections.
 6. Populate `document_id` and `document_revision` back into SQL rows.
