@@ -11,9 +11,15 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Switch } from "$lib/components/ui/switch";
 	import { Textarea } from "$lib/components/ui/textarea";
+	import {
+		changePasswordConfirmSchema,
+		changePasswordRequestOtpSchema
+	} from "$lib/schemas/auth.schema";
 	import { updateUserAccountSettings } from "$lib/remote/user-home.remote";
+	import { superForm } from "sveltekit-superforms";
+	import { zod4Client } from "sveltekit-superforms/adapters";
 	import { onMount } from "svelte";
-	import { LogOut, Shield, Trash2, UserCircle2 } from "@lucide/svelte";
+	import { LoaderCircle, LogOut, Shield, UserCircle2 } from "@lucide/svelte";
 
 	type ThemeMode = "Light" | "Dark" | "System";
 	type Density = "Comfortable" | "Compact";
@@ -28,8 +34,50 @@
 		current: boolean;
 	};
 
-	let { data } = $props();
+	let { data, form } = $props();
 	const initialAccount = () => data.account;
+	type AccountActionFormState = {
+		requestForm?: typeof data.requestForm;
+		confirmForm?: typeof data.confirmForm;
+	};
+	const resolveRequestPasswordFormState = () =>
+		(form as AccountActionFormState | null)?.requestForm ?? data.requestForm;
+	const resolveConfirmPasswordFormState = () =>
+		(form as AccountActionFormState | null)?.confirmForm ?? data.confirmForm;
+	const initialRequestPasswordFormState = resolveRequestPasswordFormState();
+	const initialConfirmPasswordFormState = resolveConfirmPasswordFormState();
+	const shouldOpenPasswordDialogInitially =
+		(typeof initialConfirmPasswordFormState.data?.challengeId === "string" &&
+			initialConfirmPasswordFormState.data.challengeId.trim().length > 0) ||
+		Boolean(initialRequestPasswordFormState.errors?._errors?.length) ||
+		Boolean(initialConfirmPasswordFormState.errors?._errors?.length) ||
+		Boolean(initialRequestPasswordFormState.message);
+
+	const requestPasswordOtpForm = superForm(initialRequestPasswordFormState, {
+		id: "account-change-password-request-form",
+		validators: zod4Client(changePasswordRequestOtpSchema)
+	});
+	const {
+		form: requestOtpForm,
+		errors: requestOtpErrors,
+		message: requestOtpMessage,
+		submitting: requestOtpSubmitting,
+		enhance: enhanceRequestOtpForm
+	} = requestPasswordOtpForm;
+
+	const confirmPasswordChangeForm = superForm(initialConfirmPasswordFormState, {
+		id: "account-change-password-confirm-form",
+		validators: zod4Client(changePasswordConfirmSchema)
+	});
+	const {
+		form: confirmOtpForm,
+		errors: confirmOtpErrors,
+		submitting: confirmOtpSubmitting,
+		enhance: enhanceConfirmOtpForm
+	} = confirmPasswordChangeForm;
+
+	const hasPasswordChallenge = $derived($confirmOtpForm.challengeId.trim().length > 0);
+
 	const required = <T>(value: T | null | undefined, field: string): T => {
 		if (value === undefined || value === null) {
 			throw new Error(`Account data is missing '${field}'.`);
@@ -57,13 +105,9 @@
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 	let actionError = $state("");
 
-	let passwordDialogOpen = $state(false);
+	let passwordDialogOpen = $state(shouldOpenPasswordDialogInitially);
 	let deleteOpen = $state(false);
 	let photoDialogOpen = $state(false);
-
-	let currentPassword = $state("");
-	let newPassword = $state("");
-	let confirmPassword = $state("");
 	let deleteConfirm = $state("");
 
 	const themeOptions: ThemeMode[] = ["Light", "Dark", "System"];
@@ -423,37 +467,159 @@
 <Dialog.Root
 	bind:open={passwordDialogOpen}
 	onOpenChange={(open) => {
-		if (open) {
-			currentPassword = "";
-			newPassword = "";
-			confirmPassword = "";
+		passwordDialogOpen = open;
+		if (!open) {
+			$requestOtpForm.currentPassword = "";
+			$confirmOtpForm.challengeId = "";
+			$confirmOtpForm.code = "";
+			$confirmOtpForm.currentPassword = "";
+			$confirmOtpForm.password = "";
+			$confirmOtpForm.confirmPassword = "";
 		}
 	}}
 >
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Change password</Dialog.Title>
-			<Dialog.Description>Use a strong password to protect your account.</Dialog.Description>
+			<Dialog.Description>
+				Verify with your current password and email OTP before updating.
+			</Dialog.Description>
 		</Dialog.Header>
-		<div class="grid gap-3 py-2">
-			<div class="grid gap-2">
-				<Label>Current password</Label>
-				<Input type="password" bind:value={currentPassword} />
-			</div>
-			<div class="grid gap-2">
-				<Label>New password</Label>
-				<Input type="password" bind:value={newPassword} />
-			</div>
-			<div class="grid gap-2">
-				<Label>Confirm new password</Label>
-				<Input type="password" bind:value={confirmPassword} />
-			</div>
+		<div class="grid gap-4 py-2">
+			<form
+				method="POST"
+				action="?/requestOtp"
+				class="grid gap-3"
+				use:enhanceRequestOtpForm
+				novalidate
+			>
+				<div class="grid gap-2">
+					<Label for="change-password-current">Current password</Label>
+					<Input
+						id="change-password-current"
+						name="currentPassword"
+						type="password"
+						autocomplete="current-password"
+						bind:value={$requestOtpForm.currentPassword}
+						aria-invalid={$requestOtpErrors.currentPassword?.length ? "true" : "false"}
+					/>
+					{#if $requestOtpErrors.currentPassword?.length}
+						<p class="text-xs text-destructive">{$requestOtpErrors.currentPassword[0]}</p>
+					{/if}
+				</div>
+
+				{#if $requestOtpErrors._errors?.length}
+					<p class="text-xs text-destructive">{$requestOtpErrors._errors[0]}</p>
+				{/if}
+
+				{#if $requestOtpMessage}
+					<p class="text-xs text-emerald-600">{$requestOtpMessage}</p>
+				{/if}
+
+				<Button type="submit" disabled={$requestOtpSubmitting}>
+					{#if $requestOtpSubmitting}
+						<LoaderCircle class="h-4 w-4 animate-spin" />
+						<span>Sending code...</span>
+					{:else}
+						<span>{hasPasswordChallenge ? "Send new code" : "Send verification code"}</span>
+					{/if}
+				</Button>
+			</form>
+
+			{#if hasPasswordChallenge}
+				<div class="h-px w-full bg-border/70"></div>
+
+				<form
+					method="POST"
+					action="?/confirm"
+					class="grid gap-3"
+					use:enhanceConfirmOtpForm
+					novalidate
+				>
+					<input type="hidden" name="challengeId" bind:value={$confirmOtpForm.challengeId} />
+
+					<div class="grid gap-2">
+						<Label for="change-password-code">Verification code</Label>
+						<Input
+							id="change-password-code"
+							name="code"
+							type="text"
+							inputmode="numeric"
+							autocomplete="one-time-code"
+							maxlength={6}
+							placeholder="Enter 6-digit code"
+							bind:value={$confirmOtpForm.code}
+							aria-invalid={$confirmOtpErrors.code?.length ? "true" : "false"}
+						/>
+						{#if $confirmOtpErrors.code?.length}
+							<p class="text-xs text-destructive">{$confirmOtpErrors.code[0]}</p>
+						{/if}
+					</div>
+
+					<div class="grid gap-2">
+						<Label for="change-password-current-confirm">Current password</Label>
+						<Input
+							id="change-password-current-confirm"
+							name="currentPassword"
+							type="password"
+							autocomplete="current-password"
+							bind:value={$confirmOtpForm.currentPassword}
+							aria-invalid={$confirmOtpErrors.currentPassword?.length ? "true" : "false"}
+						/>
+						{#if $confirmOtpErrors.currentPassword?.length}
+							<p class="text-xs text-destructive">{$confirmOtpErrors.currentPassword[0]}</p>
+						{/if}
+					</div>
+
+					<div class="grid gap-2">
+						<Label for="change-password-new">New password</Label>
+						<Input
+							id="change-password-new"
+							name="password"
+							type="password"
+							autocomplete="new-password"
+							placeholder="Min 10 chars with upper, lower, number, special"
+							bind:value={$confirmOtpForm.password}
+							aria-invalid={$confirmOtpErrors.password?.length ? "true" : "false"}
+						/>
+						{#if $confirmOtpErrors.password?.length}
+							<p class="text-xs text-destructive">{$confirmOtpErrors.password[0]}</p>
+						{/if}
+					</div>
+
+					<div class="grid gap-2">
+						<Label for="change-password-confirm">Confirm new password</Label>
+						<Input
+							id="change-password-confirm"
+							name="confirmPassword"
+							type="password"
+							autocomplete="new-password"
+							placeholder="Re-enter new password"
+							bind:value={$confirmOtpForm.confirmPassword}
+							aria-invalid={$confirmOtpErrors.confirmPassword?.length ? "true" : "false"}
+						/>
+						{#if $confirmOtpErrors.confirmPassword?.length}
+							<p class="text-xs text-destructive">{$confirmOtpErrors.confirmPassword[0]}</p>
+						{/if}
+					</div>
+
+					{#if $confirmOtpErrors._errors?.length}
+						<p class="text-xs text-destructive">{$confirmOtpErrors._errors[0]}</p>
+					{/if}
+
+					<Button type="submit" disabled={$confirmOtpSubmitting}>
+						{#if $confirmOtpSubmitting}
+							<LoaderCircle class="h-4 w-4 animate-spin" />
+							<span>Updating password...</span>
+						{:else}
+							<span>Update password</span>
+						{/if}
+					</Button>
+				</form>
+			{/if}
 		</div>
 		<Dialog.Footer>
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Dialog.Close class={buttonVariants()}>
-				Update password
-			</Dialog.Close>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

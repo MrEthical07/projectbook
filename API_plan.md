@@ -49,7 +49,7 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
    5.4 Default role permission masks (`rolePermissionMasks`)
    5.5 Member-level overrides (`isCustom`, `permissionMask`)
 6. API Endpoints (every endpoint with: method, URL, auth, permissions, request body, query params, success response, error responses, examples)
-   6.1  Authentication (7 endpoints)
+   6.1  Authentication (9 endpoints)
    6.2  Home (12 endpoints)
    6.3  Project (7 endpoints)
    6.4  Team Management (6 endpoints)
@@ -81,9 +81,9 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 
 ---
 
-## Endpoint Summary (~82 endpoints total)
+## Endpoint Summary (~84 endpoints total)
 
-### Authentication (7)
+### Authentication (9)
 | Method | Path | Source Function |
 |--------|------|----------------|
 | POST | /api/v1/auth/signup | `signupRequest()` |
@@ -93,6 +93,8 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 | POST | /api/v1/auth/resend-verification | `resendVerificationRequest()` |
 | POST | /api/v1/auth/forgot-password | `forgotPasswordRequest()` |
 | POST | /api/v1/auth/reset-password | `resetPasswordRequest()` |
+| POST | /api/v1/auth/change-password/request-otp | `requestChangePasswordOtp()` |
+| POST | /api/v1/auth/change-password/confirm | `confirmChangePassword()` |
 
 ### Home (13)
 | Method | Path | Source Function |

@@ -6,7 +6,8 @@ import { signInSchema, signUpSchema } from "$lib/schemas/auth.schema";
 import {
 	clearApiAuthTokenCookies,
 	consumeAuthNoticeCookie,
-	getAccessTokenCookie
+	getAccessTokenCookie,
+	setAuthNoticeCookie
 } from "$lib/server/auth/cookies";
 import { isApiRequestError } from "$lib/server/api/error-mapping";
 import {
@@ -27,6 +28,19 @@ const loadForms = async () => {
 	const loginForm = await superValidate(zod4(signInSchema), { id: SIGN_IN_FORM_ID });
 	const signupForm = await superValidate(zod4(signUpSchema), { id: SIGN_UP_FORM_ID });
 	return { loginForm, signupForm };
+};
+
+const apiErrorReason = (details: unknown): string => {
+	if (!details || typeof details !== "object") {
+		return "";
+	}
+
+	const value = (details as { reason?: unknown }).reason;
+	if (typeof value !== "string") {
+		return "";
+	}
+
+	return value.trim().toLowerCase();
 };
 
 export const load: PageServerLoad = async (event) => {
@@ -78,6 +92,13 @@ export const actions: Actions = {
 			console.error("[auth:login] request failed", err);
 			if (isApiRequestError(err)) {
 				const reason = err.reason.toLowerCase();
+				if (apiErrorReason(err.details) === "email_unverified") {
+					setAuthNoticeCookie(
+						event.cookies,
+						"Please verify your email with the OTP to continue."
+					);
+					redirect(303, `/auth/verify?email=${encodeURIComponent(loginForm.data.email)}`);
+				}
 				withFormError(
 					loginForm,
 					err.statusCode === 401 || reason.includes("credential")
@@ -142,7 +163,7 @@ export const actions: Actions = {
 
 		signupForm.data.password = "";
 		signupForm.data.confirmPassword = "";
-		signupForm.message = "Check your email to verify your account.";
+		signupForm.message = "Account created. Sign in, then verify your email with the OTP.";
 
 		return { loginForm, signupForm };
 	}

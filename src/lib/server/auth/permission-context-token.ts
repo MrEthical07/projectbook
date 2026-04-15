@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { dev } from "$app/environment";
 import { env } from "$env/dynamic/private";
 import type { Cookies } from "@sveltejs/kit";
 import {
@@ -8,17 +9,35 @@ import {
 } from "./cookies";
 
 const permissionContextTokenVersion = 1;
+const permissionContextFallbackSecret = "projectbook-dev-permission-context-secret";
 const textDecoder = new TextDecoder();
+let cachedPermissionContextSecret: string | null = null;
 
 const resolvePermissionContextSecret = (): string => {
 	const configured = env.PROJECTBOOK_PERMISSION_CONTEXT_SECRET?.trim();
-	if (configured && configured.length >= 32) {
+	if (
+		configured &&
+		configured.length >= 32 &&
+		configured !== permissionContextFallbackSecret
+	) {
 		return configured;
 	}
-	return "projectbook-dev-permission-context-secret";
+	if (!dev) {
+		throw new Error(
+			"PROJECTBOOK_PERMISSION_CONTEXT_SECRET must be set to a non-default 32+ character value in production"
+		);
+	}
+	return permissionContextFallbackSecret;
 };
 
-const permissionContextSecret = resolvePermissionContextSecret();
+const permissionContextSecret = (): string => {
+	if (cachedPermissionContextSecret) {
+		return cachedPermissionContextSecret;
+	}
+	const resolved = resolvePermissionContextSecret();
+	cachedPermissionContextSecret = resolved;
+	return resolved;
+};
 
 export type ProjectPermissionMatrixEntry = {
 	project_id: string;
@@ -68,7 +87,7 @@ const signToken = (unsignedToken: string): string =>
 	createHash("sha256")
 		.update(unsignedToken)
 		.update(".")
-		.update(permissionContextSecret)
+		.update(permissionContextSecret())
 		.digest("hex");
 
 const parsePositiveInt = (value: unknown): number | null => {

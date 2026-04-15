@@ -4,7 +4,7 @@
 
 If you discover a security issue, report it privately by email:
 
-- security@projectbook.dev
+- contact@projectbook.dev
 
 Please include:
 

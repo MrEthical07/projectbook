@@ -17,7 +17,8 @@ type LoginPayload = {
 };
 
 type VerifyEmailPayload = {
-	token: string;
+	verificationId: string;
+	code: string;
 };
 
 type ResendVerificationPayload = {
@@ -29,7 +30,21 @@ type ForgotPasswordPayload = {
 };
 
 type ResetPasswordPayload = {
-	token: string;
+	token?: string;
+	challengeId?: string;
+	code?: string;
+	password: string;
+	confirmPassword: string;
+};
+
+type ChangePasswordRequestOtpPayload = {
+	currentPassword: string;
+};
+
+type ChangePasswordConfirmPayload = {
+	challengeId: string;
+	code: string;
+	currentPassword: string;
 	password: string;
 	confirmPassword: string;
 };
@@ -89,7 +104,7 @@ export const resendVerificationRequest = async (
 	event: RequestEvent,
 	payload: ResendVerificationPayload
 ) => {
-	return apiRequest<{ status?: string }>(event, {
+	return apiRequest<{ status?: string; verificationId?: string }>(event, {
 		path: "/auth/resend-verification",
 		method: "POST",
 		auth: false,
@@ -102,7 +117,7 @@ export const forgotPasswordRequest = async (
 	event: RequestEvent,
 	payload: ForgotPasswordPayload
 ) => {
-	return apiRequest<{ message?: string }>(event, {
+	return apiRequest<{ status?: string; challengeId?: string; message?: string }>(event, {
 		path: "/auth/forgot-password",
 		method: "POST",
 		auth: false,
@@ -120,6 +135,28 @@ export const resetPasswordRequest = async (
 		method: "POST",
 		auth: false,
 		retryOnUnauthorized: false,
+		body: payload
+	});
+};
+
+export const requestChangePasswordOtp = async (
+	event: RequestEvent,
+	payload: ChangePasswordRequestOtpPayload
+) => {
+	return apiRequest<{ status?: string; challengeId?: string }>(event, {
+		path: "/auth/change-password/request-otp",
+		method: "POST",
+		body: payload
+	});
+};
+
+export const confirmChangePassword = async (
+	event: RequestEvent,
+	payload: ChangePasswordConfirmPayload
+) => {
+	return apiRequest<{ message?: string }>(event, {
+		path: "/auth/change-password/confirm",
+		method: "POST",
 		body: payload
 	});
 };

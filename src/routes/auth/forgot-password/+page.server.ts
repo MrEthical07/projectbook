@@ -1,4 +1,5 @@
 import type { Actions, PageServerLoad } from "./$types";
+import { redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { forgotPasswordSchema } from "$lib/schemas/auth.schema";
@@ -36,7 +37,13 @@ export const actions: Actions = {
 		}
 
 		try {
-			await forgotPasswordRequest(event, { email: form.data.email });
+			const reset = await forgotPasswordRequest(event, { email: form.data.email });
+			if (typeof reset.challengeId === "string" && reset.challengeId.trim().length > 0) {
+				redirect(
+					303,
+					`/auth/reset-password?challengeId=${encodeURIComponent(reset.challengeId)}&email=${encodeURIComponent(form.data.email)}`
+				);
+			}
 		} catch (err) {
 			console.error("[auth:forgot-password] request failed", err);
 			if (isApiRequestError(err)) {
@@ -48,6 +55,6 @@ export const actions: Actions = {
 		}
 		form.data.email = "";
 
-		return message(form, "If an account exists, a reset link has been sent.");
+		return message(form, "If an account exists, a reset code has been sent.");
 	}
 };

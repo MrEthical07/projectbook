@@ -1609,7 +1609,13 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
-          description: Invalid credentials or unverified email
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Email verification required
           content:
             application/json:
               schema:
@@ -1640,7 +1646,7 @@ paths:
   /auth/verify-email:
     post:
       tags: [Authentication]
-      summary: Verify email address with token
+      summary: Verify email address with OTP
       operationId: verifyEmail
       security: []
       requestBody:
@@ -1648,11 +1654,20 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [token]
-              properties:
-                token:
-                  type: string
+              oneOf:
+                - type: object
+                  required: [verificationId, code]
+                  properties:
+                    verificationId:
+                      type: string
+                    code:
+                      type: string
+                      pattern: '^\\d{6}$'
+                - type: object
+                  required: [token]
+                  properties:
+                    token:
+                      type: string
       responses:
         '200':
           description: Email verified
@@ -1669,17 +1684,16 @@ paths:
                     properties:
                       status:
                         type: string
-                        enum: [success, missing, failed]
-                      email:
-                        type: string
-                        format: email
+                        enum: [success]
         '400':
           $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /auth/resend-verification:
     post:
       tags: [Authentication]
-      summary: Resend email verification link
+      summary: Resend email verification OTP
       operationId: resendVerification
       security: []
       requestBody:
@@ -1695,7 +1709,7 @@ paths:
                   format: email
       responses:
         '200':
-          description: Verification email sent (or appropriate status)
+          description: Verification request accepted
           content:
             application/json:
               schema:
@@ -1709,18 +1723,19 @@ paths:
                     properties:
                       status:
                         type: string
-                        enum: [sent, not_found, already_verified]
+                        enum: [sent]
+                      verificationId:
+                        type: string
+                        description: Present when a pending account receives a new OTP challenge.
         '400':
           $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /auth/forgot-password:
     post:
       tags: [Authentication]
-      summary: Request a password reset email
+      summary: Request a password reset OTP
       operationId: forgotPassword
       security: []
       requestBody:
@@ -1748,13 +1763,23 @@ paths:
                   data:
                     type: object
                     properties:
+                      status:
+                        type: string
+                        enum: [sent]
+                      challengeId:
+                        type: string
+                        description: Present when a reset challenge can be used immediately.
                       message:
                         type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   /auth/reset-password:
     post:
       tags: [Authentication]
-      summary: Reset password using token from email
+      summary: Reset password using OTP challenge or legacy token
       operationId: resetPassword
       security: []
       requestBody:
@@ -1763,15 +1788,26 @@ paths:
           application/json:
             schema:
               type: object
-              required: [token, password, confirmPassword]
+              required: [password, confirmPassword]
               properties:
                 token:
                   type: string
+                  description: Legacy reset token path retained for compatibility.
+                challengeId:
+                  type: string
+                  description: OTP reset challenge identifier.
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  description: 6-digit OTP tied to challengeId.
                 password:
                   type: string
                   minLength: 10
                 confirmPassword:
                   type: string
+              oneOf:
+                - required: [challengeId, code, password, confirmPassword]
+                - required: [token, password, confirmPassword]
       responses:
         '200':
           description: Password reset — all sessions revoked
@@ -1790,6 +1826,97 @@ paths:
                         type: string
         '400':
           $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/change-password/request-otp:
+    post:
+      tags: [Authentication]
+      summary: Request OTP for password change
+      operationId: requestChangePasswordOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword]
+              properties:
+                currentPassword:
+                  type: string
+      responses:
+        '200':
+          description: Password change OTP created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [sent]
+                      challengeId:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/change-password/confirm:
+    post:
+      tags: [Authentication]
+      summary: Confirm password change with OTP
+      operationId: confirmChangePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeId, code, currentPassword, password, confirmPassword]
+              properties:
+                challengeId:
+                  type: string
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                currentPassword:
+                  type: string
+                password:
+                  type: string
+                  minLength: 10
+                confirmPassword:
+                  type: string
+      responses:
+        '200':
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 
   # ── Home ───────────────────────────────────────────────────────
 

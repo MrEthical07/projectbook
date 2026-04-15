@@ -60,12 +60,10 @@
 		enhance: enhanceSignup
 	} = signupSuperForm;
 
-	let signInGoogleLoading = $state(false);
-	let signUpGoogleLoading = $state(false);
-	let signInGoogleNotice = $state("");
-	let signUpGoogleNotice = $state("");
-
-	const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+	let showSignInPassword = $state(false);
+	let showSignUpPassword = $state(false);
+	let showSignUpConfirmPassword = $state(false);
+	const googleSignInDisabledMessage = "Google Sign-in is disabled For the time being";
 
 	const switchToSignIn = () => {
 		activeTab = "signin";
@@ -75,26 +73,10 @@
 		activeTab = "signup";
 	};
 
-	const signInWithGoogle = async () => {
-		signInGoogleNotice = "";
-		signInGoogleLoading = true;
-		await pause(900);
-		signInGoogleLoading = false;
-		signInGoogleNotice = "Google OAuth is not configured yet.";
-	};
-
-	const signUpWithGoogle = async () => {
-		signUpGoogleNotice = "";
-		signUpGoogleLoading = true;
-		await pause(900);
-		signUpGoogleLoading = false;
-		signUpGoogleNotice = "Google OAuth is not configured yet.";
-	};
-
 </script>
 
 <svelte:head>
-	<title>Login • ProjectBook</title>
+	<title>Login - ProjectBook</title>
 	<meta
 		name="description"
 		content="Sign in to your account or create a new ProjectBook account."
@@ -203,11 +185,21 @@
 									</div>
 
 									<div class="space-y-2">
-										<Label for="signin-password">Password</Label>
+										<div class="flex items-center justify-between gap-2">
+											<Label for="signin-password">Password</Label>
+											<button
+												class="text-xs text-muted-foreground hover:text-foreground hover:underline"
+												type="button"
+												aria-pressed={showSignInPassword}
+												onclick={() => (showSignInPassword = !showSignInPassword)}
+											>
+												{showSignInPassword ? "Hide" : "Show"}
+											</button>
+										</div>
 										<Input
 											id="signin-password"
 											name="password"
-											type="password"
+											type={showSignInPassword ? "text" : "password"}
 											placeholder="Enter your password"
 											bind:value={$loginForm.password}
 											aria-invalid={$loginErrors.password?.length ? "true" : "false"}
@@ -255,17 +247,15 @@
 									<Separator class="flex-1" />
 								</div>
 
-								<Button
-									class="w-full"
-									variant="outline"
-									type="button"
-									onclick={signInWithGoogle}
-									disabled={signInGoogleLoading}
-								>
-									{#if signInGoogleLoading}
-										<LoaderCircle class="size-4 animate-spin" />
-										<span>Connecting...</span>
-									{:else}
+								<div class="group/google-signin relative">
+									<Button
+										class="w-full"
+										variant="outline"
+										type="button"
+										disabled
+										title={googleSignInDisabledMessage}
+										aria-label="Sign in with Google. Google Sign-in is disabled For the time being"
+									>
 										<svg viewBox="0 0 24 24" class="size-4" aria-hidden="true">
 											<path
 												fill="#EA4335"
@@ -273,11 +263,13 @@
 											/>
 										</svg>
 										<span>Sign in with Google</span>
-									{/if}
-								</Button>
-								{#if signInGoogleNotice}
-									<p class="text-center text-xs text-muted-foreground">{signInGoogleNotice}</p>
-								{/if}
+									</Button>
+									<p
+										class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/google-signin:opacity-100"
+									>
+										{googleSignInDisabledMessage}
+									</p>
+								</div>
 
 								<p class="text-center text-xs text-muted-foreground">
 									Don't have an account?
@@ -326,11 +318,21 @@
 									</div>
 
 									<div class="space-y-2">
-										<Label for="signup-password">Password</Label>
+										<div class="flex items-center justify-between gap-2">
+											<Label for="signup-password">Password</Label>
+											<button
+												class="text-xs text-muted-foreground hover:text-foreground hover:underline"
+												type="button"
+												aria-pressed={showSignUpPassword}
+												onclick={() => (showSignUpPassword = !showSignUpPassword)}
+											>
+												{showSignUpPassword ? "Hide" : "Show"}
+											</button>
+										</div>
 										<Input
 											id="signup-password"
 											name="password"
-											type="password"
+											type={showSignUpPassword ? "text" : "password"}
 											placeholder="Min 10 chars with upper, lower, number, special"
 											bind:value={$signupForm.password}
 											aria-invalid={$signupErrors.password?.length ? "true" : "false"}
@@ -341,11 +343,21 @@
 									</div>
 
 									<div class="space-y-2">
-										<Label for="signup-confirm-password">Confirm Password</Label>
+										<div class="flex items-center justify-between gap-2">
+											<Label for="signup-confirm-password">Confirm Password</Label>
+											<button
+												class="text-xs text-muted-foreground hover:text-foreground hover:underline"
+												type="button"
+												aria-pressed={showSignUpConfirmPassword}
+												onclick={() => (showSignUpConfirmPassword = !showSignUpConfirmPassword)}
+											>
+												{showSignUpConfirmPassword ? "Hide" : "Show"}
+											</button>
+										</div>
 										<Input
 											id="signup-confirm-password"
 											name="confirmPassword"
-											type="password"
+											type={showSignUpConfirmPassword ? "text" : "password"}
 											placeholder="Re-enter password"
 											bind:value={$signupForm.confirmPassword}
 											aria-invalid={$signupErrors.confirmPassword?.length ? "true" : "false"}
@@ -378,17 +390,15 @@
 									<Separator class="flex-1" />
 								</div>
 
-								<Button
-									class="w-full"
-									variant="outline"
-									type="button"
-									onclick={signUpWithGoogle}
-									disabled={signUpGoogleLoading}
-								>
-									{#if signUpGoogleLoading}
-										<LoaderCircle class="size-4 animate-spin" />
-										<span>Connecting...</span>
-									{:else}
+								<div class="group/google-signup relative">
+									<Button
+										class="w-full"
+										variant="outline"
+										type="button"
+										disabled
+										title={googleSignInDisabledMessage}
+										aria-label="Sign up with Google. Google Sign-in is disabled For the time being"
+									>
 										<svg viewBox="0 0 24 24" class="size-4" aria-hidden="true">
 											<path
 												fill="#EA4335"
@@ -396,11 +406,13 @@
 											/>
 										</svg>
 										<span>Sign up with Google</span>
-									{/if}
-								</Button>
-								{#if signUpGoogleNotice}
-									<p class="text-center text-xs text-muted-foreground">{signUpGoogleNotice}</p>
-								{/if}
+									</Button>
+									<p
+										class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/google-signup:opacity-100"
+									>
+										{googleSignInDisabledMessage}
+									</p>
+								</div>
 
 								<p class="text-center text-xs text-muted-foreground">
 									Already have an account?

@@ -28,7 +28,7 @@
 	<title>Forgot Password • ProjectBook</title>
 	<meta
 		name="description"
-		content="Request a password reset link for your ProjectBook account."
+		content="Request a password reset OTP for your ProjectBook account."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
@@ -41,7 +41,7 @@
 				<Mail class="size-6 text-primary" />
 			</div>
 			<Card.Title>Forgot Password</Card.Title>
-			<Card.Description>Enter your email and we will send a reset link.</Card.Description>
+			<Card.Description>Enter your email and we will send a reset code.</Card.Description>
 		</Card.Header>
 
 		<Card.Content class="space-y-4">
@@ -76,7 +76,7 @@
 						<LoaderCircle class="size-4 animate-spin" />
 						<span>Sending...</span>
 					{:else}
-						<span>Send Reset Link</span>
+						<span>Send Reset Code</span>
 					{/if}
 				</Button>
 			</form>

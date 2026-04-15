@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 - Updated artifact remotes (`problem`, `idea`, `task`, `feedback`, `page`, `resource`, `calendar`) to preserve page payload contracts while mapping backend response shapes.
 - Switched frontend auth actions and request lifecycle to backend auth API integration with access/refresh token cookie handling (`projectbook_access`, `projectbook_refresh`).
 - Switched permission context from frontend-signed cookies to backend-issued session-context tokens (`projectbook_permission_ctx`) with 30-minute expiry and hook-level locals hydration.
+- Hardened permission-context secret resolution so production runtime requires a non-default `PROJECTBOOK_PERMISSION_CONTEXT_SECRET` (32+ chars), while dev retains explicit fallback behavior.
 
 ### Fixed
 
