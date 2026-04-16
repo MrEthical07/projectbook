@@ -5,6 +5,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { signInSchema, signUpSchema } from "$lib/schemas/auth.schema";
 import {
 	clearApiAuthTokenCookies,
+	clearPermissionContextCookie,
 	consumeAuthNoticeCookie,
 	getAccessTokenCookie,
 	setAuthNoticeCookie
@@ -15,10 +16,6 @@ import {
 	sessionContextRequest,
 	signupRequest
 } from "$lib/server/api/auth";
-import {
-	readPermissionContextToken,
-	writePermissionContextToken
-} from "$lib/server/auth/permission-context-token";
 import { checkRateLimit, withFormError } from "$lib/server/auth/rate-limit";
 
 const SIGN_IN_FORM_ID = "sign-in-form";
@@ -47,11 +44,8 @@ export const load: PageServerLoad = async (event) => {
 	const accessToken = getAccessTokenCookie(event.cookies);
 	if (accessToken) {
 		try {
-			const permissionContext = readPermissionContextToken(event.cookies);
-			if (!permissionContext) {
-				const sessionContext = await sessionContextRequest(event);
-				writePermissionContextToken(event.cookies, sessionContext);
-			}
+			await sessionContextRequest(event);
+			clearPermissionContextCookie(event.cookies);
 			redirect(303, "/");
 		} catch (err) {
 			console.error("[auth:load] session context failed", err);

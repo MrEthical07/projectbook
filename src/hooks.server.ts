@@ -1,23 +1,24 @@
 import { randomUUID } from "node:crypto";
 import type { Handle, RequestEvent } from "@sveltejs/kit";
-import { sessionContextRequest } from "$lib/server/api/auth";
+import {
+	sessionContextRequest,
+	type SessionContextProjectPermission,
+	type SessionContextResponse
+} from "$lib/server/api/auth";
 import { isApiRequestError } from "$lib/server/api/error-mapping";
 import {
 	clearApiAuthTokenCookies,
+	clearPermissionContextCookie,
 	getAccessTokenCookie
 } from "$lib/server/auth/cookies";
-import {
-	readPermissionContextToken,
-	type PermissionContextTokenData,
-	type ProjectPermissionMatrixEntry,
-	writePermissionContextToken
-} from "$lib/server/auth/permission-context-token";
 
 const PUBLIC_PATHS = [
 	"/auth", 
 	"/auth/verify", 
 	"/auth/forgot-password", 
 	"/auth/reset-password", 
+	"/healthz",
+	"/readyz",
 	"/privacy-policy",
 	"/terms-and-conditions"
 ];
@@ -57,9 +58,9 @@ const resolveRouteProjectID = (event: RequestEvent): string | null => {
 };
 
 const resolveProjectPermissionEntry = (
-	context: PermissionContextTokenData,
+	context: SessionContextResponse,
 	routeProjectID: string | null
-): ProjectPermissionMatrixEntry | null => {
+): SessionContextProjectPermission | null => {
 	if (!routeProjectID) {
 		return null;
 	}
@@ -85,7 +86,7 @@ const toPermissionMaskString = (value: number | undefined): PermissionMask | und
 
 const applyLocalsFromPermissionContext = (
 	event: RequestEvent,
-	context: PermissionContextTokenData
+	context: SessionContextResponse
 ): void => {
 	const backendRole = context.backend_role?.trim();
 	event.locals.user = {
@@ -124,13 +125,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 	let authCheckTransientFailure = false;
 	if (accessToken) {
 		try {
-			let permissionContext = readPermissionContextToken(event.cookies);
-			if (!permissionContext) {
-				const sessionContext = await sessionContextRequest(event);
-				permissionContext = writePermissionContextToken(event.cookies, sessionContext);
-			}
-
-			applyLocalsFromPermissionContext(event, permissionContext);
+			const sessionContext = await sessionContextRequest(event);
+			clearPermissionContextCookie(event.cookies);
+			applyLocalsFromPermissionContext(event, sessionContext);
 		} catch (err) {
 			console.error("[hooks] session context failed", err);
 			if (isApiRequestError(err) && (err.statusCode === 401 || err.statusCode === 403)) {

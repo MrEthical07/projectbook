@@ -12,9 +12,9 @@ pnpm dev
 Set these server-side env vars for local auth + API integration:
 
 - `PROJECTBOOK_API_BASE_URL` (for example `http://localhost:8080/api/v1`)
-- `PROJECTBOOK_PERMISSION_CONTEXT_SECRET` (must match backend value)
+- `API_URL` (optional fallback alias when `PROJECTBOOK_API_BASE_URL` is unset)
 
-Frontend server auth relies on backend-issued permission-context tokens; mismatched secrets will invalidate `projectbook_permission_ctx` verification.
+Frontend server auth relies on backend-issued session context responses and no longer requires frontend-side permission-context secret verification.
 
 ## Folder Structure (Working View)
 
