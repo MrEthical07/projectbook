@@ -42,6 +42,30 @@ pnpm install
 pnpm run dev
 ```
 
+## Docker (Production)
+
+Build the production image from the web repository root:
+
+```bash
+docker build -t projectbook-web:prod .
+```
+
+Run the image with runtime-injected configuration:
+
+```bash
+docker run --rm -p 3000:3000 \
+	-e PROJECTBOOK_API_BASE_URL=http://host.docker.internal:8080/api/v1 \
+	-e API_URL=http://host.docker.internal:8080 \
+	-e NODE_ENV=production \
+	-e HOST=0.0.0.0 \
+	projectbook-web:prod
+```
+
+Container notes:
+- The image does not bundle secrets or `.env` files.
+- Runtime configuration is provided through environment variables.
+- The backend API is an external dependency and is not bundled into the web image.
+
 ## Documentation
 
 - Full docs: [docs](docs)
