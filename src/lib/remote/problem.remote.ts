@@ -9,7 +9,19 @@ import {
 
 type ProblemPageInput = {
 	projectId: string;
-	slug: string;
+	problemId: string;
+};
+
+type ProblemListInput = {
+	projectId: string;
+	status?: "Draft" | "Locked" | "Archived";
+	cursor?: string;
+	limit?: number;
+};
+
+type ProblemListResult = {
+	items: ProblemRow[];
+	nextCursor: string | null;
 };
 
 type ProblemSourceOption = {
@@ -128,12 +140,91 @@ const mapSourcePainPoint = (value: unknown, index: number): SourcePainPoint | nu
 	return { id, text, sourceLabel };
 };
 
-export const getProblems = query("unchecked", async (projectId: string): Promise<ProblemRow[]> => {
-	const payload = await remoteQueryRequest<{ items?: ProblemRow[] }>({
-		path: `/projects/${encodePathSegment(projectId)}/problems`,
-		method: "GET"
+const mapSourcePersona = (
+	value: unknown
+): { name: string; description: string } | null => {
+	const row = asRecord(value);
+	const name = asString(row.name);
+	if (!name) {
+		return null;
+	}
+	return {
+		name,
+		description: asString(row.description)
+	};
+};
+
+const mapPainInsight = (
+	value: unknown
+): { text: string; sourceLabel: string } | null => {
+	const row = asRecord(value);
+	const text = asString(row.text);
+	const sourceLabel = asString(row.sourceLabel);
+	if (!text || !sourceLabel) {
+		return null;
+	}
+	return { text, sourceLabel };
+};
+
+const mapJourneyPainInsight = (
+	value: unknown
+): { text: string; journeyName: string; stageName: string } | null => {
+	const row = asRecord(value);
+	const text = asString(row.text);
+	const journeyName = asString(row.journeyName);
+	const stageName = asString(row.stageName);
+	if (!text || !journeyName || !stageName) {
+		return null;
+	}
+	return { text, journeyName, stageName };
+};
+
+const buildProblemsPath = (input: ProblemListInput): string => {
+	const search = new URLSearchParams();
+	if (input.status) {
+		search.set("status", input.status);
+	}
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	if (cursor) {
+		search.set("cursor", cursor);
+	}
+	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set("limit", String(Math.trunc(input.limit)));
+	}
+	const query = search.toString();
+	const basePath = `/projects/${encodePathSegment(input.projectId)}/problems`;
+	return query ? `${basePath}?${query}` : basePath;
+};
+
+export const getProblems = query("unchecked", async (input: ProblemListInput): Promise<ProblemListResult> => {
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const limit =
+		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+			? Math.trunc(input.limit)
+			: 20;
+	const payload = await remoteQueryRequest<{ items?: ProblemRow[]; next_cursor?: string | null }>({
+		path: buildProblemsPath(input),
+		method: "GET",
+		cachePolicy: {
+			namespace: "problems-list",
+			ttlMs: 20_000,
+			keyParts: {
+				project_id: input.projectId,
+				status: input.status ?? null,
+				cursor: cursor || null,
+				limit,
+				sort: "last_updated_desc"
+			},
+			tags: ["problems-list", `project:${input.projectId}`]
+		}
 	});
-	return Array.isArray(payload.items) ? payload.items : [];
+	return {
+		items: Array.isArray(payload.items) ? payload.items : [],
+		nextCursor:
+			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+				? payload.next_cursor
+				: null
+	};
 });
 
 export const getProblemPageData = query("unchecked", async (input: ProblemPageInput) => {
@@ -152,9 +243,15 @@ export const getProblemPageData = query("unchecked", async (input: ProblemPageIn
 			storyOptions?: unknown[];
 			journeyOptions?: unknown[];
 			sourcePainPoints?: unknown[];
+			sourceInsights?: {
+				personas?: unknown[];
+				context?: unknown;
+				painPoints?: unknown[];
+				journeyPainPoints?: unknown[];
+			};
 		};
 	}>({
-		path: `/projects/${encodePathSegment(input.projectId)}/problems/${encodePathSegment(input.slug)}`,
+		path: `/projects/${encodePathSegment(input.projectId)}/problems/${encodePathSegment(input.problemId)}`,
 		method: "GET"
 	});
 
@@ -162,6 +259,7 @@ export const getProblemPageData = query("unchecked", async (input: ProblemPageIn
 	const metadata = asRecord(payload.metadata);
 	const detail = asRecord(payload.detail);
 	const reference = asRecord(payload.reference);
+	const sourceInsights = asRecord(reference.sourceInsights);
 
 	const title =
 		asString(problem.statement) ||
@@ -182,15 +280,29 @@ export const getProblemPageData = query("unchecked", async (input: ProblemPageIn
 			.map(mapSourcePainPoint)
 			.filter((item): item is SourcePainPoint => item !== null),
 		sourceInsights: {
-			personas: [],
-			context: "",
-			painPoints: [],
-			journeyPainPoints: []
+			personas: (Array.isArray(sourceInsights.personas) ? sourceInsights.personas : [])
+				.map(mapSourcePersona)
+				.filter((item): item is { name: string; description: string } => item !== null),
+			context: asString(sourceInsights.context),
+			painPoints: (Array.isArray(sourceInsights.painPoints) ? sourceInsights.painPoints : [])
+				.map(mapPainInsight)
+				.filter((item): item is { text: string; sourceLabel: string } => item !== null),
+			journeyPainPoints: (
+				Array.isArray(sourceInsights.journeyPainPoints)
+					? sourceInsights.journeyPainPoints
+					: []
+			)
+				.map(mapJourneyPainInsight)
+				.filter(
+					(item): item is { text: string; journeyName: string; stageName: string } =>
+						item !== null
+				)
 		},
 		linkedSources: (Array.isArray(detail.linkedSources) ? detail.linkedSources : [])
 			.map(mapLinkedSource)
 			.filter((item): item is LinkedSource => item !== null),
 		selectedPainPoints: asStringArray(detail.selectedPainPoints),
+		customPainPoints: asStringArray(detail.customPainPoints),
 		activeModules: asStringArray(detail.activeModules),
 		moduleContent: {
 			why: asString(moduleContent.why),
@@ -243,7 +355,7 @@ export const updateProblem = command(
 
 		return remoteMutationRequest<ProblemRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems/${encodePathSegment(parsed.data.problemId)}`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				state: parsed.data.state
 			}
@@ -276,7 +388,7 @@ export const updateProblemStatus = command(
 
 		return remoteMutationRequest<ProblemRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems/${encodePathSegment(parsed.data.problemId)}/status`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				status: parsed.data.status
 			}

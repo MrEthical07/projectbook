@@ -15,9 +15,11 @@
 		currentProjectId: string;
 	} = $props();
 	const sidebar = useSidebar();
+	const normalizeProjectID = (value: string): string => value.trim().toLowerCase();
 
 	let activeProject = $derived.by(() => {
-		const found = projects.find((project) => project.id === currentProjectId);
+		const targetProjectID = normalizeProjectID(currentProjectId);
+		const found = projects.find((project) => normalizeProjectID(project.id) === targetProjectID);
 		return found ?? null;
 	});
 	let activeProjectMissing = $derived(

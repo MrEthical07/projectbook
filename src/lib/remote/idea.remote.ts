@@ -9,7 +9,19 @@ import {
 
 type IdeaPageInput = {
 	projectId: string;
-	slug: string;
+	ideaId: string;
+};
+
+type IdeaListInput = {
+	projectId: string;
+	status?: "Considered" | "Selected" | "Rejected" | "Archived";
+	cursor?: string;
+	limit?: number;
+};
+
+type IdeaListResult = {
+	items: IdeaRow[];
+	nextCursor: string | null;
 };
 
 type ProblemOption = {
@@ -117,12 +129,52 @@ const mapLinkedStory = (value: unknown): LinkedStory | null => {
 	};
 };
 
-export const getIdeas = query("unchecked", async (projectId: string): Promise<IdeaRow[]> => {
-	const payload = await remoteQueryRequest<{ items?: IdeaRow[] }>({
-		path: `/projects/${encodePathSegment(projectId)}/ideas`,
-		method: "GET"
+const buildIdeasPath = (input: IdeaListInput): string => {
+	const search = new URLSearchParams();
+	if (input.status) {
+		search.set("status", input.status);
+	}
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	if (cursor) {
+		search.set("cursor", cursor);
+	}
+	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set("limit", String(Math.trunc(input.limit)));
+	}
+	const query = search.toString();
+	const basePath = `/projects/${encodePathSegment(input.projectId)}/ideas`;
+	return query ? `${basePath}?${query}` : basePath;
+};
+
+export const getIdeas = query("unchecked", async (input: IdeaListInput): Promise<IdeaListResult> => {
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const limit =
+		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+			? Math.trunc(input.limit)
+			: 20;
+	const payload = await remoteQueryRequest<{ items?: IdeaRow[]; next_cursor?: string | null }>({
+		path: buildIdeasPath(input),
+		method: "GET",
+		cachePolicy: {
+			namespace: "ideas-list",
+			ttlMs: 20_000,
+			keyParts: {
+				project_id: input.projectId,
+				status: input.status ?? null,
+				cursor: cursor || null,
+				limit,
+				sort: "last_updated_desc"
+			},
+			tags: ["ideas-list", `project:${input.projectId}`]
+		}
 	});
-	return Array.isArray(payload.items) ? payload.items : [];
+	return {
+		items: Array.isArray(payload.items) ? payload.items : [],
+		nextCursor:
+			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+				? payload.next_cursor
+				: null
+	};
 });
 
 export const getIdeaPageData = query("unchecked", async (input: IdeaPageInput) => {
@@ -141,7 +193,7 @@ export const getIdeaPageData = query("unchecked", async (input: IdeaPageInput) =
 			derivedPersonas?: unknown[];
 		};
 	}>({
-		path: `/projects/${encodePathSegment(input.projectId)}/ideas/${encodePathSegment(input.slug)}`,
+		path: `/projects/${encodePathSegment(input.projectId)}/ideas/${encodePathSegment(input.ideaId)}`,
 		method: "GET"
 	});
 
@@ -213,7 +265,7 @@ export const updateIdea = command(
 
 		return remoteMutationRequest<IdeaRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas/${encodePathSegment(parsed.data.ideaId)}`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				state: parsed.data.state
 			}
@@ -246,7 +298,7 @@ export const updateIdeaStatus = command(
 
 		return remoteMutationRequest<IdeaRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas/${encodePathSegment(parsed.data.ideaId)}/status`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				status: parsed.data.status
 			}

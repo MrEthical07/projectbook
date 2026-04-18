@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from "$app/state";
-	import * as Avatar from "$lib/components/ui/avatar/index.js";
 	import { Badge } from "$lib/components/ui/badge";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import * as Card from "$lib/components/ui/card";
@@ -26,13 +25,36 @@
 	let { data } = $props();
 
 	type TaskStatus = "Planned" | "In Progress" | "Blocked" | "Completed" | "Abandoned";
-	type Task = {
+	type DashboardTask = {
 		id: string;
 		title: string;
 		status: TaskStatus;
 		deadline: string;
-		owner: string;
-		hasFeedback: boolean;
+	};
+	type DashboardFeedback = {
+		id: string;
+		title: string;
+		outcome: FeedbackOutcome;
+	};
+	type DashboardSummary = {
+		stories: number;
+		journeys: number;
+		problems: number;
+		ideas: number;
+		tasks: number;
+		feedback: number;
+		orphanStories: number;
+		orphanJourneys: number;
+		lockedProblems: number;
+		problemsWithoutIdeas: number;
+		selectedIdeas: number;
+		selectedIdeasWithoutTasks: number;
+		openTasks: number;
+		overdueTasks: number;
+		completedTasks: number;
+		blockedOrAbandonedTasks: number;
+		completedTasksNoFeedback: number;
+		feedbackNeedsIteration: number;
 	};
 	type AlertItem = {
 		label: string;
@@ -57,40 +79,28 @@
 	let projectId = $derived(page.params.projectId);
 	let project = $derived(data.dashboard.project);
 	let me = $derived(data.dashboard.me);
+	let summary = $derived(data.dashboard.summary as DashboardSummary);
 	let now = $derived.by(() => new Date(data.dashboard.now));
-	let stories = $derived(data.dashboard.stories);
-	let journeys = $derived(data.dashboard.journeys);
-	let problems = $derived(data.dashboard.problems);
-	let ideas = $derived(data.dashboard.ideas);
-	let tasks = $derived(data.dashboard.tasks as Task[]);
-	let feedback = $derived(data.dashboard.feedback);
-	let events = $derived(data.dashboard.events);
-	let activity = $derived(data.dashboard.activity);
+	let myTaskFocus = $derived(data.dashboard.myTasks as DashboardTask[]);
+	let myFeedbackFocus = $derived(data.dashboard.myFeedback as DashboardFeedback[]);
 	let recentEdits = $derived(data.dashboard.recentEdits);
 
-	let openTasks = $derived.by(() =>
-		tasks.filter((t) => t.status !== "Completed" && t.status !== "Abandoned")
+	let totalArtifacts = $derived.by(
+		() =>
+			summary.stories +
+			summary.journeys +
+			summary.problems +
+			summary.ideas +
+			summary.tasks +
+			summary.feedback
 	);
-	let overdueTasks = $derived.by(() =>
-		tasks.filter(
-			(t) => t.status !== "Completed" && t.status !== "Abandoned" && new Date(t.deadline) < now
-		)
-	);
-	let lockedProblems = $derived.by(() => problems.filter((p) => p.status === "Locked"));
-	let selectedIdeas = $derived.by(() => ideas.filter((i) => i.status === "Selected"));
 
 	let stats = $derived.by(
 		() =>
 			[
 				{
 					label: "Total Artifacts",
-					value:
-						stories.length +
-						journeys.length +
-						problems.length +
-						ideas.length +
-						tasks.length +
-						feedback.length,
+					value: totalArtifacts,
 					description: "Across Design Thinking phases",
 					href: `/project/${projectId}/pages`,
 					icon: FolderOpen,
@@ -98,15 +108,15 @@
 				},
 				{
 					label: "Open Tasks",
-					value: openTasks.length,
+					value: summary.openTasks,
 					description: "Not completed or abandoned",
 					href: `/project/${projectId}/tasks?status=open`,
 					icon: ListChecks,
-					tone: overdueTasks.length > 0 ? "warning" : "normal"
+					tone: summary.overdueTasks > 0 ? "warning" : "normal"
 				},
 				{
 					label: "Locked Problems",
-					value: lockedProblems.length,
+					value: summary.lockedProblems,
 					description: "Ready for execution",
 					href: `/project/${projectId}/problem-statement?status=locked`,
 					icon: LockKeyhole,
@@ -114,19 +124,19 @@
 				},
 				{
 					label: "Selected Ideas",
-					value: selectedIdeas.length,
+					value: summary.selectedIdeas,
 					description: "Chosen for prototype",
 					href: `/project/${projectId}/ideas?status=selected`,
 					icon: Lightbulb,
-					tone: selectedIdeas.some((i) => i.tasksCount === 0) ? "warning" : "normal"
+					tone: summary.selectedIdeasWithoutTasks > 0 ? "warning" : "normal"
 				},
 				{
 					label: "Feedback Entries",
-					value: feedback.length,
+					value: summary.feedback,
 					description: "Signals from testing",
 					href: `/project/${projectId}/feedback`,
 					icon: CalendarClock,
-					tone: feedback.some((f) => f.outcome === "Needs Iteration") ? "warning" : "normal"
+					tone: summary.feedbackNeedsIteration > 0 ? "warning" : "normal"
 				}
 			] as const
 	);
@@ -136,36 +146,36 @@
 			[
 				{
 					name: "Empathize",
-					total: stories.length + journeys.length,
-					descriptor: `${stories.length} Stories, ${journeys.length} Journeys`,
+					total: summary.stories + summary.journeys,
+					descriptor: `${summary.stories} Stories, ${summary.journeys} Journeys`,
 					readiness: "Coverage is strong across core personas.",
 					href: `/project/${projectId}/stories`
 				},
 				{
 					name: "Define",
-					total: problems.length,
-					descriptor: `${problems.length} Problems (${lockedProblems.length} Locked)`,
+					total: summary.problems,
+					descriptor: `${summary.problems} Problems (${summary.lockedProblems} Locked)`,
 					readiness: "Locked statements are ready to execute.",
 					href: `/project/${projectId}/problem-statement`
 				},
 				{
 					name: "Ideate",
-					total: ideas.length,
-					descriptor: `${ideas.length} Ideas (${selectedIdeas.length} Selected)`,
+					total: summary.ideas,
+					descriptor: `${summary.ideas} Ideas (${summary.selectedIdeas} Selected)`,
 					readiness: "Selected concepts need fuller task conversion.",
 					href: `/project/${projectId}/ideas`
 				},
 				{
 					name: "Prototype",
-					total: tasks.length,
-					descriptor: `${tasks.length} Tasks (${tasks.filter((t) => t.status === "Completed").length} Completed)`,
+					total: summary.tasks,
+					descriptor: `${summary.tasks} Tasks (${summary.completedTasks} Completed)`,
 					readiness: "Delivery is active with a small blocked queue.",
 					href: `/project/${projectId}/tasks`
 				},
 				{
 					name: "Test",
-					total: feedback.length,
-					descriptor: `${feedback.length} Feedback (${feedback.filter((f) => f.outcome === "Needs Iteration").length} Needs Iteration)`,
+					total: summary.feedback,
+					descriptor: `${summary.feedback} Feedback (${summary.feedbackNeedsIteration} Needs Iteration)`,
 					readiness: "Validation loop is running with open outcomes.",
 					href: `/project/${projectId}/feedback`
 				}
@@ -200,8 +210,8 @@
 			{
 				phase: "Empathize",
 				phaseHref: `/project/${projectId}/stories`,
-				stories: stories.length,
-				journeys: journeys.length,
+				stories: summary.stories,
+				journeys: summary.journeys,
 				problems: 0,
 				ideas: 0,
 				tasks: 0,
@@ -220,7 +230,7 @@
 				phaseHref: `/project/${projectId}/problem-statement`,
 				stories: 0,
 				journeys: 0,
-				problems: problems.length,
+				problems: summary.problems,
 				ideas: 0,
 				tasks: 0,
 				feedback: 0,
@@ -239,7 +249,7 @@
 				stories: 0,
 				journeys: 0,
 				problems: 0,
-				ideas: ideas.length,
+				ideas: summary.ideas,
 				tasks: 0,
 				feedback: 0,
 				links: {
@@ -258,7 +268,7 @@
 				journeys: 0,
 				problems: 0,
 				ideas: 0,
-				tasks: tasks.length,
+				tasks: summary.tasks,
 				feedback: 0,
 				links: {
 					stories: `/project/${projectId}/stories`,
@@ -277,7 +287,7 @@
 				problems: 0,
 				ideas: 0,
 				tasks: 0,
-				feedback: feedback.length,
+				feedback: summary.feedback,
 				links: {
 					stories: `/project/${projectId}/stories`,
 					journeys: `/project/${projectId}/journeys`,
@@ -290,14 +300,8 @@
 		]
 	);
 
-	let myTasks = $derived.by(() =>
-		tasks
-			.filter((t) => t.owner === me.name)
-			.slice()
-			.sort((a, b) => +new Date(a.deadline) - +new Date(b.deadline))
-			.slice(0, 5)
-	);
-	let myFeedback = $derived.by(() => feedback.filter((f) => f.owner === me.name).slice(0, 5));
+	let myTasks = $derived.by(() => myTaskFocus.slice(0, 5));
+	let myFeedback = $derived.by(() => myFeedbackFocus.slice(0, 5));
 	let myEdits = $derived.by(() =>
 		recentEdits
 			.slice()
@@ -309,63 +313,47 @@
 		([
 			{
 				label: "Orphan Artifacts",
-				count:
-					stories.filter((s) => s.isOrphan).length +
-					journeys.filter((j) => j.isOrphan).length,
+				count: summary.orphanStories + summary.orphanJourneys,
 				description: "Artifacts not linked to downstream work.",
 				severity: "amber",
 				href: `/project/${projectId}/pages?filter=orphan`
 			},
 			{
 				label: "Overdue Tasks",
-				count: overdueTasks.length,
+				count: summary.overdueTasks,
 				description: "Open tasks past due date.",
 				severity: "red",
 				href: `/project/${projectId}/tasks?status=overdue`
 			},
 			{
 				label: "Blocked / Abandoned Tasks",
-				count: tasks.filter((t) => t.status === "Blocked" || t.status === "Abandoned").length,
+				count: summary.blockedOrAbandonedTasks,
 				description: "Tasks that cannot progress.",
 				severity: "red",
 				href: `/project/${projectId}/tasks?status=blocked,abandoned`
 			},
 			{
 				label: "Problems With No Ideas",
-				count: problems.filter((p) => p.ideasCount === 0).length,
+				count: summary.problemsWithoutIdeas,
 				description: "Define phase gaps requiring ideation.",
 				severity: "amber",
 				href: `/project/${projectId}/problem-statement?filter=no-ideas`
 			},
 			{
 				label: "Selected Ideas With No Tasks",
-				count: ideas.filter((i) => i.status === "Selected" && i.tasksCount === 0).length,
+				count: summary.selectedIdeasWithoutTasks,
 				description: "Chosen ideas missing implementation tasks.",
 				severity: "amber",
 				href: `/project/${projectId}/ideas?filter=no-tasks`
 			},
 			{
 				label: "Completed Tasks With No Feedback",
-				count: tasks.filter((t) => t.status === "Completed" && !t.hasFeedback).length,
+				count: summary.completedTasksNoFeedback,
 				description: "Completed work without test evidence.",
 				severity: "amber",
 				href: `/project/${projectId}/tasks?filter=completed-without-feedback`
 			}
 		] satisfies AlertItem[]).filter((a) => a.count > 0)
-	);
-
-	let upcomingEvents = $derived.by(() =>
-		events
-			.filter((e) => +new Date(e.startAt) >= +now)
-			.slice()
-			.sort((a, b) => +new Date(a.startAt) - +new Date(b.startAt))
-			.slice(0, 5)
-	);
-	let recentActivity = $derived.by(() =>
-		activity
-			.slice()
-			.sort((a, b) => +new Date(b.at) - +new Date(a.at))
-			.slice(0, 10)
 	);
 
 	const toneCardClass = {
@@ -383,8 +371,6 @@
 		red: "border-red-300/50 bg-red-50/70 dark:border-red-500/40 dark:bg-red-950/20"
 	} as const;
 
-	const fmtDateTime = (v: string) =>
-		new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(v));
 	const fmtDue = (v: string) =>
 		new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(v));
 	const fmtAgo = (v: string) => {
@@ -394,7 +380,7 @@
 		if (hours < 24) return `${hours}h ago`;
 		return `${Math.round(hours / 24)}d ago`;
 	};
-	const overdue = (t: Task) =>
+	const overdue = (t: DashboardTask) =>
 		t.status !== "Completed" && t.status !== "Abandoned" && +new Date(t.deadline) < +now;
 
 	const handlePhaseBarClick = (
@@ -411,7 +397,7 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
+	<title>Dashboard • {project?.name ?? "Project"} • ProjectBook</title>
 	<meta
 		name="description"
 		content="Overview of project progress, phase coverage, and recent activity."
@@ -628,56 +614,24 @@
 		<section>
 			<Card.Root>
 				<Card.Header>
-					<Card.Title>Upcoming Events</Card.Title>
-					<Card.Description>Next 5 calendar events by date.</Card.Description>
+					<Card.Title>Timeline Views</Card.Title>
+					<Card.Description>Calendar events and activity logs are available on dedicated pages.</Card.Description>
 				</Card.Header>
-				<Card.Content class="space-y-2">
-					{#each upcomingEvents as event (event.id)}
-						<a
-							href={`/project/${projectId}/calendar/${event.id}`}
-							class="flex flex-col gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/60 sm:flex-row sm:items-center sm:justify-between"
-						>
-							<div class="space-y-1">
-								<p class="text-sm font-medium">{event.title}</p>
-								<p class="text-xs text-muted-foreground">{fmtDateTime(event.startAt)} - {event.type}</p>
-							</div>
-							<div class="flex items-center gap-2">
-								<Avatar.Root class="size-7 rounded-full">
-									<Avatar.Fallback class="rounded-full text-[10px]">{event.initials}</Avatar.Fallback>
-								</Avatar.Root>
-								<span class="text-xs text-muted-foreground">{event.creator}</span>
-							</div>
-						</a>
-					{/each}
-				</Card.Content>
-			</Card.Root>
-		</section>
-
-		<section>
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Recent Activity</Card.Title>
-					<Card.Description>Latest 10 project-wide actions.</Card.Description>
-				</Card.Header>
-				<Card.Content class="space-y-3">
-					{#each recentActivity as item (item.id)}
-						<div class="flex items-start gap-3 rounded-lg border border-border p-3">
-							<Avatar.Root class="size-8 rounded-full">
-								<Avatar.Fallback class="rounded-full text-[10px]">{item.initials}</Avatar.Fallback>
-							</Avatar.Root>
-							<div class="min-w-0 flex-1">
-								<p class="text-sm leading-5">
-									<span class="font-medium">{item.user}</span>
-									<span class="text-muted-foreground"> {item.action} </span>
-									<a href={item.href} class="font-medium text-primary hover:underline">{item.artifact}</a>
-								</p>
-								<p class="mt-1 text-xs text-muted-foreground">{fmtAgo(item.at)}</p>
-							</div>
-						</div>
-					{/each}
-					<div class="pt-1">
-						<a href={`/project/${projectId}/activity`} class="text-sm font-medium text-primary hover:underline">View all activity</a>
-					</div>
+				<Card.Content class="grid gap-3 sm:grid-cols-2">
+					<a
+						href={`/project/${projectId}/calendar`}
+						class="rounded-lg border border-border p-3 transition-colors hover:bg-accent/60"
+					>
+						<p class="text-sm font-semibold">Calendar</p>
+						<p class="mt-1 text-xs text-muted-foreground">View upcoming events, deadlines, and reminders.</p>
+					</a>
+					<a
+						href={`/project/${projectId}/activity`}
+						class="rounded-lg border border-border p-3 transition-colors hover:bg-accent/60"
+					>
+						<p class="text-sm font-semibold">Activity Log</p>
+						<p class="mt-1 text-xs text-muted-foreground">Review project-wide actions and recent updates.</p>
+					</a>
 				</Card.Content>
 			</Card.Root>
 		</section>

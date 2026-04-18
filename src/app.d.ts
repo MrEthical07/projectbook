@@ -87,10 +87,10 @@ declare global {
 
 	// Shared artifact/domain model types.
 	type StoryStatus = "Draft" | "Locked" | "Archived";
-	type JourneyStatus = "Draft" | "Archived";
+	type JourneyStatus = "Draft" | "Locked" | "Archived";
 	type ProblemStatus = "Draft" | "Locked" | "Archived";
 	type IdeaStatus = "Considered" | "Selected" | "Rejected" | "Archived";
-	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned" | "Blocked";
+	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
 	type FeedbackOutcome = "Validated" | "Invalidated" | "Needs Iteration";
 	type PageStatus = "Draft" | "Archived";
 	type ResourceStatus = "Active" | "Archived";

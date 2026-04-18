@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from "$app/navigation";
+	import { invalidate } from "$app/navigation";
 	import { page } from "$app/state";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import { Badge } from "$lib/components/ui/badge";
@@ -161,9 +161,7 @@
 		name: "",
 		email: "",
 		role: "Limited Access" as MemberRole,
-		team: "",
-		location: "",
-		joinedDate: ""
+		team: ""
 	});
 
 	/**
@@ -209,9 +207,7 @@
 			name: "",
 			email: "",
 			role: "Limited Access",
-			team: "",
-			location: "",
-			joinedDate: ""
+			team: ""
 		};
 	};
 
@@ -247,7 +243,7 @@
 		toast.success(`Invite sent to ${email}.`);
 		isInviteOpen = false;
 		resetInviteForm();
-		await invalidateAll();
+		await invalidate((url) => url.pathname === page.url.pathname);
 	};
 
 	const cancelInvite = async (email: string) => {
@@ -269,7 +265,7 @@
 			return;
 		}
 		toast.info(`Invite to ${email} cancelled.`);
-		await invalidateAll();
+		await invalidate((url) => url.pathname === page.url.pathname);
 	};
 
 	let filteredMembers = $derived(filterMembers(searchQuery));
@@ -365,18 +361,6 @@
 									<div class="grid gap-2">
 										<Label for="invite-team">Team</Label>
 										<Input id="invite-team" placeholder="Team or squad" bind:value={inviteForm.team} />
-									</div>
-									<div class="grid gap-2">
-										<Label for="invite-location">Location</Label>
-										<Input
-											id="invite-location"
-											placeholder="City, Country"
-											bind:value={inviteForm.location}
-										/>
-									</div>
-									<div class="grid gap-2">
-										<Label for="invite-date">Joined date</Label>
-										<Input id="invite-date" type="date" bind:value={inviteForm.joinedDate} />
 									</div>
 								</div>
 								<div class="flex justify-end gap-2">

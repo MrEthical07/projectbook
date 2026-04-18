@@ -8,9 +8,13 @@ import {
 import { isApiRequestError } from "$lib/server/api/error-mapping";
 import {
 	clearApiAuthTokenCookies,
+	clearPermissionContextRevalidateCooldownCookie,
 	clearPermissionContextCookie,
-	getAccessTokenCookie
+	getAccessTokenCookie,
+	getPermissionContextCookie,
+	setPermissionContextCookie
 } from "$lib/server/auth/cookies";
+import { parsePermissionContextToken } from "$lib/server/auth/permission-context";
 
 const PUBLIC_PATHS = [
 	"/auth", 
@@ -124,17 +128,40 @@ export const handle: Handle = async ({ event, resolve }) => {
 	let hasAccessToken = Boolean(accessToken);
 	let authCheckTransientFailure = false;
 	if (accessToken) {
-		try {
-			const sessionContext = await sessionContextRequest(event);
+		const permissionContextToken = getPermissionContextCookie(event.cookies);
+		const cachedPermissionContext = parsePermissionContextToken(permissionContextToken);
+		if (permissionContextToken && !cachedPermissionContext) {
 			clearPermissionContextCookie(event.cookies);
-			applyLocalsFromPermissionContext(event, sessionContext);
-		} catch (err) {
-			console.error("[hooks] session context failed", err);
-			if (isApiRequestError(err) && (err.statusCode === 401 || err.statusCode === 403)) {
-				clearApiAuthTokenCookies(event.cookies);
-				hasAccessToken = false;
-			} else {
-				authCheckTransientFailure = true;
+		}
+
+		if (cachedPermissionContext) {
+			applyLocalsFromPermissionContext(event, cachedPermissionContext);
+		} else {
+			try {
+				const sessionContext = await sessionContextRequest(event);
+				const contextToken = sessionContext.context_token?.trim() ?? "";
+				if (contextToken.length > 0) {
+					setPermissionContextCookie(
+						event.cookies,
+						contextToken,
+						sessionContext.context_token_expires_utc ??
+							(sessionContext.context_token_expires_unix
+								? new Date(sessionContext.context_token_expires_unix * 1000)
+								: null)
+					);
+				} else {
+					clearPermissionContextCookie(event.cookies);
+				}
+				clearPermissionContextRevalidateCooldownCookie(event.cookies);
+				applyLocalsFromPermissionContext(event, sessionContext);
+			} catch (err) {
+				console.error("[hooks] session context failed", err);
+				if (isApiRequestError(err) && err.statusCode === 401) {
+					clearApiAuthTokenCookies(event.cookies);
+					hasAccessToken = false;
+				} else {
+					authCheckTransientFailure = true;
+				}
 			}
 		}
 	}

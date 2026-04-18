@@ -9,7 +9,6 @@ import {
 } from "$lib/server/api/auth";
 import { isApiRequestError } from "$lib/server/api/error-mapping";
 import { setAuthNoticeCookie } from "$lib/server/auth/cookies";
-import { checkRateLimit } from "$lib/server/auth/rate-limit";
 
 const VERIFY_FORM_ID = "verify-email-form";
 const RESEND_FORM_ID = "resend-verification-form";
@@ -87,7 +86,7 @@ export const actions: Actions = {
 	},
 
 	resend: async (event) => {
-		const { request, getClientAddress, url } = event;
+		const { request, url } = event;
 		const verifyForm = await superValidate(
 			{ verificationId: verificationIdFromURL(url), code: "" },
 			zod4(verifyEmailSchema),
@@ -99,14 +98,6 @@ export const actions: Actions = {
 
 		if (!form.valid) {
 			return fail(400, { verifyForm, resendForm: form });
-		}
-
-		const ip = getClientAddress();
-		const rl = checkRateLimit(`resend:${ip}`, 3, 15 * 60 * 1000);
-		if (!rl.allowed) {
-			form.valid = false;
-			form.errors.email = ["Too many requests. Please try again later."];
-			return fail(429, { verifyForm, resendForm: form });
 		}
 
 		try {

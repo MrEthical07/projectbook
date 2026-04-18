@@ -5,11 +5,15 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { signInSchema, signUpSchema } from "$lib/schemas/auth.schema";
 import {
 	clearApiAuthTokenCookies,
+	clearPermissionContextRevalidateCooldownCookie,
 	clearPermissionContextCookie,
 	consumeAuthNoticeCookie,
 	getAccessTokenCookie,
+	getPermissionContextCookie,
+	setPermissionContextCookie,
 	setAuthNoticeCookie
 } from "$lib/server/auth/cookies";
+import { parsePermissionContextToken } from "$lib/server/auth/permission-context";
 import { isApiRequestError } from "$lib/server/api/error-mapping";
 import {
 	loginRequest,
@@ -40,16 +44,59 @@ const apiErrorReason = (details: unknown): string => {
 	return value.trim().toLowerCase();
 };
 
+const apiErrorVerificationId = (details: unknown): string => {
+	if (!details || typeof details !== "object") {
+		return "";
+	}
+
+	const candidate = details as {
+		verificationId?: unknown;
+		verification_id?: unknown;
+	};
+	if (typeof candidate.verificationId === "string") {
+		return candidate.verificationId.trim();
+	}
+	if (typeof candidate.verification_id === "string") {
+		return candidate.verification_id.trim();
+	}
+
+	return "";
+};
+
 export const load: PageServerLoad = async (event) => {
 	const accessToken = getAccessTokenCookie(event.cookies);
 	if (accessToken) {
-		try {
-			await sessionContextRequest(event);
-			clearPermissionContextCookie(event.cookies);
-			redirect(303, "/");
-		} catch (err) {
-			console.error("[auth:load] session context failed", err);
-			clearApiAuthTokenCookies(event.cookies);
+		const cachedPermissionContext = parsePermissionContextToken(
+			getPermissionContextCookie(event.cookies)
+		);
+		if (!cachedPermissionContext) {
+			try {
+				const sessionContext = await sessionContextRequest(event);
+				const contextToken = sessionContext.context_token?.trim() ?? "";
+				if (contextToken.length > 0) {
+					setPermissionContextCookie(
+						event.cookies,
+						contextToken,
+						sessionContext.context_token_expires_utc ??
+							(sessionContext.context_token_expires_unix
+								? new Date(sessionContext.context_token_expires_unix * 1000)
+								: null)
+					);
+				}
+				clearPermissionContextRevalidateCooldownCookie(event.cookies);
+			} catch (err) {
+				if (isApiRequestError(err) && err.statusCode === 401) {
+					clearPermissionContextCookie(event.cookies);
+					clearApiAuthTokenCookies(event.cookies);
+				} else {
+					console.error("[auth:load] session context failed", err);
+					clearPermissionContextCookie(event.cookies);
+				}
+			}
+		}
+
+		if (getAccessTokenCookie(event.cookies)) {
+			throw redirect(303, "/");
 		}
 	}
 
@@ -87,11 +134,18 @@ export const actions: Actions = {
 			if (isApiRequestError(err)) {
 				const reason = err.reason.toLowerCase();
 				if (apiErrorReason(err.details) === "email_unverified") {
+					const verificationId = apiErrorVerificationId(err.details);
+					const query = new URLSearchParams({
+						email: loginForm.data.email.trim()
+					});
+					if (verificationId.length > 0) {
+						query.set("verificationId", verificationId);
+					}
 					setAuthNoticeCookie(
 						event.cookies,
 						"Please verify your email with the OTP to continue."
 					);
-					redirect(303, `/auth/verify?email=${encodeURIComponent(loginForm.data.email)}`);
+					throw redirect(303, `/auth/verify?${query.toString()}`);
 				}
 				withFormError(
 					loginForm,
@@ -110,7 +164,7 @@ export const actions: Actions = {
 			return fail(500, { loginForm, signupForm });
 		}
 
-		redirect(303, "/");
+		throw redirect(303, "/");
 	},
 
 	signup: async (event) => {

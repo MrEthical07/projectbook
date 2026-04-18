@@ -71,6 +71,10 @@ const CODE_PRESENTATION: Record<string, StatusPresentation> = {
 		userMessage: "This invite was already cancelled.",
 		tip: "Refresh the invites list to sync the current status."
 	},
+	dependency_unavailable: {
+		userMessage: "A required backend dependency is temporarily unavailable.",
+		tip: "Try again shortly. If this is an email action, confirm email delivery is configured and healthy."
+	},
 	forbidden: {
 		userMessage: "You do not have enough permission for this operation.",
 		tip: "If you believe this is a mistake, contact the owner of the project for requesting access."
@@ -94,7 +98,7 @@ type BackendErrorObject = {
 	status?: number;
 	code?: string;
 	source?: string;
-	requestId?: string;
+	request_id?: string;
 	timestamp?: string;
 	retryable?: boolean;
 	issues?: BackendIssue[];
@@ -102,10 +106,9 @@ type BackendErrorObject = {
 };
 
 type BackendEnvelope = {
-	success?: boolean;
+	success: boolean;
 	error?: unknown;
 	request_id?: string;
-	requestId?: string;
 };
 
 export type ApiErrorDetails = {
@@ -129,8 +132,8 @@ const normalizeCode = (value: string | undefined, fallbackStatus: number): strin
 	switch (fallbackStatus) {
 		case 400:
 			return "bad_request";
-			case 422:
-				return "validation_error";
+		case 422:
+			return "validation_error";
 		case 401:
 			return "unauthorized";
 		case 403:
@@ -220,7 +223,7 @@ export const createApiRequestError = (input: {
 		reason,
 		userMessage: presentation.userMessage,
 		tip: presentation.tip,
-		requestId: errorObject.requestId ?? envelope?.request_id ?? envelope?.requestId,
+		requestId: errorObject.request_id ?? envelope?.request_id,
 		retryable: errorObject.retryable,
 		timestamp: errorObject.timestamp,
 		details: errorObject.details ?? details,

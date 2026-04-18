@@ -13,7 +13,7 @@
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { ExternalLink } from "@lucide/svelte";
 	import { page } from "$app/state";
-	import { updateResource } from "$lib/remote/resource.remote";
+	import { updateResource, updateResourceStatus } from "$lib/remote/resource.remote";
 	import { can } from "$lib/utils/permission";
 
 	const projectId = page.params.projectId;
@@ -62,6 +62,7 @@
 	let unarchiveDialogOpen = $state(false);
 	let statusConfirmOpen = $state(false);
 	let pendingStatus = $state<ResourceStatus | null>(null);
+	let statusMutationPending = $state(false);
 
 	let newVersionDescription = $state("");
 	let newVersionLabel = $state("v4");
@@ -83,7 +84,6 @@
 		JSON.stringify({
 			name,
 			docType,
-			status,
 			description,
 			notesText,
 			linkedArtifacts,
@@ -116,18 +116,41 @@
 	};
 
 	const requestStatusChange = (nextStatus: ResourceStatus) => {
+		if (nextStatus === status || statusMutationPending) {
+			return;
+		}
 		pendingStatus = nextStatus;
 		statusConfirmOpen = true;
 	};
 
-	const confirmStatusChange = () => {
-		if (!pendingStatus) {
+	const confirmStatusChange = async () => {
+		if (!pendingStatus || statusMutationPending) {
+			return;
+		}
+		if (!permissions || !canEditResource) {
 			return;
 		}
 
-		status = pendingStatus;
-		pendingStatus = null;
-		statusConfirmOpen = false;
+		const nextStatus = pendingStatus;
+		statusMutationPending = true;
+		try {
+			const result = await updateResourceStatus({
+				input: {
+					projectId,
+					resourceId: page.params.resourceId,
+					status: nextStatus
+				}
+			});
+			if (!result.success) {
+				return;
+			}
+
+			status = nextStatus;
+			pendingStatus = null;
+			statusConfirmOpen = false;
+		} finally {
+			statusMutationPending = false;
+		}
 	};
 
 	const removeLinkedArtifact = (id: string) => {
@@ -156,7 +179,6 @@
 				state: {
 					name,
 					docType,
-					status,
 					description,
 					notesText,
 					linkedArtifacts,
@@ -209,11 +231,11 @@
 			unarchiveDialogOpen = false;
 			statusConfirmOpen = false;
 			pendingStatus = null;
+			statusMutationPending = false;
 			savePhase = "idle";
 			savedSignature = JSON.stringify({
 				name,
 				docType,
-				status,
 				description,
 				notesText,
 				linkedArtifacts,
@@ -275,7 +297,7 @@
 					</Badge>
 					{#if status === "Archived"}
 						<Dialog.Root bind:open={unarchiveDialogOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canEditResource || statusMutationPending}>
 								Unarchive
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -292,6 +314,7 @@
 									<Dialog.Close
 										class={buttonVariants()}
 										onclick={() => requestStatusChange("Active")}
+										disabled={!canEditResource || statusMutationPending}
 									>
 										Unarchive
 									</Dialog.Close>
@@ -300,7 +323,7 @@
 						</Dialog.Root>
 					{:else}
 						<Dialog.Root bind:open={archiveDialogOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canEditResource || statusMutationPending}>
 								Archive
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -317,6 +340,7 @@
 									<Dialog.Close
 										class={buttonVariants()}
 										onclick={() => requestStatusChange("Archived")}
+										disabled={!canEditResource || statusMutationPending}
 									>
 										Archive
 									</Dialog.Close>
@@ -565,12 +589,12 @@
 			New status: {pendingStatus ?? "None"}
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })} disabled={statusMutationPending}>
 				Cancel
 			</Dialog.Close>
-			<Dialog.Close class={buttonVariants()} onclick={confirmStatusChange}>
-				Confirm status
-			</Dialog.Close>
+			<Button class={buttonVariants()} onclick={confirmStatusChange} disabled={!canEditResource || statusMutationPending}>
+				{statusMutationPending ? "Saving..." : "Confirm status"}
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

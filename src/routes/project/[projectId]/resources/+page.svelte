@@ -17,6 +17,7 @@
 	import * as Tooltip from "$lib/components/ui/tooltip";
 	import { Archive, Download, ExternalLink, Plus, ChevronDown } from "@lucide/svelte";
 	import {
+		getResources as getResourcesRemote,
 		createResource as createResourceRemote,
 		updateResourceStatus as updateResourceStatusRemote
 	} from "$lib/remote/resource.remote";
@@ -80,9 +81,12 @@
 	let isArchiving = $state(false);
 
 	let resources = $state<ResourceRow[]>([]);
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
 
 	$effect(() => {
 		resources = structuredClone(data.resources) as ResourceRow[];
+		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
 
 	let filteredResources = $derived.by(() => {
@@ -115,6 +119,51 @@
 	);
 	let ideaOptions = $derived.by(() => structuredClone(data.reference.ideaOptions) as string[]);
 	let taskOptions = $derived.by(() => structuredClone(data.reference.taskOptions) as string[]);
+
+	const resolveResourceSort = (value: SortOption): { sort: "name" | "uploadDate" | "lastUpdated"; order: "asc" | "desc" } => {
+		switch (value) {
+			case "Name":
+				return { sort: "name", order: "asc" };
+			case "Upload Date":
+				return { sort: "uploadDate", order: "desc" };
+			default:
+				return { sort: "lastUpdated", order: "desc" };
+		}
+	};
+
+	const mergeRows = (current: ResourceRow[], incoming: ResourceRow[]): ResourceRow[] => {
+		const seen = new Set(current.map((row) => row.id));
+		const merged = [...current];
+		for (const row of incoming) {
+			if (!seen.has(row.id)) {
+				seen.add(row.id);
+				merged.push(row);
+			}
+		}
+		return merged;
+	};
+
+	const loadMoreResources = async () => {
+		if (isLoadingMore || !nextCursor) {
+			return;
+		}
+		isLoadingMore = true;
+		try {
+			const sortConfig = resolveResourceSort(sortBy);
+			const result = await getResourcesRemote({
+				projectId: projectId ?? "",
+				sort: sortConfig.sort,
+				order: sortConfig.order,
+				cursor: nextCursor,
+				limit: 20,
+				...(filterDocType !== "All" ? { docType: filterDocType } : {})
+			});
+			resources = mergeRows(resources, result.items as ResourceRow[]);
+			nextCursor = result.nextCursor;
+		} finally {
+			isLoadingMore = false;
+		}
+	};
 
 	const requestArchive = (resourceId: string) => {
 		if (!canEditResource) return;
@@ -636,6 +685,13 @@
 			</TableBody>
 		</Table>
 	{/if}
+			{#if nextCursor}
+				<div class="mt-3 flex justify-center">
+					<Button variant="outline" onclick={loadMoreResources} disabled={isLoadingMore}>
+						{isLoadingMore ? "Loading..." : "Load More"}
+					</Button>
+				</div>
+			{/if}
 		</section>
 	</div>
 </div>

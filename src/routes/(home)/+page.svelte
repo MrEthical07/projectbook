@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from "$app/navigation";
+	import { invalidate } from "$app/navigation";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -112,7 +112,7 @@
 		}
 		acceptOpen = false;
 		acceptTarget = null;
-		await invalidateAll();
+		await invalidate((url) => url.pathname === "/" || url.pathname === "/invites");
 	};
 
 	const declineInvite = async () => {
@@ -129,7 +129,7 @@
 		}
 		declineOpen = false;
 		declineTarget = null;
-		await invalidateAll();
+		await invalidate((url) => url.pathname === "/" || url.pathname === "/invites");
 	};
 
 	const toNotifications = (items: NotificationSource[]): Notification[] =>

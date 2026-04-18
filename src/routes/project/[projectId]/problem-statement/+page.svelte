@@ -2,7 +2,7 @@
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import { getContext } from "svelte";
-	import { createProblem as createProblemRemote } from "$lib/remote/problem.remote";
+	import { createProblem as createProblemRemote, getProblems as getProblemsRemote } from "$lib/remote/problem.remote";
 	import { can } from "$lib/utils/permission";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
@@ -33,9 +33,12 @@
 	};
 
 	let rows = $state<ProblemRow[]>([]);
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
 
 	$effect(() => {
 		rows = structuredClone(data.rows) as ProblemRow[];
+		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
@@ -75,6 +78,37 @@
 		if (status === "Draft") return "bg-blue-50 text-blue-700 border-blue-200";
 		if (status === "Locked") return "bg-emerald-50 text-emerald-700 border-emerald-200";
 		return "bg-slate-100 text-slate-700 border-slate-300";
+	};
+
+	const mergeRows = (current: ProblemRow[], incoming: ProblemRow[]): ProblemRow[] => {
+		const seen = new Set(current.map((row) => row.id));
+		const merged = [...current];
+		for (const row of incoming) {
+			if (!seen.has(row.id)) {
+				seen.add(row.id);
+				merged.push(row);
+			}
+		}
+		return merged;
+	};
+
+	const loadMoreProblems = async () => {
+		if (isLoadingMore || !nextCursor) {
+			return;
+		}
+		isLoadingMore = true;
+		try {
+			const result = await getProblemsRemote({
+				projectId: page.params.projectId ?? "",
+				cursor: nextCursor,
+				limit: 20,
+				...(statusFilter !== "All" ? { status: statusFilter } : {})
+			});
+			rows = mergeRows(rows, result.items as ProblemRow[]);
+			nextCursor = result.nextCursor;
+		} finally {
+			isLoadingMore = false;
+		}
 	};
 
 	const applyStatFilter = (target: "Total" | "Draft" | "Locked" | "Orphan") => {
@@ -314,6 +348,13 @@
 						{/each}
 					</Table.Body>
 				</Table.Root>
+				</div>
+			{/if}
+			{#if nextCursor}
+				<div class="mt-3 flex justify-center">
+					<Button variant="outline" onclick={loadMoreProblems} disabled={isLoadingMore}>
+						{isLoadingMore ? "Loading..." : "Load More"}
+					</Button>
 				</div>
 			{/if}
 		</section>

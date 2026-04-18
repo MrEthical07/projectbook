@@ -1,7 +1,9 @@
 import { getStories } from "$lib/remote/story.remote";
 
 export async function load({ params }: { params: { projectId: string } }) {
+	const result = await getStories({ projectId: params.projectId, limit: 20 });
 	return {
-		rows: await getStories(params.projectId)
+		rows: result.items,
+		nextCursor: result.nextCursor
 	};
 }

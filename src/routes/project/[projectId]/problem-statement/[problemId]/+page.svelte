@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from "$app/navigation";
+	import { invalidate } from "$app/navigation";
 	import { page } from "$app/state";
 	import { lockProblem, updateProblem, updateProblemStatus } from "$lib/remote/problem.remote";
 	import { can } from "$lib/utils/permission";
@@ -59,7 +59,8 @@
 		return value;
 	};
 	let projectId = $derived(page.params.projectId);
-	let problemId = $derived(page.params.slug);
+	const routeParams = page.params as Record<string, string | undefined>;
+	let problemId = $derived(routeParams.problemId ?? "");
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditProblem = can(permissions, "problem", "edit");
@@ -114,6 +115,8 @@
 	let finalStatement = $state("");
 	let orphanAcknowledged = $state(false);
 	let selectedPainPoints = $state<string[]>([]);
+	let customPainPoints = $state<string[]>([]);
+	let newCustomPainPoint = $state("");
 	let addSectionOpen = $state(false);
 	let linkStoryOpen = $state(false);
 	let linkJourneyOpen = $state(false);
@@ -122,6 +125,7 @@
 	let removeSourceOpen = $state(false);
 	let statusConfirmOpen = $state(false);
 	let pendingStatus = $state<ProblemStatus | null>(null);
+	let statusMutationPending = $state(false);
 	let sourceToRemove = $state<LinkedSource | null>(null);
 	let selectedStoryId = $state("");
 	let selectedJourneyId = $state("");
@@ -140,10 +144,15 @@
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
+	let linkMutationPending = $state(false);
 
 	const isDraft = (currentStatus: ProblemStatus) => currentStatus === "Draft";
 	let isLocked = $derived(status === "Locked" || status === "Archived");
 	let isNotEditable = $derived(isLocked || !canEditProblem);
+	let selectedSourcePainPoints = $derived.by(() => {
+		const sourcePointIds = new Set(sourcePainPoints.map((point) => point.id));
+		return selectedPainPoints.filter((id) => sourcePointIds.has(id));
+	});
 
 	let suggestedTitle = $derived(
 		isDraft(status) && !title ? finalStatement : title
@@ -153,7 +162,8 @@
 			title,
 			finalStatement,
 			orphanAcknowledged,
-			selectedPainPoints,
+			selectedPainPoints: selectedSourcePainPoints,
+			customPainPoints,
 			linkedSources: linkedSources.map((source) => ({
 				id: source.id,
 				type: source.type,
@@ -203,28 +213,121 @@ let saveIndicator = $derived.by(() => {
 
 	const canLock = () => {
 		const hasSources = linkedSources.length > 0;
-		const hasPainPoints = selectedPainPoints.length > 0;
+		const hasPainPoints = selectedSourcePainPoints.length > 0 || customPainPoints.length > 0;
 		const hasStatement = Boolean(finalStatement.trim());
 		const hasOrphanApproval = hasSources || orphanAcknowledged;
 
 		return hasPainPoints && hasStatement && hasOrphanApproval;
 	};
 
-	const confirmLock = async () => {
-		if (!permissions || !canChangeProblemStatus) return;
-		const result = await lockProblem({
-			input: {
-				projectId,
-				problemId
-			}
-});
-		if (!result.success) {
-			toast.error("error" in result ? result.error : "Lock failed.");
+	const addCustomPainPoint = () => {
+		const text = newCustomPainPoint.trim();
+		if (!text || customPainPoints.includes(text)) {
 			return;
 		}
-		status = "Locked";
-		toast.success("Problem statement locked");
-		await invalidateAll();
+		customPainPoints = [...customPainPoints, text];
+		newCustomPainPoint = "";
+	};
+
+	const removeCustomPainPoint = (text: string) => {
+		customPainPoints = customPainPoints.filter((item) => item !== text);
+	};
+
+	const buildProblemState = (nextLinkedSources: LinkedSource[] = linkedSources) => ({
+		title,
+		finalStatement,
+		orphanAcknowledged,
+		selectedPainPoints: selectedSourcePainPoints,
+		customPainPoints,
+		linkedSources: nextLinkedSources,
+		activeModules,
+		moduleContent,
+		notesText
+	});
+
+	const setSavedBadge = () => {
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = "saved";
+		savedBadgeTimer = setTimeout(() => {
+			if (!isDirty) {
+				savePhase = "idle";
+			}
+		}, 1400);
+	};
+
+	const persistLinkedSources = async (nextLinkedSources: LinkedSource[]): Promise<boolean> => {
+		if (!permissions || !canEditProblem || linkMutationPending) {
+			return false;
+		}
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+
+		linkMutationPending = true;
+		savePhase = "saving";
+		try {
+			const result = await updateProblem({
+				input: {
+					projectId,
+					problemId,
+					state: buildProblemState(nextLinkedSources)
+				}
+			});
+
+			if (!result.success) {
+				savePhase = "idle";
+				toast.error("error" in result ? result.error : "Unable to update linked sources.");
+				return false;
+			}
+
+			linkedSources = nextLinkedSources;
+			savedSignature = currentSignature;
+			await invalidate((url) => url.pathname === page.url.pathname);
+			setSavedBadge();
+			return true;
+		} finally {
+			linkMutationPending = false;
+		}
+	};
+
+	const canSelectStatusOption = (nextStatus: ProblemStatus): boolean => {
+		if (status === "Locked") {
+			return nextStatus === "Archived";
+		}
+		if (status === "Archived") {
+			return nextStatus === "Draft";
+		}
+		return true;
+	};
+
+	const confirmLock = async (): Promise<boolean> => {
+		if (!permissions || !canChangeProblemStatus || statusMutationPending) return false;
+
+		statusMutationPending = true;
+		try {
+			const result = await lockProblem({
+				input: {
+					projectId,
+					problemId
+				}
+			});
+			if (!result.success) {
+				toast.error("error" in result ? result.error : "Lock failed.");
+				return false;
+			}
+
+			status = "Locked";
+			pendingStatus = null;
+			statusConfirmOpen = false;
+			toast.success("Problem statement locked");
+			await invalidate((url) => url.pathname === page.url.pathname);
+			return true;
+		} finally {
+			statusMutationPending = false;
+		}
 	};
 
 let availableStoryOptions = $derived.by(() =>
@@ -235,6 +338,7 @@ let availableJourneyOptions = $derived.by(() =>
 );
 
 	const requestStatusChange = (nextStatus: ProblemStatus) => {
+		if (!canSelectStatusOption(nextStatus)) return;
 		if (nextStatus === status) return;
 		pendingStatus = nextStatus;
 		statusConfirmOpen = true;
@@ -249,30 +353,40 @@ let availableJourneyOptions = $derived.by(() =>
 		}
 
 		const targetStatus = pendingStatus;
-
 		if (targetStatus === "Locked" && !canLock()) {
 			return;
 		}
+
 		if (targetStatus === "Locked") {
 			await confirmLock();
-		} else {
-			const result = await updateProblemStatus({
-				input: {
-					projectId,
-					problemId,
-					status: targetStatus
-				}
-});
+			return;
+		}
+
+		if (statusMutationPending) {
+			return;
+		}
+
+		statusMutationPending = true;
+		try {
+				const result = await updateProblemStatus({
+					input: {
+						projectId,
+						problemId,
+						status: targetStatus
+					}
+				});
 			if (!result.success) {
 				toast.error("error" in result ? result.error : "Status change failed.");
 				return;
 			}
 			status = targetStatus;
-			await invalidateAll();
-		}
+			await invalidate((url) => url.pathname === page.url.pathname);
 
-		pendingStatus = null;
-		statusConfirmOpen = false;
+			pendingStatus = null;
+			statusConfirmOpen = false;
+		} finally {
+			statusMutationPending = false;
+		}
 	};
 
 	const addModule = (moduleKey: OptionalModuleKey) => {
@@ -292,44 +406,63 @@ let availableJourneyOptions = $derived.by(() =>
 		removeSourceOpen = true;
 	};
 
-	const confirmRemoveSource = () => {
+	const confirmRemoveSource = async () => {
 		if (!sourceToRemove) {
 			return;
-		}else{
-			linkedSources = linkedSources.filter((source) => source.id !== sourceToRemove?.id);
-			sourceToRemove = null;
-			removeSourceOpen = false;
 		}
+
+		const nextLinkedSources = linkedSources.filter((source) => source.id !== sourceToRemove?.id);
+		const updated = await persistLinkedSources(nextLinkedSources);
+		if (!updated) {
+			return;
+		}
+
+		sourceToRemove = null;
+		removeSourceOpen = false;
 	};
 
-	const linkStory = () => {
+	const linkStory = async () => {
 		const selected = storyOptions.find((story) => story.id === selectedStoryId);
 		if (!selected) {
 			return;
 		}
 
-		if (!linkedSources.some((source) => source.id === selected.id)) {
-			linkedSources = [
-				...linkedSources,
-				{ ...selected, type: "User Story" },
-			];
+		if (linkedSources.some((source) => source.id === selected.id)) {
+			selectedStoryId = "";
+			linkStoryOpen = false;
+			return;
+		}
+
+		const updated = await persistLinkedSources([
+			...linkedSources,
+			{ ...selected, type: "User Story" }
+		]);
+		if (!updated) {
+			return;
 		}
 
 		selectedStoryId = "";
 		linkStoryOpen = false;
 	};
 
-	const linkJourney = () => {
+	const linkJourney = async () => {
 		const selected = journeyOptions.find((journey) => journey.id === selectedJourneyId);
 		if (!selected) {
 			return;
 		}
 
-		if (!linkedSources.some((source) => source.id === selected.id)) {
-			linkedSources = [
-				...linkedSources,
-				{ ...selected, type: "User Journey" },
-			];
+		if (linkedSources.some((source) => source.id === selected.id)) {
+			selectedJourneyId = "";
+			linkJourneyOpen = false;
+			return;
+		}
+
+		const updated = await persistLinkedSources([
+			...linkedSources,
+			{ ...selected, type: "User Journey" }
+		]);
+		if (!updated) {
+			return;
 		}
 
 		selectedJourneyId = "";
@@ -355,16 +488,7 @@ let availableJourneyOptions = $derived.by(() =>
 			input: {
 				projectId,
 				problemId,
-				state: {
-					title,
-					finalStatement,
-					orphanAcknowledged,
-					selectedPainPoints,
-					linkedSources,
-					activeModules,
-					moduleContent,
-					notesText
-				}
+				state: buildProblemState()
 			}
 });
 		if (!result.success) {
@@ -373,14 +497,9 @@ let availableJourneyOptions = $derived.by(() =>
 			return;
 		}
 		savedSignature = currentSignature;
-		savePhase = "saved";
 		toast.success("Changes saved");
-		await invalidateAll();
-		savedBadgeTimer = setTimeout(() => {
-			if (!isDirty) {
-				savePhase = "idle";
-			}
-		}, 1400);
+		await invalidate((url) => url.pathname === page.url.pathname);
+		setSavedBadge();
 	};
 
 onDestroy(() => {
@@ -402,18 +521,9 @@ $effect(() => {
 		storyOptions = structuredClone(d.storyOptions) as SourceOption[];
 		journeyOptions = structuredClone(d.journeyOptions) as SourceOption[];
 
-		const defaultLinked = (Array.isArray(d.linkedSources) && d.linkedSources.length > 0
+		linkedSources = Array.isArray(d.linkedSources)
 			? (structuredClone(d.linkedSources) as LinkedSource[])
-			: [
-					storyOptions[0]
-						? { ...storyOptions[0], type: "User Story" as const }
-						: null,
-					journeyOptions[0]
-						? { ...journeyOptions[0], type: "User Journey" as const }
-						: null
-				].filter(Boolean)) as LinkedSource[];
-
-		linkedSources = defaultLinked;
+			: [];
 		sourcePainPoints = structuredClone(d.sourcePainPoints) as SourcePainPoint[];
 		sourceInsights = (d.sourceInsights as SourceInsight) ?? {
 			personas: [],
@@ -429,6 +539,9 @@ $effect(() => {
 		selectedPainPoints = Array.isArray(d.selectedPainPoints)
 			? (structuredClone(d.selectedPainPoints) as string[])
 			: [];
+		customPainPoints = Array.isArray(d.customPainPoints)
+			? (structuredClone(d.customPainPoints) as string[])
+			: [];
 		activeModules = Array.isArray(d.activeModules) && d.activeModules.length > 0
 			? (structuredClone(d.activeModules) as OptionalModuleKey[])
 			: ["why"];
@@ -443,14 +556,18 @@ $effect(() => {
 		savePhase = "idle";
 		pendingStatus = null;
 		statusConfirmOpen = false;
+		statusMutationPending = false;
+		linkMutationPending = false;
 		selectedStoryId = "";
 		selectedJourneyId = "";
+		newCustomPainPoint = "";
 
 		savedSignature = JSON.stringify({
 			title,
 			finalStatement,
 			orphanAcknowledged,
-			selectedPainPoints,
+			selectedPainPoints: selectedSourcePainPoints,
+			customPainPoints,
 			linkedSources: linkedSources.map((source) => ({
 				id: source.id,
 				type: source.type,
@@ -474,7 +591,7 @@ $effect(() => {
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-{#key page.params.slug}
+{#key problemId}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
 	<header
 		class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -538,10 +655,8 @@ $effect(() => {
 									</Dialog.Close>
 									<Dialog.Close
 										class={buttonVariants()}
-										onclick={() => {
-											status = "Draft";
-											triggerSave();
-										}}
+										onclick={() => requestStatusChange("Draft")}
+										disabled={!canChangeProblemStatus || statusMutationPending}
 									>
 										Unarchive
 									</Dialog.Close>
@@ -566,10 +681,8 @@ $effect(() => {
 									</Dialog.Close>
 									<Dialog.Close
 										class={buttonVariants()}
-										onclick={() => {
-											status = "Archived";
-											triggerSave();
-										}}
+										onclick={() => requestStatusChange("Archived")}
+										disabled={!canChangeProblemStatus || statusMutationPending}
 									>
 										Archive
 									</Dialog.Close>
@@ -609,7 +722,7 @@ $effect(() => {
 					<Separator></Separator>
 					<div class="flex gap-2">
 						<Dialog.Root bind:open={linkStoryOpen}>
-							<Dialog.Trigger class={buttonVariants({ size: "sm" })} disabled={isNotEditable}>
+							<Dialog.Trigger class={buttonVariants({ size: "sm" })} disabled={isNotEditable || linkMutationPending}>
 								+ Link User Story
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -646,14 +759,14 @@ $effect(() => {
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 										Cancel
 									</Dialog.Close>
-									<Button class={buttonVariants()} onclick={linkStory} disabled={!selectedStoryId}>
-										Link story
+									<Button class={buttonVariants()} onclick={linkStory} disabled={!selectedStoryId || linkMutationPending}>
+										{linkMutationPending ? "Linking..." : "Link story"}
 									</Button>
 								</Dialog.Footer>
 							</Dialog.Content>
 						</Dialog.Root>
 						<Dialog.Root bind:open={linkJourneyOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={isNotEditable}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={isNotEditable || linkMutationPending}>
 								+ Link User Journey
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -690,8 +803,8 @@ $effect(() => {
 									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 										Cancel
 									</Dialog.Close>
-									<Button class={buttonVariants()} onclick={linkJourney} disabled={!selectedJourneyId}>
-										Link journey
+									<Button class={buttonVariants()} onclick={linkJourney} disabled={!selectedJourneyId || linkMutationPending}>
+										{linkMutationPending ? "Linking..." : "Link journey"}
 									</Button>
 								</Dialog.Footer>
 							</Dialog.Content>
@@ -729,7 +842,7 @@ $effect(() => {
 										size="sm"
 										class="h-7 px-2 text-destructive hover:text-destructive"
 										onclick={() => requestRemoveSource(source)}
-										disabled={isNotEditable}
+										disabled={isNotEditable || linkMutationPending}
 									>
 										Remove
 									</Button>
@@ -800,20 +913,75 @@ $effect(() => {
 					<Separator></Separator>
 				</div>
 				<div class="grid gap-3">
-					{#each sourcePainPoints as painPoint (painPoint.id)}
-						<div class="flex items-start gap-3 rounded-lg border border-border px-4 py-3">
-							<Checkbox
-								checked={selectedPainPoints.includes(painPoint.id)}
-								onclick={() => togglePainPoint(painPoint.id)}
-								disabled={isNotEditable}
-							/>
-							<div class="flex flex-col gap-1">
-								<div class="text-sm font-medium text-foreground">{painPoint.text}</div>
-								<div class="text-xs text-muted-foreground">{painPoint.sourceLabel}</div>
-							</div>
+					{#if sourcePainPoints.length === 0}
+						<div class="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+							No source-derived pain points yet. Link an empathy artifact to pull in evidence.
 						</div>
-					{/each}
+					{:else}
+						{#each sourcePainPoints as painPoint (painPoint.id)}
+							<div class="flex items-start gap-3 rounded-lg border border-border px-4 py-3">
+								<Checkbox
+									checked={selectedPainPoints.includes(painPoint.id)}
+									onclick={() => togglePainPoint(painPoint.id)}
+									disabled={isNotEditable}
+								/>
+								<div class="flex flex-col gap-1">
+									<div class="text-sm font-medium text-foreground">{painPoint.text}</div>
+									<div class="text-xs text-muted-foreground">{painPoint.sourceLabel}</div>
+								</div>
+							</div>
+						{/each}
+					{/if}
 				</div>
+				{#if linkedSources.length === 0}
+					<Separator />
+					<div class="grid gap-3">
+						<div class="text-sm font-medium text-foreground">Custom Pain Points</div>
+						<div class="flex flex-col gap-2 sm:flex-row">
+							<Input
+								id="custom-pain-point"
+								placeholder="Describe a pain point observed outside linked sources"
+								bind:value={newCustomPainPoint}
+								disabled={isNotEditable}
+								onkeydown={(event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										addCustomPainPoint();
+									}
+								}}
+							/>
+							<Button
+								variant="outline"
+								onclick={addCustomPainPoint}
+								disabled={!newCustomPainPoint.trim() || isNotEditable}
+							>
+								Add pain point
+							</Button>
+						</div>
+						{#if customPainPoints.length === 0}
+							<div class="text-xs text-muted-foreground">
+								Add at least one custom pain point to support locking without linked sources.
+							</div>
+						{:else}
+							<div class="grid gap-2">
+								{#each customPainPoints as customPoint (customPoint)}
+									<div class="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+										<span class="text-sm text-foreground">{customPoint}</span>
+										<Button
+											variant="ghost"
+											size="icon"
+											class="h-7 w-7 text-destructive hover:text-destructive"
+											onclick={() => removeCustomPainPoint(customPoint)}
+											disabled={isNotEditable}
+										>
+											<X class="h-4 w-4" />
+										</Button>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</section>
 
 			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
@@ -845,9 +1013,9 @@ $effect(() => {
 							<Button
 								variant={status === option ? "default" : "outline"}
 								onclick={() => requestStatusChange(option)}
-								disabled={!canChangeProblemStatus || (status === "Locked" && option === "Draft")}
+								disabled={!canChangeProblemStatus || !canSelectStatusOption(option) || statusMutationPending}
 							>
-								{option}
+								{statusMutationPending && pendingStatus === option ? "Changing..." : option}
 							</Button>
 						{/each}
 					</div>
@@ -866,7 +1034,7 @@ $effect(() => {
 					<Dialog.Root>
 					<Dialog.Trigger
 						class={buttonVariants()}
-						disabled={!isDraft(status) || !canChangeProblemStatus}
+						disabled={!isDraft(status) || !canChangeProblemStatus || statusMutationPending}
 					>
 						Lock Problem Statement
 					</Dialog.Trigger>
@@ -889,12 +1057,14 @@ $effect(() => {
 									{/if}
 								</div>
 								<div class="flex items-center gap-2">
-									{#if selectedPainPoints.length > 0}
+									{#if selectedSourcePainPoints.length > 0 || customPainPoints.length > 0}
 										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
-										<span class="text-foreground">Pain points selected ({selectedPainPoints.length})</span>
+										<span class="text-foreground">
+											Pain points captured ({selectedSourcePainPoints.length + customPainPoints.length})
+										</span>
 									{:else}
 										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
-										<span class="text-muted-foreground">Select at least one pain point from source insights</span>
+										<span class="text-muted-foreground">Select a source pain point or add a custom pain point</span>
 									{/if}
 								</div>
 								<div class="flex items-center gap-2">
@@ -912,10 +1082,10 @@ $effect(() => {
 									Cancel
 								</Dialog.Close>
 								<Button
-									disabled={!canLock()}
+									disabled={!canLock() || statusMutationPending}
 									onclick={confirmLock}
 								>
-									Confirm Lock
+									{statusMutationPending ? "Locking..." : "Confirm Lock"}
 								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
@@ -1049,9 +1219,9 @@ $effect(() => {
 			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
 				Cancel
 			</Dialog.Close>
-			<Dialog.Close class={buttonVariants()} onclick={confirmRemoveSource}>
-				Remove
-			</Dialog.Close>
+			<Button class={buttonVariants()} onclick={confirmRemoveSource} disabled={linkMutationPending}>
+				{linkMutationPending ? "Removing..." : "Remove"}
+			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
@@ -1073,14 +1243,14 @@ $effect(() => {
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })} disabled={statusMutationPending}>
 				Cancel
 			</Dialog.Close>
 			<Button
-				disabled={!canChangeProblemStatus || (pendingStatus === "Locked" && !canLock())}
+				disabled={!canChangeProblemStatus || (pendingStatus === "Locked" && !canLock()) || statusMutationPending}
 				onclick={confirmStatusChange}
 			>
-				Confirm
+				{statusMutationPending ? "Saving..." : "Confirm"}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

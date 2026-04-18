@@ -2,7 +2,7 @@
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import { getContext } from "svelte";
-	import { createJourney as createJourneyRemote } from "$lib/remote/journey.remote";
+	import { createJourney as createJourneyRemote, getJourneys as getJourneysRemote } from "$lib/remote/journey.remote";
 	import { can } from "$lib/utils/permission";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
@@ -32,7 +32,14 @@
 		isOrphan: boolean;
 	};
 
-	let rows = $derived(structuredClone(data.rows) as JourneyRow[]);
+	let rows = $state<JourneyRow[]>([]);
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
+
+	$effect(() => {
+		rows = structuredClone(data.rows) as JourneyRow[];
+		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
+	});
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canCreateJourney = can(permissions, "story", "create");
@@ -74,6 +81,37 @@
 		status === "Draft"
 			? "bg-blue-50 text-blue-700 border-blue-200"
 			: "bg-slate-100 text-slate-700 border-slate-300";
+
+	const mergeRows = (current: JourneyRow[], incoming: JourneyRow[]): JourneyRow[] => {
+		const seen = new Set(current.map((row) => row.id));
+		const merged = [...current];
+		for (const row of incoming) {
+			if (!seen.has(row.id)) {
+				seen.add(row.id);
+				merged.push(row);
+			}
+		}
+		return merged;
+	};
+
+	const loadMoreJourneys = async () => {
+		if (isLoadingMore || !nextCursor) {
+			return;
+		}
+		isLoadingMore = true;
+		try {
+			const result = await getJourneysRemote({
+				projectId: page.params.projectId ?? "",
+				cursor: nextCursor,
+				limit: 20,
+				...(statusFilter !== "All" ? { status: statusFilter } : {})
+			});
+			rows = mergeRows(rows, result.items as JourneyRow[]);
+			nextCursor = result.nextCursor;
+		} finally {
+			isLoadingMore = false;
+		}
+	};
 
 	const applyStatFilter = (target: "Total" | "WithPainPoints" | "WithLinkedPersona" | "Archived") => {
 		statusFilter = "All";
@@ -311,6 +349,13 @@
 						{/each}
 					</Table.Body>
 				</Table.Root>
+				</div>
+			{/if}
+			{#if nextCursor}
+				<div class="mt-3 flex justify-center">
+					<Button variant="outline" onclick={loadMoreJourneys} disabled={isLoadingMore}>
+						{isLoadingMore ? "Loading..." : "Load More"}
+					</Button>
 				</div>
 			{/if}
 		</section>

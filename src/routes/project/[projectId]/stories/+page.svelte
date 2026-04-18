@@ -2,7 +2,7 @@
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import { getContext } from "svelte";
-	import { createStory as createStoryRemote } from "$lib/remote/story.remote";
+	import { createStory as createStoryRemote, getStories as getStoriesRemote } from "$lib/remote/story.remote";
 	import { can } from "$lib/utils/permission";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
@@ -33,9 +33,12 @@
 	};
 
 	let rows = $state<StoryRow[]>([]);
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
 
 	$effect(() => {
 		rows = structuredClone(data.rows) as StoryRow[];
+		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
@@ -79,6 +82,37 @@
 		if (status === "Draft") return "bg-blue-50 text-blue-700 border-blue-200";
 		if (status === "Locked") return "bg-emerald-50 text-emerald-700 border-emerald-200";
 		return "bg-slate-100 text-slate-700 border-slate-300";
+	};
+
+	const mergeRows = (current: StoryRow[], incoming: StoryRow[]): StoryRow[] => {
+		const seen = new Set(current.map((row) => row.id));
+		const merged = [...current];
+		for (const row of incoming) {
+			if (!seen.has(row.id)) {
+				seen.add(row.id);
+				merged.push(row);
+			}
+		}
+		return merged;
+	};
+
+	const loadMoreStories = async () => {
+		if (isLoadingMore || !nextCursor) {
+			return;
+		}
+		isLoadingMore = true;
+		try {
+			const result = await getStoriesRemote({
+				projectId: page.params.projectId ?? "",
+				cursor: nextCursor,
+				limit: 20,
+				...(statusFilter !== "All" ? { status: statusFilter } : {})
+			});
+			rows = mergeRows(rows, result.items as StoryRow[]);
+			nextCursor = result.nextCursor;
+		} finally {
+			isLoadingMore = false;
+		}
 	};
 
 	const applyStatFilter = (target: "Total" | "WithPainPoints" | "WithHypotheses" | "Archived") => {
@@ -328,6 +362,13 @@
 					</Table.Body>
 				</Table.Root>
 			</div>
+			{/if}
+			{#if nextCursor}
+				<div class="mt-3 flex justify-center">
+					<Button variant="outline" onclick={loadMoreStories} disabled={isLoadingMore}>
+						{isLoadingMore ? "Loading..." : "Load More"}
+					</Button>
+				</div>
 			{/if}
 		</section>
 	</div>

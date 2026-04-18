@@ -146,17 +146,27 @@ export type HomeSidebarData = {
 };
 
 export const getHomeSidebarData = query(async (): Promise<HomeSidebarData> => {
-	const dashboard = await remoteQueryRequest<{
-		user: HomeUser;
+	const account = await remoteQueryRequest<{
+		displayName: string;
+		email: string;
 	}>({
-		path: "/home/dashboard",
-		method: "GET"
+		path: "/home/account",
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-sidebar",
+			ttlMs: 30_000,
+			tags: ["home", "home-sidebar", "home-account"]
+		}
 	});
+
+	const displayName = account.displayName?.trim() ?? "";
+	const fallbackHandle = resolveHandle(account.email, "User");
+	const resolvedName = displayName.length > 0 ? displayName : fallbackHandle.replace(/^@/, "");
 
 	return {
 		user: {
-			name: dashboard.user.name,
-			email: dashboard.user.email,
+			name: resolvedName,
+			email: account.email,
 			avatar: "/avatars/shadcn.jpg"
 		}
 	};
@@ -171,7 +181,12 @@ export const getUserDashboard = query(async () => {
 		activity: HomeActivityItem[];
 	}>({
 		path: "/home/dashboard",
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-dashboard",
+			ttlMs: 20_000,
+			tags: ["home", "home-dashboard"]
+		}
 	});
 
 	return {
@@ -189,7 +204,12 @@ export const getUserDashboard = query(async () => {
 export const getUserProjects = query(async () => {
 	const projects = await remoteQueryRequest<Array<HomeProject & { icon?: string }>>({
 		path: "/home/projects",
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-projects",
+			ttlMs: 30_000,
+			tags: ["home", "home-projects"]
+		}
 	});
 	return projects.map((project) => ({
 		...project,
@@ -200,14 +220,24 @@ export const getUserProjects = query(async () => {
 export const getUserInvitesPage = query(async () => {
 	return remoteQueryRequest<HomeInvite[]>({
 		path: "/home/invites",
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-invites",
+			ttlMs: 30_000,
+			tags: ["home", "home-invites"]
+		}
 	});
 });
 
 export const getUserNotificationsPage = query(async () => {
 	const notifications = await remoteQueryRequest<ApiHomeNotification[]>({
 		path: "/home/notifications",
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-notifications",
+			ttlMs: 30_000,
+			tags: ["home", "home-notifications"]
+		}
 	});
 	return notifications.map(mapInboxNotification);
 });
@@ -215,21 +245,36 @@ export const getUserNotificationsPage = query(async () => {
 export const getUserActivityPage = query(async () => {
 	return remoteQueryRequest<HomeActivityItem[]>({
 		path: "/home/activity",
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-activity",
+			ttlMs: 20_000,
+			tags: ["home", "home-activity"]
+		}
 	});
 });
 
 export const getProjectCreationReference = query(async () => {
 	return remoteQueryRequest<{ existingProjects: string[]; existingUsers: string[] }>({
 		path: "/home/projects/reference",
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-project-reference",
+			ttlMs: 60_000,
+			tags: ["home", "home-projects", "home-reference"]
+		}
 	});
 });
 
 export const getUserDocsSections = query(async () => {
 	const docs = await remoteQueryRequest<{ sections?: string[] }>({
 		path: "/home/docs",
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-docs",
+			ttlMs: 120_000,
+			tags: ["home", "home-docs"]
+		}
 	});
 	const sections = Array.isArray(docs.sections) && docs.sections.length > 0
 		? docs.sections
@@ -254,7 +299,12 @@ export const getUserAccountSettings = query(async () => {
 		emailNotifications: boolean;
 	}>({
 		path: "/home/account",
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "home-account",
+			ttlMs: 30_000,
+			tags: ["home", "home-account", "home-sidebar"]
+		}
 	});
 
 	return {
@@ -285,6 +335,8 @@ export const createProject = command(
 			path: "/home/projects",
 			method: "POST",
 			body: parsed.data
+		}, undefined, {
+			tags: ["home", "home-dashboard", "home-projects", "home-reference"]
 		});
 	}
 );
@@ -300,6 +352,8 @@ export const acceptProjectInvite = command(
 		return remoteMutationRequest<{ inviteId: string; projectId: string }>({
 			path: `/home/invites/${encodePathSegment(parsed.data.inviteId)}/accept`,
 			method: "POST"
+		}, undefined, {
+			tags: ["home", "home-dashboard", "home-invites", "home-projects"]
 		});
 	}
 );
@@ -315,6 +369,8 @@ export const declineProjectInvite = command(
 		return remoteMutationRequest<{ inviteId: string }>({
 			path: `/home/invites/${encodePathSegment(parsed.data.inviteId)}/decline`,
 			method: "POST"
+		}, undefined, {
+			tags: ["home", "home-dashboard", "home-invites"]
 		});
 	}
 );
@@ -329,8 +385,10 @@ export const updateUserAccountSettings = command(
 
 		return remoteMutationRequest<{ updatedAt: string }, { settings: z.infer<typeof updateAccountSettingsSchema>["settings"] }>({
 			path: "/home/account",
-			method: "PUT",
+			method: "PATCH",
 			body: parsed.data
+		}, undefined, {
+			tags: ["home", "home-account", "home-sidebar", "home-dashboard"]
 		});
 	}
 );

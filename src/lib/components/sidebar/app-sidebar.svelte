@@ -3,7 +3,7 @@
 	import NavUser from "$lib/components/sidebar/nav-user.svelte";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import ProjectSwitcher from "$lib/components/sidebar/project-switcher.svelte";
-	import { invalidateAll } from "$app/navigation";
+	import { invalidate } from "$app/navigation";
 	import { can } from "$lib/utils/permission";
 	import { resolveProjectIcon } from "$lib/utils/project-icons";
 	import { getContext } from "svelte";
@@ -25,7 +25,7 @@
 
 	type SidebarNode = {
 		title: string;
-		slug: string;
+		id: string;
 	};
 
 	type SidebarRemoteData = {
@@ -69,15 +69,15 @@
 					Boolean(
 						item &&
 						typeof item === "object" &&
-						typeof (item as SidebarNode).slug === "string" &&
+						typeof (item as SidebarNode).id === "string" &&
 						typeof (item as SidebarNode).title === "string"
 					)
 			)
 			.map((item) => ({
-				slug: item.slug.trim(),
+				id: item.id.trim(),
 				title: item.title.trim()
 			}))
-			.filter((item) => item.slug.length > 0 && item.title.length > 0);
+			.filter((item) => item.id.length > 0 && item.title.length > 0);
 	};
 
 	let {
@@ -116,7 +116,10 @@
 		" bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary";
 
 	const refreshSidebar = async () => {
-		await invalidateAll();
+		if (!projectId) {
+			return;
+		}
+		await invalidate((url) => url.pathname.startsWith(`/project/${projectId}`));
 	};
 
 	let sidebarError = $derived.by(() => {
@@ -139,21 +142,54 @@
 	let data = $derived.by(() => {
 		if (!sourceData || !projectId) return null;
 		const source = sourceData;
+		const sourceUser =
+			source.user && typeof source.user === "object"
+				? (source.user as Record<string, unknown>)
+				: {};
+		const user = {
+			name:
+				typeof sourceUser.name === "string" && sourceUser.name.trim().length > 0
+					? sourceUser.name.trim()
+					: "User",
+			email: typeof sourceUser.email === "string" ? sourceUser.email.trim() : "",
+			avatar:
+				typeof sourceUser.avatar === "string" && sourceUser.avatar.trim().length > 0
+					? sourceUser.avatar
+					: "/avatars/shadcn.jpg"
+		};
 		const sourceProjects = Array.isArray(source.projects) ? source.projects : [];
-		const projects = sourceProjects
-			.map((project) => ({
-				id: typeof project?.id === "string" ? project.id.trim() : "",
-				name:
-					typeof project?.name === "string" && project.name.trim().length > 0
-						? project.name.trim()
-						: "Project",
-				url:
-					typeof project?.id === "string" && project.id.trim().length > 0
-						? `/project/${project.id.trim()}`
-						: "",
-				icon: resolveProjectIcon(project?.icon)
-			}))
-			.filter((project) => project.id.length > 0 && project.url.length > 0);
+		const projects = sourceProjects.flatMap((project) => {
+			if (!project || typeof project !== "object") {
+				return [];
+			}
+
+			const candidate = project as {
+				id?: unknown;
+				name?: unknown;
+				icon?: unknown;
+			};
+			const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
+			if (id.length === 0) {
+				return [];
+			}
+
+			const name =
+				typeof candidate.name === "string" && candidate.name.trim().length > 0
+					? candidate.name.trim()
+					: "Project";
+
+			return [
+				{
+					id,
+					name,
+					url: `/project/${id}`,
+					icon:
+						typeof candidate.icon === "string"
+							? resolveProjectIcon(candidate.icon)
+							: resolveProjectIcon(null)
+				}
+			];
+		});
 		const artifacts = source.artifacts ?? {
 			stories: [],
 			journeys: [],
@@ -201,7 +237,7 @@
 				typeof item?.isActive === "boolean"
 		);
 		return {
-			user: source.user,
+			user,
 			projects,
 			dashboard: {
 				title: "Dashboard",
@@ -330,7 +366,11 @@
 							<Sidebar.MenuButton class={data.dashboard.isActive ? activeClass : ""} tooltipContent="Project Dashboard">
 								{#snippet child({ props })}
 									<a href={data.dashboard.url} {...props}>
-										<data.dashboard.icon />
+										{#if data.dashboard.icon}
+											<data.dashboard.icon />
+										{:else}
+											<LayoutDashboard />
+										{/if}
 										<span>{data.dashboard.title}</span>
 									</a>
 								{/snippet}
@@ -359,7 +399,11 @@
 								>
 									{#snippet child({ props })}
 										<a href={data.projectSupport.items.calendar.url} {...props}>
-											<data.projectSupport.items.calendar.icon />
+											{#if data.projectSupport.items.calendar.icon}
+												<data.projectSupport.items.calendar.icon />
+											{:else}
+												<Calendar />
+											{/if}
 											<span>{data.projectSupport.items.calendar.title}</span>
 										</a>
 									{/snippet}
@@ -372,7 +416,11 @@
 								>
 									{#snippet child({ props })}
 										<a href={data.projectSupport.items.resources.url} {...props}>
-											<data.projectSupport.items.resources.icon />
+											{#if data.projectSupport.items.resources.icon}
+												<data.projectSupport.items.resources.icon />
+											{:else}
+												<Folder />
+											{/if}
 											<span>{data.projectSupport.items.resources.title}</span>
 										</a>
 									{/snippet}

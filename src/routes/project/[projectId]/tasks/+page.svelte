@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { goto, invalidateAll } from "$app/navigation";
+	import { goto, invalidate } from "$app/navigation";
 	import { page } from "$app/state";
 	import { onMount } from "svelte";
 	import { getContext } from "svelte";
 	import {
+		getTasks as getTasksRemote,
 		createTask as createTaskRemote,
 		updateTaskStatus as updateTaskStatusRemote
 	} from "$lib/remote/task.remote";
@@ -20,7 +21,6 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
 	import {
-		AlertTriangle,
 		ClipboardList,
 		CircleDashed,
 		LoaderCircle,
@@ -30,7 +30,7 @@
 
 	let { data } = $props();
 
-	type TaskStatus = "Planned" | "In Progress" | "Blocked" | "Completed" | "Abandoned";
+	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
 	type ViewMode = "Table" | "Kanban";
 	type TaskRow = {
 		id: string;
@@ -47,13 +47,20 @@
 		isOrphan: boolean;
 	};
 
-	const statusOrder: TaskStatus[] = ["Planned", "In Progress", "Blocked", "Completed", "Abandoned"];
+	const statusOrder: TaskStatus[] = ["Planned", "In Progress", "Completed", "Abandoned"];
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canCreateTask = can(permissions, "task", "create");
 	const canChangeTaskStatus = can(permissions, "task", "statusChange");
 
-	let rows = $derived.by(() => structuredClone(data.rows) as TaskRow[]);
+	let rows = $state<TaskRow[]>([]);
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
+
+	$effect(() => {
+		rows = structuredClone(data.rows) as TaskRow[];
+		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
+	});
 
 	let viewMode = $state<ViewMode>("Table");
 	let statusFilter = $state<TaskStatus | "All">("All");
@@ -74,7 +81,6 @@
 		total: rows.length,
 		planned: rows.filter((row) => row.status === "Planned").length,
 		inProgress: rows.filter((row) => row.status === "In Progress").length,
-		blocked: rows.filter((row) => row.status === "Blocked").length,
 		completed: rows.filter((row) => row.status === "Completed").length,
 		abandoned: rows.filter((row) => row.status === "Abandoned").length,
 	});
@@ -93,9 +99,39 @@
 	const statusClass = (status: TaskStatus) => {
 		if (status === "Planned") return "bg-blue-50 text-blue-700 border-blue-200";
 		if (status === "In Progress") return "bg-indigo-50 text-indigo-700 border-indigo-200";
-		if (status === "Blocked") return "bg-amber-50 text-amber-700 border-amber-200";
 		if (status === "Completed") return "bg-emerald-50 text-emerald-700 border-emerald-200";
 		return "bg-slate-100 text-slate-700 border-slate-300";
+	};
+
+	const mergeRows = (current: TaskRow[], incoming: TaskRow[]): TaskRow[] => {
+		const seen = new Set(current.map((row) => row.id));
+		const merged = [...current];
+		for (const row of incoming) {
+			if (!seen.has(row.id)) {
+				seen.add(row.id);
+				merged.push(row);
+			}
+		}
+		return merged;
+	};
+
+	const loadMoreTasks = async () => {
+		if (isLoadingMore || !nextCursor) {
+			return;
+		}
+		isLoadingMore = true;
+		try {
+			const result = await getTasksRemote({
+				projectId: page.params.projectId ?? "",
+				cursor: nextCursor,
+				limit: 20,
+				...(statusFilter !== "All" ? { status: statusFilter } : {})
+			});
+			rows = mergeRows(rows, result.items as TaskRow[]);
+			nextCursor = result.nextCursor;
+		} finally {
+			isLoadingMore = false;
+		}
 	};
 
 	const applyStatFilter = (target: "Total" | TaskStatus) => {
@@ -119,7 +155,6 @@
 		const result: Record<TaskStatus, TaskRow[]> = {
 			Planned: [],
 			"In Progress": [],
-			Blocked: [],
 			Completed: [],
 			Abandoned: [],
 		};
@@ -143,7 +178,7 @@
 			}
 });
 		if (!result.success) return;
-		await invalidateAll();
+		await invalidate((url) => url.pathname === page.url.pathname);
 	};
 
 	const createTask = async () => {
@@ -244,7 +279,7 @@
 			</div>
 		</section>
 
-		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-6">
+		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-5">
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
 				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Tasks</span><ClipboardList class="size-4" /></div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
@@ -256,10 +291,6 @@
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("In Progress")}>
 				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>In Progress</span><LoaderCircle class="size-4" /></div>
 				<div class="text-2xl font-semibold text-indigo-700">{stats.inProgress}</div>
-			</button>
-			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Blocked")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Blocked</span><AlertTriangle class="size-4" /></div>
-				<div class="text-2xl font-semibold text-amber-700">{stats.blocked}</div>
 			</button>
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Completed")}>
 				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Completed</span><CircleCheckBig class="size-4" /></div>
@@ -446,6 +477,13 @@
 							</div>
 						</div>
 					{/each}
+				</div>
+			{/if}
+			{#if nextCursor}
+				<div class="mt-3 flex justify-center">
+					<Button variant="outline" onclick={loadMoreTasks} disabled={isLoadingMore}>
+						{isLoadingMore ? "Loading..." : "Load More"}
+					</Button>
 				</div>
 			{/if}
 		</section>

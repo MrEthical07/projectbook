@@ -7,13 +7,7 @@ import {
 	runMutation,
 	type MutationResult
 } from "$lib/server/api/remote";
-import { isApiRequestError } from "$lib/server/api/error-mapping";
-
-type ArtifactListPayload<TRow> = {
-	items?: TRow[];
-	offset?: number;
-	limit?: number;
-};
+import { invalidateQueryCache } from "$lib/server/api/query-cache";
 
 const inviteRoleSchema = z.enum([
 	"Owner",
@@ -91,76 +85,99 @@ const roleToPathSegment = (role: ProjectRole): string => {
 	}
 };
 
-const fetchArtifactRows = async <TRow>(
-	projectId: string,
-	resourcePath: string
-): Promise<TRow[]> => {
-	try {
-		const payload = await remoteQueryRequest<ArtifactListPayload<TRow>>({
-			path: `/projects/${encodePathSegment(projectId)}${resourcePath}`,
-			method: "GET"
-		});
-		return Array.isArray(payload.items) ? payload.items : [];
-	} catch (err) {
-		if (isApiRequestError(err) && err.statusCode === 403) {
-			return [];
-		}
-		throw err;
-	}
-};
-
 export const getProjectDashboard = query("unchecked", async (projectId: string) => {
 	const scopedProjectId = projectId.trim();
 	const basePath = `/projects/${encodePathSegment(scopedProjectId)}`;
 
-	const dashboardPromise = remoteQueryRequest<{
-		project: ProjectInfo;
-		me: { id: string; name: string; initials: string };
-		events: ProjectEventItem[];
-		activity: ProjectActivityItem[];
-		recentEdits: Array<{ id: string; type: string; title: string; href: string; at: string }>;
-	}>({
-		path: `${basePath}/dashboard`,
-		method: "GET"
-	});
-
-	const [dashboard, stories, journeys, problems, ideas, tasks, feedback] = await Promise.all([
-		dashboardPromise,
-		fetchArtifactRows<StoryRow>(scopedProjectId, "/stories"),
-		fetchArtifactRows<JourneyRow>(scopedProjectId, "/journeys"),
-		fetchArtifactRows<ProblemRow>(scopedProjectId, "/problems"),
-		fetchArtifactRows<IdeaRow>(scopedProjectId, "/ideas"),
-		fetchArtifactRows<TaskRow>(scopedProjectId, "/tasks"),
-		fetchArtifactRows<FeedbackRow>(scopedProjectId, "/feedback")
+	const [summary, myWork] = await Promise.all([
+		remoteQueryRequest<{
+			project: ProjectInfo;
+			summary: {
+				stories: number;
+				journeys: number;
+				problems: number;
+				ideas: number;
+				tasks: number;
+				feedback: number;
+				orphanStories: number;
+				orphanJourneys: number;
+				lockedProblems: number;
+				problemsWithoutIdeas: number;
+				selectedIdeas: number;
+				selectedIdeasWithoutTasks: number;
+				openTasks: number;
+				overdueTasks: number;
+				completedTasks: number;
+				blockedOrAbandonedTasks: number;
+				completedTasksNoFeedback: number;
+				feedbackNeedsIteration: number;
+			};
+		}>({
+			path: `${basePath}/dashboard/summary`,
+			method: "GET",
+			cachePolicy: {
+				namespace: "project-dashboard-summary",
+				ttlMs: 20_000,
+				keyParts: { project_id: scopedProjectId },
+				tags: [`project:${scopedProjectId}`, "project-dashboard"]
+			}
+		}),
+		remoteQueryRequest<{
+			me: { id: string; name: string; initials: string };
+			myTasks: Array<{
+				id: string;
+				title: string;
+				status: TaskStatus;
+				deadline: string;
+			}>;
+			myFeedback: Array<{
+				id: string;
+				title: string;
+				outcome: FeedbackOutcome;
+			}>;
+			recentEdits: Array<{ id: string; type: string; title: string; href: string; at: string }>;
+		}>({
+			path: `${basePath}/dashboard/my-work`,
+			method: "GET",
+			cachePolicy: {
+				namespace: "project-dashboard-my-work",
+				ttlMs: 15_000,
+				keyParts: { project_id: scopedProjectId },
+				tags: [`project:${scopedProjectId}`, "project-dashboard"]
+			}
+		})
 	]);
 
 	return {
-		project: dashboard.project,
-		me: dashboard.me,
-		stories,
-		journeys,
-		problems,
-		ideas,
-		tasks,
-		feedback,
-		events: dashboard.events,
-		activity: dashboard.activity,
-		recentEdits: dashboard.recentEdits,
+		project: summary.project,
+		me: myWork.me,
+		summary: summary.summary,
+		myTasks: myWork.myTasks,
+		myFeedback: myWork.myFeedback,
+		recentEdits: myWork.recentEdits,
 		now: new Date().toISOString()
 	};
 });
 
 export const getProjectTeamMembers = query("unchecked", async (projectId: string) => {
+	const scopedProjectId = projectId.trim();
 	return remoteQueryRequest<{
 		members: TeamMember[];
 		invites: Array<{ email: string; role: ProjectRole; sentDate: string; status: "pending" | "accepted" }>;
 	}>({
-		path: `/projects/${encodePathSegment(projectId)}/team/members`,
-		method: "GET"
+		path: `/projects/${encodePathSegment(scopedProjectId)}/team/members`,
+		method: "GET",
+		cachePolicy: {
+			namespace: "project-team-members",
+			ttlMs: 20_000,
+			keyParts: { project_id: scopedProjectId },
+			tags: [`project:${scopedProjectId}`, "project-team"]
+		}
 	});
 });
 
 export const getProjectTeamRoles = query("unchecked", async (projectId: string) => {
+	const scopedProjectId = projectId.trim();
 	const payload = await remoteQueryRequest<{
 		members: Array<{
 			id: string;
@@ -174,8 +191,14 @@ export const getProjectTeamRoles = query("unchecked", async (projectId: string) 
 		}>;
 		rolePermissionMasks: Record<string, string>;
 	}>({
-		path: `/projects/${encodePathSegment(projectId)}/team/roles`,
-		method: "GET"
+		path: `/projects/${encodePathSegment(scopedProjectId)}/team/roles`,
+		method: "GET",
+		cachePolicy: {
+			namespace: "project-team-roles",
+			ttlMs: 20_000,
+			keyParts: { project_id: scopedProjectId },
+			tags: [`project:${scopedProjectId}`, "project-team", "project-access"]
+		}
 	});
 
 	return {
@@ -188,7 +211,8 @@ export const getProjectTeamRoles = query("unchecked", async (projectId: string) 
 });
 
 export const getProjectSettings = query("unchecked", async (projectId: string) => {
-	const scopedProjectId = encodePathSegment(projectId);
+	const scopedProjectId = projectId.trim();
+	const scopedProjectPathId = encodePathSegment(scopedProjectId);
 	const [settings, team] = await Promise.all([
 		remoteQueryRequest<{
 			projectName: string;
@@ -205,12 +229,24 @@ export const getProjectSettings = query("unchecked", async (projectId: string) =
 			notifyResourceUpdated: boolean;
 			deliveryChannel: "In-app" | "Email";
 		}>({
-			path: `/projects/${scopedProjectId}/settings`,
-			method: "GET"
+			path: `/projects/${scopedProjectPathId}/settings`,
+			method: "GET",
+			cachePolicy: {
+				namespace: "project-settings",
+				ttlMs: 30_000,
+				keyParts: { project_id: scopedProjectId },
+				tags: [`project:${scopedProjectId}`, "project-settings"]
+			}
 		}),
 		remoteQueryRequest<{ members: TeamMember[] }>({
-			path: `/projects/${scopedProjectId}/team/members`,
-			method: "GET"
+			path: `/projects/${scopedProjectPathId}/team/members`,
+			method: "GET",
+			cachePolicy: {
+				namespace: "project-team-members",
+				ttlMs: 20_000,
+				keyParts: { project_id: scopedProjectId },
+				tags: [`project:${scopedProjectId}`, "project-team"]
+			}
 		})
 	]);
 
@@ -235,6 +271,18 @@ export const createProjectInvite = command(
 				email: parsed.data.email,
 				role: parsed.data.role
 			}
+		}, undefined, {
+			tags: [
+				`project:${parsed.data.projectId}`,
+				"project-dashboard",
+				"project-dashboard-summary",
+				"project-dashboard-my-work",
+				"project-dashboard-events",
+				"project-dashboard-activity",
+				"project-sidebar",
+				"project-team",
+				"project-team-members"
+			]
 		});
 	}
 );
@@ -250,6 +298,18 @@ export const cancelProjectInvite = command(
 		return remoteMutationRequest<{ email: string }>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/invites/${encodePathSegment(parsed.data.email)}`,
 			method: "DELETE"
+		}, undefined, {
+			tags: [
+				`project:${parsed.data.projectId}`,
+				"project-dashboard",
+				"project-dashboard-summary",
+				"project-dashboard-my-work",
+				"project-dashboard-events",
+				"project-dashboard-activity",
+				"project-sidebar",
+				"project-team",
+				"project-team-members"
+			]
 		});
 	}
 );
@@ -274,8 +334,22 @@ export const updateProjectRolePermissions = command(
 				customMembersUnaffected?: number;
 			}>({
 				path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/roles/${roleToPathSegment(parsed.data.role)}/permissions`,
-				method: "PUT",
+				method: "PATCH",
 				rawBody: `{"role":${JSON.stringify(parsed.data.role)},"permissionMask":${parsed.data.permissionMask}}`
+			});
+			invalidateQueryCache({
+				tags: [
+					`project:${parsed.data.projectId}`,
+					"project-access",
+					"project-sidebar",
+					"project-dashboard",
+					"project-dashboard-summary",
+					"project-dashboard-my-work",
+					"project-dashboard-events",
+					"project-dashboard-activity",
+					"project-team",
+					"project-team-members"
+				]
 			});
 
 			return {
@@ -310,8 +384,22 @@ export const updateProjectMemberPermissions = command(
 				isCustom: boolean;
 			}>({
 				path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/members/${encodePathSegment(parsed.data.memberId)}/permissions`,
-				method: "PUT",
+				method: "PATCH",
 				rawBody: `{"role":${JSON.stringify(parsed.data.role)},"isCustom":${parsed.data.isCustom ? "true" : "false"},"permissionMask":${parsed.data.permissionMask}}`
+			});
+			invalidateQueryCache({
+				tags: [
+					`project:${parsed.data.projectId}`,
+					"project-access",
+					"project-sidebar",
+					"project-dashboard",
+					"project-dashboard-summary",
+					"project-dashboard-my-work",
+					"project-dashboard-events",
+					"project-dashboard-activity",
+					"project-team",
+					"project-team-members"
+				]
 			});
 
 			return {
@@ -334,10 +422,23 @@ export const updateProjectSettings = command(
 
 		return remoteMutationRequest<{ projectId: string }>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/settings`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				settings: parsed.data.settings
 			}
+		}, undefined, {
+			tags: [
+				`project:${parsed.data.projectId}`,
+				"project-settings",
+				"project-dashboard",
+				"project-dashboard-summary",
+				"project-dashboard-my-work",
+				"project-dashboard-events",
+				"project-dashboard-activity",
+				"project-access",
+				"project-sidebar",
+				"project-team-members"
+			]
 		});
 	}
 );
@@ -353,6 +454,21 @@ export const archiveProject = command(
 		return remoteMutationRequest<{ projectId: string; status: "Archived" }>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/archive`,
 			method: "POST"
+		}, undefined, {
+			tags: [
+				`project:${parsed.data.projectId}`,
+				"project-settings",
+				"project-dashboard",
+				"project-dashboard-summary",
+				"project-dashboard-my-work",
+				"project-dashboard-events",
+				"project-dashboard-activity",
+				"project-access",
+				"project-sidebar",
+				"project-team-members",
+				"home-dashboard",
+				"home-projects"
+			]
 		});
 	}
 );
@@ -368,6 +484,21 @@ export const deleteProject = command(
 		return remoteMutationRequest<{ projectId: string; status: "Archived" }>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}`,
 			method: "DELETE"
+		}, undefined, {
+			tags: [
+				`project:${parsed.data.projectId}`,
+				"project-settings",
+				"project-dashboard",
+				"project-dashboard-summary",
+				"project-dashboard-my-work",
+				"project-dashboard-events",
+				"project-dashboard-activity",
+				"project-access",
+				"project-sidebar",
+				"project-team-members",
+				"home-dashboard",
+				"home-projects"
+			]
 		});
 	}
 );

@@ -25,7 +25,7 @@
 		ChevronRight,
 		Plus,
 	} from "@lucide/svelte";
-	import { createCalendarEvent } from "$lib/remote/calendar.remote";
+	import { createCalendarEvent, getCalendarData } from "$lib/remote/calendar.remote";
 	import { can } from "$lib/utils/permission";
 
 	let { data } = $props();
@@ -84,11 +84,20 @@
 	let filterArtifact = $state<ArtifactType | "All">("All");
 	let filterOwner = $state<string | "All">("All");
 	let filterPhase = $state<PhaseOption | "All">("All");
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
+	let loadMoreError = $state("");
 
 	let events = $state<CalendarEvent[]>([]);
 
 	$effect(() => {
 		events = structuredClone(data.events) as CalendarEvent[];
+		const initialCursor = (data as { nextCursor?: string | null }).nextCursor;
+		nextCursor = typeof initialCursor === "string" && initialCursor.trim().length > 0
+			? initialCursor
+			: null;
+		isLoadingMore = false;
+		loadMoreError = "";
 	});
 
 	let addEventOpen = $state(false);
@@ -125,7 +134,9 @@
 			return true;
 		})
 	);
-	let projectId = $derived(page.params.projectId);
+	let projectId = $derived(
+		(page.params.projectId ?? (data as { projectId?: string }).projectId ?? "").trim()
+	);
 	let ownerOptions = $derived.by(() => {
 		const list = Array.from(new Set(events.map((event) => event.owner))).filter(Boolean);
 		if (access?.user.name && !list.includes(access.user.name)) {
@@ -259,6 +270,10 @@
 	const createEvent = async () => {
 		if (isCreatingEvent) return;
 		createError = "";
+		if (!projectId) {
+			createError = "Project id is missing.";
+			return;
+		}
 		if (!permissions || !canCreateEvent) {
 			createError = "You do not have permission to create events.";
 			return;
@@ -285,7 +300,7 @@
 		isCreatingEvent = true;
 		const result = await createCalendarEvent({
 			input: {
-				projectId: page.params.projectId,
+				projectId,
 				actorId,
 				title: newTitle.trim(),
 				start: newDateValue.toString(),
@@ -310,6 +325,32 @@
 		const created = result.data as CalendarEvent;
 		events = [...events, created];
 		addEventOpen = false;
+	};
+
+	const loadMoreEvents = async () => {
+		if (!projectId || !nextCursor || isLoadingMore) {
+			return;
+		}
+
+		isLoadingMore = true;
+		loadMoreError = "";
+		try {
+			const result = await getCalendarData({
+				projectId,
+				limit: 20,
+				cursor: nextCursor
+			});
+			const deduped = new Map<string, CalendarEvent>();
+			for (const event of [...events, ...result.events]) {
+				deduped.set(event.id, event);
+			}
+			events = [...deduped.values()];
+			nextCursor = result.nextCursor;
+		} catch {
+			loadMoreError = "Failed to load more calendar events. Please try again.";
+		} finally {
+			isLoadingMore = false;
+		}
 	};
 
 	const goPrevMonth = () => {
@@ -602,6 +643,19 @@
 					{/if}
 				</div>
 			</div>
+
+			{#if nextCursor || loadMoreError}
+				<div class="flex flex-col items-start gap-2">
+					{#if nextCursor}
+						<Button variant="outline" size="sm" onclick={loadMoreEvents} disabled={isLoadingMore}>
+							{isLoadingMore ? "Loading..." : "Load more events"}
+						</Button>
+					{/if}
+					{#if loadMoreError}
+						<p class="text-xs text-destructive">{loadMoreError}</p>
+					{/if}
+				</div>
+			{/if}
 		</section>
 	</div>
 </div>

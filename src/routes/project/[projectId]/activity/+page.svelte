@@ -8,6 +8,7 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { page } from "$app/state";
+	import { getProjectActivity } from "$lib/remote/activity.remote";
 
 	type ActivityType =
 		| "Artifact created"
@@ -31,13 +32,40 @@
 		details: string;
 	};
 
+	type RawActivityItem = {
+		id: string;
+		user: string;
+		initials: string;
+		action: string;
+		artifact: string;
+		href: string;
+		at: string;
+	};
+
+	const toActivityItem = (item: RawActivityItem): ActivityItem => ({
+		id: item.id,
+		user: item.user,
+		initials: item.initials,
+		type: mapType(item.action),
+		action: item.action,
+		artifact: item.artifact,
+		path: item.href,
+		at: item.at,
+		details: `${item.action} ${item.artifact}`
+	});
+
 	let { data } = $props();
-	let projectId = $derived(page.params.projectId);
+	let projectId = $derived(
+		(page.params.projectId ?? (data as { projectId?: string }).projectId ?? "").trim()
+	);
 	let selectedType = $state<ActivityType | "All">("All");
 	let selectedUser = $state<string>("All");
 	let selectedWindow = $state<"All" | "24h" | "7d" | "30d">("All");
 	let detailOpen = $state(false);
 	let selectedItemId = $state("");
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
+	let loadMoreError = $state("");
 
 	let now = new Date();
 	const mapType = (action: string): ActivityType => {
@@ -53,28 +81,44 @@
 	let items = $state<ActivityItem[]>([]);
 
 	$effect(() => {
-		items = (structuredClone(data.items) as Array<{
-			id: string;
-			user: string;
-			initials: string;
-			action: string;
-			artifact: string;
-			href: string;
-			at: string;
-		}>).map((item) => ({
-			id: item.id,
-			user: item.user,
-			initials: item.initials,
-			type: mapType(item.action),
-			action: item.action,
-			artifact: item.artifact,
-			path: item.href,
-			at: item.at,
-			details: `${item.action} ${item.artifact}`
-		}));
+		const initialItems = structuredClone(data.items) as RawActivityItem[];
+		items = initialItems.map(toActivityItem);
+		const initialCursor = (data as { nextCursor?: string | null }).nextCursor;
+		nextCursor = typeof initialCursor === "string" && initialCursor.trim().length > 0
+			? initialCursor
+			: null;
+		loadMoreError = "";
+		isLoadingMore = false;
 		selectedItemId = "";
 		detailOpen = false;
 	});
+
+	const loadMore = async () => {
+		if (!projectId || !nextCursor || isLoadingMore) {
+			return;
+		}
+
+		loadMoreError = "";
+		isLoadingMore = true;
+		try {
+			const result = await getProjectActivity({
+				projectId,
+				limit: 20,
+				cursor: nextCursor
+			});
+			const nextBatch = result.items.map(toActivityItem);
+			const deduped = new Map<string, ActivityItem>();
+			for (const item of [...items, ...nextBatch]) {
+				deduped.set(item.id, item);
+			}
+			items = [...deduped.values()];
+			nextCursor = result.nextCursor;
+		} catch {
+			loadMoreError = "Failed to load more activity. Please try again.";
+		} finally {
+			isLoadingMore = false;
+		}
+	};
 
 	let users = $derived(["All", ...new Set(items.map((item) => item.user))]);
 	let selectedItem = $derived(items.find((item) => item.id === selectedItemId) ?? null);
@@ -220,6 +264,17 @@
 						No activity matches the selected filters.
 					</div>
 				{/each}
+
+				{#if nextCursor}
+					<div class="pt-2">
+						<Button variant="outline" onclick={loadMore} disabled={isLoadingMore}>
+							{isLoadingMore ? "Loading..." : "Load more"}
+						</Button>
+					</div>
+				{/if}
+				{#if loadMoreError}
+					<p class="text-xs text-destructive">{loadMoreError}</p>
+				{/if}
 			</div>
 		</section>
 	</div>

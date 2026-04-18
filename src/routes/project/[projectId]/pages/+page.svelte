@@ -14,7 +14,7 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import * as Table from "$lib/components/ui/table";
 	import { Check, Pencil, X, FileStack, Clock3, Link2, Archive } from "@lucide/svelte";
-	import { createPage as createPageRemote, renamePage as renamePageRemote } from "$lib/remote/page.remote";
+	import { createPage as createPageRemote, getPages as getPagesRemote, renamePage as renamePageRemote } from "$lib/remote/page.remote";
 	import { can } from "$lib/utils/permission";
 
 	let { data } = $props();
@@ -35,9 +35,12 @@
 	};
 
 	let rows = $state<PageRow[]>([]);
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
 
 	$effect(() => {
 		rows = structuredClone(data.rows) as PageRow[];
+		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
 
 	let statusFilter = $state<PageStatus | "All">("All");
@@ -84,6 +87,37 @@
 		status === "Draft"
 			? "bg-blue-50 text-blue-700 border-blue-200"
 			: "bg-slate-100 text-slate-700 border-slate-300";
+
+	const mergeRows = (current: PageRow[], incoming: PageRow[]): PageRow[] => {
+		const seen = new Set(current.map((row) => row.id));
+		const merged = [...current];
+		for (const row of incoming) {
+			if (!seen.has(row.id)) {
+				seen.add(row.id);
+				merged.push(row);
+			}
+		}
+		return merged;
+	};
+
+	const loadMorePages = async () => {
+		if (isLoadingMore || !nextCursor) {
+			return;
+		}
+		isLoadingMore = true;
+		try {
+			const result = await getPagesRemote({
+				projectId: page.params.projectId ?? "",
+				cursor: nextCursor,
+				limit: 20,
+				...(statusFilter !== "All" ? { status: statusFilter } : {})
+			});
+			rows = mergeRows(rows, result.items as PageRow[]);
+			nextCursor = result.nextCursor;
+		} finally {
+			isLoadingMore = false;
+		}
+	};
 
 	const applyStatFilter = (target: "Total" | "RecentlyUpdated" | "LinkedPages" | "ArchivedPages") => {
 		statusFilter = "All";
@@ -368,6 +402,13 @@
 						{/each}
 					</Table.Body>
 				</Table.Root>
+				</div>
+			{/if}
+			{#if nextCursor}
+				<div class="mt-3 flex justify-center">
+					<Button variant="outline" onclick={loadMorePages} disabled={isLoadingMore}>
+						{isLoadingMore ? "Loading..." : "Load More"}
+					</Button>
 				</div>
 			{/if}
 		</section>

@@ -12,6 +12,31 @@ type ResourcePageInput = {
 	resourceId: string;
 };
 
+type ResourceListInput = {
+	projectId: string;
+	status?: "Active" | "Archived";
+	docType?: string;
+	sort?: "name" | "uploadDate" | "lastUpdated";
+	order?: "asc" | "desc";
+	cursor?: string;
+	limit?: number;
+};
+
+type ResourceListResult = {
+	items: ResourceRow[];
+	nextCursor: string | null;
+	reference: {
+		docTypes: string[];
+		fileTypes: string[];
+		owners: string[];
+		sortOptions: string[];
+		storyOptions: string[];
+		problemOptions: string[];
+		ideaOptions: string[];
+		taskOptions: string[];
+	};
+};
+
 type LinkedArtifact = {
 	id: string;
 	title: string;
@@ -97,9 +122,41 @@ const mapVersion = (value: unknown): VersionRow | null => {
 	};
 };
 
-export const getResources = query("unchecked", async (projectId: string) => {
+const buildResourcesPath = (input: ResourceListInput): string => {
+	const search = new URLSearchParams();
+	if (input.status) {
+		search.set("status", input.status);
+	}
+	if (input.docType) {
+		search.set("docType", input.docType);
+	}
+	if (input.sort) {
+		search.set("sort", input.sort);
+	}
+	if (input.order) {
+		search.set("order", input.order);
+	}
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	if (cursor) {
+		search.set("cursor", cursor);
+	}
+	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set("limit", String(Math.trunc(input.limit)));
+	}
+	const query = search.toString();
+	const basePath = `/projects/${encodePathSegment(input.projectId)}/resources`;
+	return query ? `${basePath}?${query}` : basePath;
+};
+
+export const getResources = query("unchecked", async (input: ResourceListInput): Promise<ResourceListResult> => {
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const limit =
+		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+			? Math.trunc(input.limit)
+			: 20;
 	const payload = await remoteQueryRequest<{
-		rows?: ResourceRow[];
+		items?: ResourceRow[];
+		next_cursor?: string | null;
 		reference?: {
 			docTypes?: string[];
 			fileTypes?: string[];
@@ -111,15 +168,34 @@ export const getResources = query("unchecked", async (projectId: string) => {
 			taskOptions?: string[];
 		};
 	}>({
-		path: `/projects/${encodePathSegment(projectId)}/resources`,
-		method: "GET"
+		path: buildResourcesPath(input),
+		method: "GET",
+		cachePolicy: {
+			namespace: "resources-list",
+			ttlMs: 20_000,
+			keyParts: {
+				project_id: input.projectId,
+				status: input.status ?? null,
+				doc_type: input.docType ?? null,
+				sort: input.sort ?? "name",
+				order: input.order ?? "asc",
+				cursor: cursor || null,
+				limit
+			},
+			tags: ["resources-list", `project:${input.projectId}`]
+		}
 	});
 
-	const rows = Array.isArray(payload.rows) ? payload.rows : [];
+	const rows = Array.isArray(payload.items) ? payload.items : [];
 	const reference = asRecord(payload.reference);
+	const nextCursor =
+		typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+			? payload.next_cursor
+			: null;
 
 	return {
-		rows,
+		items: rows,
+		nextCursor,
 		reference: {
 			docTypes: asArray(reference.docTypes).map((item) => asString(item)).filter((item) => item.length > 0),
 			fileTypes: asArray(reference.fileTypes).map((item) => asString(item)).filter((item) => item.length > 0),
@@ -225,7 +301,7 @@ export const updateResource = command(
 
 		return remoteMutationRequest<ResourceRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/resources/${encodePathSegment(parsed.data.resourceId)}`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				state: parsed.data.state
 			}
@@ -243,7 +319,7 @@ export const updateResourceStatus = command(
 
 		return remoteMutationRequest<ResourceRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/resources/${encodePathSegment(parsed.data.resourceId)}/status`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				status: parsed.data.status
 			}

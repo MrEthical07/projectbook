@@ -2,7 +2,7 @@
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import { getContext } from "svelte";
-	import { createFeedback as createFeedbackRemote } from "$lib/remote/feedback.remote";
+	import { createFeedback as createFeedbackRemote, getFeedback as getFeedbackRemote } from "$lib/remote/feedback.remote";
 	import { can } from "$lib/utils/permission";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
@@ -33,9 +33,12 @@
 	};
 
 	let rows = $state<FeedbackRow[]>([]);
+	let nextCursor = $state<string | null>(null);
+	let isLoadingMore = $state(false);
 
 	$effect(() => {
 		rows = structuredClone(data.rows) as FeedbackRow[];
+		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
@@ -75,6 +78,37 @@
 		if (outcome === "Validated") return "bg-emerald-50 text-emerald-700 border-emerald-200";
 		if (outcome === "Invalidated") return "bg-slate-100 text-slate-700 border-slate-300";
 		return "bg-amber-50 text-amber-700 border-amber-300";
+	};
+
+	const mergeRows = (current: FeedbackRow[], incoming: FeedbackRow[]): FeedbackRow[] => {
+		const seen = new Set(current.map((row) => row.id));
+		const merged = [...current];
+		for (const row of incoming) {
+			if (!seen.has(row.id)) {
+				seen.add(row.id);
+				merged.push(row);
+			}
+		}
+		return merged;
+	};
+
+	const loadMoreFeedback = async () => {
+		if (isLoadingMore || !nextCursor) {
+			return;
+		}
+		isLoadingMore = true;
+		try {
+			const result = await getFeedbackRemote({
+				projectId: page.params.projectId ?? "",
+				cursor: nextCursor,
+				limit: 20,
+				...(statusFilter !== "All" ? { outcome: statusFilter } : {})
+			});
+			rows = mergeRows(rows, result.items as FeedbackRow[]);
+			nextCursor = result.nextCursor;
+		} finally {
+			isLoadingMore = false;
+		}
 	};
 
 	const applyStatFilter = (target: "Total" | "Validated" | "Invalidated" | "Needs Iteration") => {
@@ -305,6 +339,13 @@
 						{/each}
 					</Table.Body>
 				</Table.Root>
+				</div>
+			{/if}
+			{#if nextCursor}
+				<div class="mt-3 flex justify-center">
+					<Button variant="outline" onclick={loadMoreFeedback} disabled={isLoadingMore}>
+						{isLoadingMore ? "Loading..." : "Load More"}
+					</Button>
 				</div>
 			{/if}
 		</section>

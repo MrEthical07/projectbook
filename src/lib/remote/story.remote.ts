@@ -9,7 +9,19 @@ import {
 
 type StoryPageInput = {
 	projectId: string;
-	slug: string;
+	storyId: string;
+};
+
+type StoryListInput = {
+	projectId: string;
+	status?: "Draft" | "Locked" | "Archived";
+	cursor?: string;
+	limit?: number;
+};
+
+type StoryListResult = {
+	items: StoryRow[];
+	nextCursor: string | null;
 };
 
 type ArtifactMetadata = {
@@ -150,12 +162,52 @@ const mapStoryMetadata = (
 	};
 };
 
-export const getStories = query("unchecked", async (projectId: string): Promise<StoryRow[]> => {
-	const payload = await remoteQueryRequest<{ items?: StoryRow[] }>({
-		path: `/projects/${encodePathSegment(projectId)}/stories`,
-		method: "GET"
+const buildStoriesPath = (input: StoryListInput): string => {
+	const search = new URLSearchParams();
+	if (input.status) {
+		search.set("status", input.status);
+	}
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	if (cursor) {
+		search.set("cursor", cursor);
+	}
+	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set("limit", String(Math.trunc(input.limit)));
+	}
+	const query = search.toString();
+	const basePath = `/projects/${encodePathSegment(input.projectId)}/stories`;
+	return query ? `${basePath}?${query}` : basePath;
+};
+
+export const getStories = query("unchecked", async (input: StoryListInput): Promise<StoryListResult> => {
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const limit =
+		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+			? Math.trunc(input.limit)
+			: 20;
+	const payload = await remoteQueryRequest<{ items?: StoryRow[]; next_cursor?: string | null }>({
+		path: buildStoriesPath(input),
+		method: "GET",
+		cachePolicy: {
+			namespace: "stories-list",
+			ttlMs: 20_000,
+			keyParts: {
+				project_id: input.projectId,
+				status: input.status ?? null,
+				cursor: cursor || null,
+				limit,
+				sort: "last_updated_desc"
+			},
+			tags: ["stories-list", `project:${input.projectId}`]
+		}
 	});
-	return Array.isArray(payload.items) ? payload.items : [];
+	return {
+		items: Array.isArray(payload.items) ? payload.items : [],
+		nextCursor:
+			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+				? payload.next_cursor
+				: null
+	};
 });
 
 export const getStoryPageData = query("unchecked", async (input: StoryPageInput) => {
@@ -166,7 +218,7 @@ export const getStoryPageData = query("unchecked", async (input: StoryPageInput)
 		addOnCatalog?: unknown[];
 		addOnSections?: unknown[];
 	}>({
-		path: `/projects/${encodePathSegment(input.projectId)}/stories/${encodePathSegment(input.slug)}`,
+		path: `/projects/${encodePathSegment(input.projectId)}/stories/${encodePathSegment(input.storyId)}`,
 		method: "GET"
 	});
 
@@ -232,7 +284,7 @@ export const updateStory = command(
 
 		return remoteMutationRequest<StoryRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/stories/${encodePathSegment(parsed.data.storyId)}`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				story: storyPayload
 			}

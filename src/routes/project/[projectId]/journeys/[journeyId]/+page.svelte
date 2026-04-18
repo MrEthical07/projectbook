@@ -11,6 +11,7 @@
     import * as Select from "$lib/components/ui/select";
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+    import { invalidate } from "$app/navigation";
 	import { page } from "$app/state";
 	import { updateJourney } from "$lib/remote/journey.remote";
 	import { can } from "$lib/utils/permission";
@@ -19,12 +20,13 @@
 
     let { data } = $props();
     let projectId = $derived(page.params.projectId);
-    let journeyId = $derived(page.params.slug);
+    const routeParams = page.params as Record<string, string | undefined>;
+    let journeyId = $derived(routeParams.journeyId ?? "");
     const access = getContext<ProjectAccess | undefined>("access");
     const permissions = access?.permissions;
     const canEditJourney = can(permissions, "story", "edit");
     const canChangeJourneyStatus = can(permissions, "story", "statusChange");
-    const statusOptions = ["draft", "archived"] as const;
+    const statusOptions = ["draft", "locked", "archived"] as const;
     type JourneyStatus = typeof statusOptions[number];
     type JourneyStage = {
         name: string;
@@ -72,7 +74,9 @@
         stages: [],
         notes: ""
     });
-    const isReadOnly = $derived(journey.status === "archived" || !canEditJourney);
+    const isReadOnly = $derived(
+        journey.status === "locked" || journey.status === "archived" || !canEditJourney
+    );
     let emotions = $state<string[]>([]);
     let metadata = $state<ArtifactMetadata>({
         owner: "",
@@ -89,6 +93,7 @@
     let saveBadgeTimer: ReturnType<typeof setTimeout> | null = null;
     let statusConfirmOpen = $state(false);
     let pendingStatus = $state<JourneyStatus | null>(null);
+    let statusMutationPending = $state(false);
     let savedSignature = $state("");
     let saveReady = $state(false);
     let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -184,41 +189,62 @@
     };
 
     const statusVariant = (s: string) => {
+        if (s === "locked") return "secondary";
         if (s === "archived") return "destructive";
         return "default";
     };
 
+    const canSelectStatusOption = (nextStatus: JourneyStatus): boolean => {
+        if (journey.status === "archived") {
+			return nextStatus === "draft";
+        }
+        if (journey.status === "locked") {
+			return nextStatus === "archived";
+        }
+        return true;
+    };
+
     const requestStatusChange = (nextStatus: JourneyStatus) => {
+        if (!canSelectStatusOption(nextStatus)) return;
         if (nextStatus === journey.status) return;
         pendingStatus = nextStatus;
         statusConfirmOpen = true;
     };
 
     const confirmStatusChange = async () => {
-        if (!pendingStatus || !permissions || !canChangeJourneyStatus) return;
-        const result = await updateJourney({
-            input: {
-                projectId,
-                journeyId,
-                journey: {
-                    ...journey,
-                    status: pendingStatus
+        if (!pendingStatus || !permissions || !canChangeJourneyStatus || statusMutationPending) return;
+        const targetStatus = pendingStatus;
+        statusMutationPending = true;
+        try {
+            const result = await updateJourney({
+                input: {
+                    projectId,
+                    journeyId,
+                    journey: {
+                        status: targetStatus
+                    }
                 }
+    });
+            if (!result.success) {
+                toast.error("error" in result ? result.error : "Status update failed.");
+                return;
             }
-});
-        if (!result.success) return;
-        journey.status = pendingStatus;
-        savedSignature = JSON.stringify({
-            title: journey.title,
-            description: journey.description,
-            persona: journey.persona,
-            context: journey.context,
-            stages: journey.stages,
-            notes: journey.notes
-        });
-        pendingStatus = null;
-        statusConfirmOpen = false;
-        toast.success("Status updated");
+            journey.status = targetStatus;
+            await invalidate((url) => url.pathname === page.url.pathname);
+            savedSignature = JSON.stringify({
+                title: journey.title,
+                description: journey.description,
+                persona: journey.persona,
+                context: journey.context,
+                stages: journey.stages,
+                notes: journey.notes
+            });
+            pendingStatus = null;
+            statusConfirmOpen = false;
+            toast.success("Status updated");
+        } finally {
+            statusMutationPending = false;
+        }
     };
 
     onDestroy(() => {
@@ -244,6 +270,7 @@
             savePhase = "idle";
             pendingStatus = null;
             statusConfirmOpen = false;
+            statusMutationPending = false;
             isAddingStage = false;
             newStageName = "";
             newActionByStage = {};
@@ -272,7 +299,7 @@
     <meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-{#key page.params.slug}
+{#key journeyId}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
     <header
 			class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -584,7 +611,9 @@
         <Dialog.Header>
             <Dialog.Title>Change status</Dialog.Title>
             <Dialog.Description>
-                {#if pendingStatus === "archived"}
+                {#if pendingStatus === "locked"}
+                    Locking makes this journey read-only. You can only archive it afterwards.
+                {:else if pendingStatus === "archived"}
                     Archiving hides this journey from active work. You can unarchive later.
                 {:else if pendingStatus === "draft"}
                     Moving back to Draft will reopen the journey for edits.
@@ -599,7 +628,7 @@
                     <Button
                         variant={journey.status === option ? "default" : "outline"}
                         onclick={() => requestStatusChange(option)}
-                        disabled={journey.status === option}
+                        disabled={journey.status === option || statusMutationPending || !canSelectStatusOption(option)}
                     >
                         {option.charAt(0).toUpperCase() + option.slice(1)}
                     </Button>
@@ -607,15 +636,15 @@
             </div>
         {/if}
         <Dialog.Footer>
-            <Dialog.Close class={buttonVariants({ variant: "outline" })}>
+            <Dialog.Close class={buttonVariants({ variant: "outline" })} disabled={statusMutationPending}>
                 Cancel
             </Dialog.Close>
             {#if pendingStatus}
                 <Button
-                    disabled={!canChangeJourneyStatus}
+                    disabled={!canChangeJourneyStatus || statusMutationPending}
                     onclick={confirmStatusChange}
                 >
-                    Confirm
+                    {statusMutationPending ? "Saving..." : "Confirm"}
                 </Button>
             {/if}
         </Dialog.Footer>

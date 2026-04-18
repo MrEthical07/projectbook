@@ -9,7 +9,20 @@ import {
 
 type FeedbackPageInput = {
 	projectId: string;
-	slug: string;
+	feedbackId: string;
+};
+
+type FeedbackListInput = {
+	projectId: string;
+	status?: "Active" | "Archived";
+	outcome?: "Validated" | "Invalidated" | "Needs Iteration";
+	cursor?: string;
+	limit?: number;
+};
+
+type FeedbackListResult = {
+	items: FeedbackRow[];
+	nextCursor: string | null;
 };
 
 type LinkedArtifact = {
@@ -87,12 +100,56 @@ const mapLinkedArtifact = (value: unknown): LinkedArtifact | null => {
 	};
 };
 
-export const getFeedback = query("unchecked", async (projectId: string): Promise<FeedbackRow[]> => {
-	const payload = await remoteQueryRequest<{ items?: FeedbackRow[] }>({
-		path: `/projects/${encodePathSegment(projectId)}/feedback`,
-		method: "GET"
+const buildFeedbackPath = (input: FeedbackListInput): string => {
+	const search = new URLSearchParams();
+	if (input.status) {
+		search.set("status", input.status);
+	}
+	if (input.outcome) {
+		search.set("outcome", input.outcome);
+	}
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	if (cursor) {
+		search.set("cursor", cursor);
+	}
+	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set("limit", String(Math.trunc(input.limit)));
+	}
+	const query = search.toString();
+	const basePath = `/projects/${encodePathSegment(input.projectId)}/feedback`;
+	return query ? `${basePath}?${query}` : basePath;
+};
+
+export const getFeedback = query("unchecked", async (input: FeedbackListInput): Promise<FeedbackListResult> => {
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const limit =
+		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+			? Math.trunc(input.limit)
+			: 20;
+	const payload = await remoteQueryRequest<{ items?: FeedbackRow[]; next_cursor?: string | null }>({
+		path: buildFeedbackPath(input),
+		method: "GET",
+		cachePolicy: {
+			namespace: "feedback-list",
+			ttlMs: 20_000,
+			keyParts: {
+				project_id: input.projectId,
+				status: input.status ?? null,
+				outcome: input.outcome ?? null,
+				cursor: cursor || null,
+				limit,
+				sort: "created_date_desc"
+			},
+			tags: ["feedback-list", `project:${input.projectId}`]
+		}
 	});
-	return Array.isArray(payload.items) ? payload.items : [];
+	return {
+		items: Array.isArray(payload.items) ? payload.items : [],
+		nextCursor:
+			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+				? payload.next_cursor
+				: null
+	};
 });
 
 export const getFeedbackPageData = query("unchecked", async (input: FeedbackPageInput) => {
@@ -101,6 +158,7 @@ export const getFeedbackPageData = query("unchecked", async (input: FeedbackPage
 			id?: string;
 			title?: string;
 			outcome?: string;
+			status?: string;
 			owner?: string;
 			createdDate?: string;
 			lastUpdated?: string;
@@ -113,7 +171,7 @@ export const getFeedbackPageData = query("unchecked", async (input: FeedbackPage
 			problemOptions?: unknown[];
 		};
 	}>({
-		path: `/projects/${encodePathSegment(input.projectId)}/feedback/${encodePathSegment(input.slug)}`,
+		path: `/projects/${encodePathSegment(input.projectId)}/feedback/${encodePathSegment(input.feedbackId)}`,
 		method: "GET"
 	});
 
@@ -121,6 +179,7 @@ export const getFeedbackPageData = query("unchecked", async (input: FeedbackPage
 	const metadata = asRecord(payload.metadata);
 	const detail = asRecord(payload.detail);
 	const reference = asRecord(payload.reference);
+	const feedbackStatus = asString(feedback.status) || asString(detail.status);
 
 	return {
 		taskOptions: (Array.isArray(reference.taskOptions) ? reference.taskOptions : [])
@@ -146,7 +205,7 @@ export const getFeedbackPageData = query("unchecked", async (input: FeedbackPage
 		evidenceText: asString(detail.evidenceText),
 		evidenceLocked: detail.evidenceLocked !== false,
 		nextStepsText: asString(detail.nextStepsText),
-		isArchived: false,
+		isArchived: feedbackStatus === "Archived",
 		metadata: {
 			owner: asString(metadata.owner) || asString(feedback.owner),
 			createdBy: asString(metadata.createdBy) || asString(feedback.owner),
@@ -187,7 +246,7 @@ export const updateFeedback = command(
 
 		return remoteMutationRequest<FeedbackRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/feedback/${encodePathSegment(parsed.data.feedbackId)}`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				state: parsed.data.state
 			}

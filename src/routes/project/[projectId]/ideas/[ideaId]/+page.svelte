@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from "$app/navigation";
+	import { invalidate } from "$app/navigation";
 	import { page } from "$app/state";
 	import { selectIdea, updateIdea, updateIdeaStatus } from "$lib/remote/idea.remote";
 	import { can } from "$lib/utils/permission";
@@ -84,7 +84,8 @@
 		return value;
 	};
 	let projectId = $derived(page.params.projectId);
-	let ideaId = $derived(page.params.slug);
+	const routeParams = page.params as Record<string, string | undefined>;
+	let ideaId = $derived(routeParams.ideaId ?? "");
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditIdea = can(permissions, "idea", "edit");
@@ -111,6 +112,7 @@
 	let derivedOpen = $state(true);
 	let activeModules = $state<OptionalModuleKey[]>([]);
 	let pendingStatus = $state<IdeaStatus | null>(null);
+	let statusMutationPending = $state(false);
 	let metadataOpen = $state(false);
 	let moduleContent = $state<Record<OptionalModuleKey, string>>({
 		approach: "",
@@ -208,40 +210,75 @@
 		statusConfirmOpen = true;
 	};
 
+	const changeArchiveState = async (nextArchived: boolean) => {
+		if (!canArchiveIdea) {
+			return;
+		}
+		if (!permissions || statusMutationPending) {
+			return;
+		}
+
+		statusMutationPending = true;
+		try {
+			const result = await updateIdeaStatus({
+				input: {
+					projectId,
+					ideaId,
+					status: nextArchived ? "Archived" : "Considered"
+				}
+			});
+			if (!result.success) {
+				toast.error("error" in result ? result.error : "Status change failed.");
+				return;
+			}
+
+			await invalidate((url) => url.pathname === page.url.pathname);
+			isArchived = nextArchived;
+			savedSignature = currentSignature;
+		} finally {
+			statusMutationPending = false;
+		}
+	};
+
 	const confirmStatusChange = async () => {
 		if (!canChangeIdeaStatus) return;
 		if (!permissions) return;
+		if (statusMutationPending) return;
 		if (!pendingStatus) {
 			return;
 		}
 
 		const targetStatus = pendingStatus;
+		statusMutationPending = true;
+		try {
+			const result =
+				targetStatus === "Selected"
+					? await selectIdea({
+							input: {
+								projectId,
+								ideaId
+							}
+						})
+					: await updateIdeaStatus({
+							input: {
+								projectId,
+								ideaId,
+								status: targetStatus
+							}
+						});
+			if (!result.success) {
+				toast.error("error" in result ? result.error : "Status change failed.");
+				return;
+			}
+			await invalidate((url) => url.pathname === page.url.pathname);
 
-		const result =
-			targetStatus === "Selected"
-				? await selectIdea({
-						input: {
-							projectId,
-							ideaId
-						}
-					})
-				: await updateIdeaStatus({
-						input: {
-							projectId,
-							ideaId,
-							status: targetStatus
-						}
-});
-		if (!result.success) {
-			toast.error("error" in result ? result.error : "Status change failed.");
-			return;
+			ideaStatus = targetStatus;
+			pendingStatus = null;
+			statusDialogOpen = false;
+			statusConfirmOpen = false;
+		} finally {
+			statusMutationPending = false;
 		}
-		await invalidateAll();
-
-		ideaStatus = targetStatus;
-		pendingStatus = null;
-		statusDialogOpen = false;
-		statusConfirmOpen = false;
 	};
 
 	const statusVariant = (currentStatus: PageStatus) => {
@@ -275,6 +312,9 @@
 
 		return "bg-amber-100 text-amber-700 border-amber-200";
 	};
+
+	const isStatusImmutable = (currentStatus: IdeaStatus): boolean =>
+		currentStatus === "Selected" || currentStatus === "Rejected";
 
 	const triggerSave = async () => {
 		if (!canEditIdea) return;
@@ -374,6 +414,7 @@
 
 			pendingStatus = null;
 			statusConfirmOpen = false;
+			statusMutationPending = false;
 			savePhase = "idle";
 
 			savedSignature = JSON.stringify({
@@ -403,7 +444,7 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-{#key page.params.slug}
+{#key ideaId}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -463,10 +504,8 @@
 									</Dialog.Close>
 									<Dialog.Close
 										class={buttonVariants()}
-										onclick={() => {
-											isArchived = false;
-											triggerSave();
-										}}
+										onclick={() => changeArchiveState(false)}
+										disabled={!canArchiveIdea || statusMutationPending}
 									>
 										Unarchive
 									</Dialog.Close>
@@ -491,10 +530,8 @@
 									</Dialog.Close>
 									<Dialog.Close
 										class={buttonVariants()}
-										onclick={() => {
-											isArchived = true;
-											triggerSave();
-										}}
+										onclick={() => changeArchiveState(true)}
+										disabled={!canArchiveIdea || statusMutationPending}
 									>
 										Archive
 									</Dialog.Close>
@@ -560,11 +597,11 @@
 			New status: {pendingStatus ?? "None"}
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })} disabled={statusMutationPending}>
 				Cancel
 			</Dialog.Close>
-			<Button onclick={confirmStatusChange}>
-				Confirm status
+			<Button onclick={confirmStatusChange} disabled={statusMutationPending || !canChangeIdeaStatus}>
+				{statusMutationPending ? "Saving..." : "Confirm status"}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -775,7 +812,7 @@
 					<Dialog.Root bind:open={statusDialogOpen}>
 						<Dialog.Trigger
 							class={buttonVariants({ variant: "outline" })}
-							disabled={isArchived}
+							disabled={isArchived || isStatusImmutable(ideaStatus) || statusMutationPending}
 						>
 							Change Status
 						</Dialog.Trigger>
@@ -787,6 +824,7 @@
 								{#each ["Considered", "Selected", "Rejected"] as option (option)}
 									<Button
 										variant={(pendingStatus ?? ideaStatus) === option ? "default" : "outline"}
+										disabled={statusMutationPending}
 										onclick={() => (pendingStatus = option as IdeaStatus)}
 									>
 										{option}
@@ -798,7 +836,7 @@
 							</div>
 							<Dialog.Footer>
 								<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-								<Button onclick={() => requestStatusChange((pendingStatus ?? ideaStatus) as IdeaStatus)} disabled={(pendingStatus ?? ideaStatus) === ideaStatus}>Continue</Button>
+								<Button onclick={() => requestStatusChange((pendingStatus ?? ideaStatus) as IdeaStatus)} disabled={(pendingStatus ?? ideaStatus) === ideaStatus || statusMutationPending || !canChangeIdeaStatus}>Continue</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>

@@ -26,9 +26,11 @@
 		Plus,
 		Trash2,
 	} from "@lucide/svelte";
+	import { invalidate } from "$app/navigation";
 	import { page } from "$app/state";
 	import { updatePageEditor } from "$lib/remote/page.remote";
 	import { can } from "$lib/utils/permission";
+	import { toast } from "svelte-sonner";
 
 	type PageStatus = "Draft" | "Archived";
 	type PageContentType = "Document" | "Table" | "Board" | "List" | "Calendar" | "Gallery" | "Timeline";
@@ -115,7 +117,8 @@
 		return value;
 	};
 	const projectId = page.params.projectId;
-	const pageId = page.params.slug;
+	const routeParams = page.params as Record<string, string | undefined>;
+	const pageId = routeParams.pageId ?? "";
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditPage = can(permissions, "page", "edit");
@@ -137,6 +140,7 @@
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
 	let deleteDialogOpen = $state(false);
+	let statusMutationPending = $state(false);
 	let readOnlyView = $state(false);
 	let fullWidth = $state(false);
 	let dragId = $state("");
@@ -213,6 +217,43 @@
 		value === "Archived"
 			? "bg-amber-100 text-amber-700 border-amber-200"
 			: "bg-emerald-100 text-emerald-700 border-emerald-200";
+
+	const changePageStatus = async (nextStatus: PageStatus) => {
+		if (!permissions || !canEditPage || statusMutationPending) {
+			return;
+		}
+		if (status === nextStatus) {
+			archiveDialogOpen = false;
+			unarchiveDialogOpen = false;
+			return;
+		}
+
+		statusMutationPending = true;
+		try {
+			const result = await updatePageEditor({
+				input: {
+					projectId,
+					pageId,
+					state: {
+						status: nextStatus
+					}
+				}
+			});
+			if (!result.success) {
+				toast.error("error" in result ? result.error : "Status update failed.");
+				return;
+			}
+
+			status = nextStatus;
+			await invalidate((url) => url.pathname === page.url.pathname);
+			savedSignature = currentSignature;
+			archiveDialogOpen = false;
+			unarchiveDialogOpen = false;
+			toast.success("Status updated");
+		} finally {
+			statusMutationPending = false;
+		}
+	};
 
 	const addBlock = (type: PageBlockType) => {
 		blocks = [
@@ -617,6 +658,7 @@
 		archiveDialogOpen = false;
 		unarchiveDialogOpen = false;
 		deleteDialogOpen = false;
+		statusMutationPending = false;
 		readOnlyView = false;
 		dragId = "";
 		views = normalizedViews;
@@ -810,7 +852,7 @@
 					</Popover.Root>
 					{#if status === "Archived"}
 						<Dialog.Root bind:open={unarchiveDialogOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canEditPage || statusMutationPending}>
 								Unarchive
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -827,8 +869,9 @@
 									<Dialog.Close
 										class={buttonVariants()}
 										onclick={() => {
-											status = "Draft";
+											void changePageStatus("Draft");
 										}}
+										disabled={!canEditPage || statusMutationPending}
 									>
 										Unarchive
 									</Dialog.Close>
@@ -837,7 +880,7 @@
 						</Dialog.Root>
 					{:else}
 						<Dialog.Root bind:open={archiveDialogOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canEditPage || statusMutationPending}>
 								Archive
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -854,8 +897,9 @@
 									<Dialog.Close
 										class={buttonVariants()}
 										onclick={() => {
-											status = "Archived";
+											void changePageStatus("Archived");
 										}}
+										disabled={!canEditPage || statusMutationPending}
 									>
 										Archive
 									</Dialog.Close>

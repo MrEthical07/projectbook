@@ -23,7 +23,7 @@ type SidebarPrefix =
 	| "pages";
 
 export type SidebarNode = {
-	slug: string;
+	id: string;
 	title: string;
 };
 
@@ -89,18 +89,29 @@ const deleteSidebarArtifactSchema = z.object({
 	artifactId: z.string().min(1)
 });
 
+const asObject = (value: unknown): Record<string, unknown> =>
+	value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {};
+
+const asTrimmedString = (value: unknown): string =>
+	typeof value === "string" ? value.trim() : "";
+
 const toSidebarNodes = (
-	items: Array<{ id?: string; title?: string }> | undefined
+	items: unknown
 ): SidebarNode[] => {
 	if (!Array.isArray(items)) {
 		return [];
 	}
 	return items
-		.map((item) => ({
-			slug: (item.id ?? "").trim(),
-			title: (item.title ?? "").trim()
-		}))
-		.filter((item) => item.slug.length > 0 && item.title.length > 0);
+		.map((item) => {
+			const candidate = asObject(item);
+			return {
+				id: asTrimmedString(candidate.id),
+				title: asTrimmedString(candidate.title)
+			};
+		})
+		.filter((item) => item.id.length > 0 && item.title.length > 0);
 };
 
 const normalizeProjectIcon = (value: unknown): ProjectIconKey => {
@@ -108,6 +119,33 @@ const normalizeProjectIcon = (value: unknown): ProjectIconKey => {
 		return value as ProjectIconKey;
 	}
 	return defaultProjectIconKey;
+};
+
+const sidebarMutationTags = (projectId: string): string[] => [
+	`project:${projectId}`,
+	"project-sidebar",
+	"project-dashboard",
+	"project-dashboard-summary",
+	"project-dashboard-my-work",
+	"project-dashboard-activity"
+];
+
+const resolveArtifactTitle = (
+	prefix: SidebarPrefix,
+	payload: Record<string, unknown>,
+	fallback: string
+): string => {
+	if (prefix === "problem-statement") {
+		const statement = asTrimmedString(payload.statement);
+		if (statement.length > 0) {
+			return statement;
+		}
+	}
+	const title = asTrimmedString(payload.title);
+	if (title.length > 0) {
+		return title;
+	}
+	return fallback;
 };
 
 export const getProjectSidebarData = query(
@@ -119,45 +157,56 @@ export const getProjectSidebarData = query(
 		}
 
 		try {
-			const response = await remoteQueryRequest<{
-				user: { name: string; email: string };
-				projects: Array<{ id: string; name: string; icon?: string; status?: string }>;
-				artifacts: {
-					stories: Array<{ id?: string; title?: string }>;
-					journeys: Array<{ id?: string; title?: string }>;
-					problems: Array<{ id?: string; title?: string }>;
-					ideas: Array<{ id?: string; title?: string }>;
-					tasks: Array<{ id?: string; title?: string }>;
-					feedback: Array<{ id?: string; title?: string }>;
-					pages: Array<{ id?: string; title?: string }>;
-				};
-			}>({
+			const response = await remoteQueryRequest<unknown>({
 				path: `/projects/${encodePathSegment(parsedProjectId.data)}/sidebar`,
-				method: "GET"
+				method: "GET",
+				cachePolicy: {
+					namespace: "project-sidebar",
+					ttlMs: 30_000,
+					keyParts: { project_id: parsedProjectId.data },
+					tags: [`project:${parsedProjectId.data}`, "project-sidebar"]
+				}
 			});
+			const payload = asObject(response);
+			const userPayload = asObject(payload.user);
+			const artifactsPayload = asObject(payload.artifacts);
+			const projectsPayload = Array.isArray(payload.projects) ? payload.projects : [];
+			const projects: SidebarRemoteData["projects"] = projectsPayload.flatMap((project) => {
+					const candidate = asObject(project);
+					const id = asTrimmedString(candidate.id);
+					if (id.length === 0) {
+						return [];
+					}
+
+					const status = asTrimmedString(candidate.status);
+
+					return [
+						{
+							id,
+							name: asTrimmedString(candidate.name) || "Project",
+							icon: normalizeProjectIcon(candidate.icon),
+							...(status.length > 0 ? { status } : {})
+						}
+					];
+				});
 
 			return {
 				success: true,
 				data: {
 					user: {
-						name: response.user.name,
-						email: response.user.email,
+						name: asTrimmedString(userPayload.name) || "User",
+						email: asTrimmedString(userPayload.email),
 						avatar: "/avatars/shadcn.jpg"
 					},
-					projects: response.projects.map((project) => ({
-						id: project.id,
-						name: project.name,
-						icon: normalizeProjectIcon(project.icon),
-						status: project.status
-					})),
+					projects,
 					artifacts: {
-						stories: toSidebarNodes(response.artifacts.stories),
-						journeys: toSidebarNodes(response.artifacts.journeys),
-						problems: toSidebarNodes(response.artifacts.problems),
-						ideas: toSidebarNodes(response.artifacts.ideas),
-						tasks: toSidebarNodes(response.artifacts.tasks),
-						feedback: toSidebarNodes(response.artifacts.feedback),
-						pages: toSidebarNodes(response.artifacts.pages)
+						stories: toSidebarNodes(artifactsPayload.stories),
+						journeys: toSidebarNodes(artifactsPayload.journeys),
+						problems: toSidebarNodes(artifactsPayload.problems),
+						ideas: toSidebarNodes(artifactsPayload.ideas),
+						tasks: toSidebarNodes(artifactsPayload.tasks),
+						feedback: toSidebarNodes(artifactsPayload.feedback),
+						pages: toSidebarNodes(artifactsPayload.pages)
 					}
 				}
 			};
@@ -178,14 +227,78 @@ export const createSidebarArtifact = command(
 			return { success: false, error: "Invalid input" };
 		}
 
-		return remoteMutationRequest<{ id: string; title: string }>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/sidebar/artifacts`,
-			method: "POST",
-			body: {
-				prefix: parsed.data.prefix,
-				title: parsed.data.title
+		let result: MutationResult<Record<string, unknown>>;
+		switch (parsed.data.prefix) {
+			case "stories":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/stories`,
+					method: "POST",
+					body: { title: parsed.data.title }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "journeys":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/journeys`,
+					method: "POST",
+					body: { title: parsed.data.title }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "problem-statement":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems`,
+					method: "POST",
+					body: { statement: parsed.data.title }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "ideas":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas`,
+					method: "POST",
+					body: { title: parsed.data.title }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "tasks":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks`,
+					method: "POST",
+					body: { title: parsed.data.title }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "feedback":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/feedback`,
+					method: "POST",
+					body: { title: parsed.data.title }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "pages":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/pages`,
+					method: "POST",
+					body: { title: parsed.data.title }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			default:
+				return { success: false, error: "Unsupported sidebar prefix" };
+		}
+
+		if (!result.success) {
+			return result;
+		}
+
+		const payload = asObject(result.data);
+		const id = asTrimmedString(payload.id);
+		if (id.length === 0) {
+			return { success: false, error: "Created artifact payload is missing id." };
+		}
+
+		return {
+			success: true,
+			data: {
+				id,
+				title: resolveArtifactTitle(parsed.data.prefix, payload, parsed.data.title)
 			}
-		});
+		};
 	}
 );
 
@@ -197,14 +310,74 @@ export const renameSidebarArtifact = command(
 			return { success: false, error: "Invalid input" };
 		}
 
-		return remoteMutationRequest<{ id: string; title: string }>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/sidebar/artifacts/${encodePathSegment(parsed.data.artifactId)}/rename`,
-			method: "PUT",
-			body: {
-				prefix: parsed.data.prefix,
-				title: parsed.data.title
+		let result: MutationResult<Record<string, unknown>>;
+		switch (parsed.data.prefix) {
+			case "stories":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/stories/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { story: { title: parsed.data.title } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "journeys":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/journeys/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { journey: { title: parsed.data.title } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "problem-statement":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { state: { title: parsed.data.title } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "ideas":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { state: { title: parsed.data.title } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "tasks":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { state: { title: parsed.data.title } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "feedback":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/feedback/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { state: { title: parsed.data.title } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "pages":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/pages/${encodePathSegment(parsed.data.artifactId)}/rename`,
+					method: "PATCH",
+					body: { title: parsed.data.title }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			default:
+				return { success: false, error: "Unsupported sidebar prefix" };
+		}
+
+		if (!result.success) {
+			return result;
+		}
+
+		const payload = asObject(result.data);
+		const id = asTrimmedString(payload.id) || parsed.data.artifactId;
+		return {
+			success: true,
+			data: {
+				id,
+				title: resolveArtifactTitle(parsed.data.prefix, payload, parsed.data.title)
 			}
-		});
+		};
 	}
 );
 
@@ -216,12 +389,70 @@ export const deleteSidebarArtifact = command(
 			return { success: false, error: "Invalid input" };
 		}
 
-		return remoteMutationRequest<{ id: string }>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/sidebar/artifacts/${encodePathSegment(parsed.data.artifactId)}`,
-			method: "DELETE",
-			body: {
-				prefix: parsed.data.prefix
+		let result: MutationResult<Record<string, unknown>>;
+		switch (parsed.data.prefix) {
+			case "stories":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/stories/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { story: { status: "Archived" } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "journeys":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/journeys/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { journey: { status: "Archived" } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "problem-statement":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems/${encodePathSegment(parsed.data.artifactId)}/status`,
+					method: "PATCH",
+					body: { status: "Archived" }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "ideas":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas/${encodePathSegment(parsed.data.artifactId)}/status`,
+					method: "PATCH",
+					body: { status: "Archived" }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "tasks":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks/${encodePathSegment(parsed.data.artifactId)}/status`,
+					method: "PATCH",
+					body: { status: "Abandoned" }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "feedback":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/feedback/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { state: { status: "Archived", isArchived: true } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			case "pages":
+				result = await remoteMutationRequest<Record<string, unknown>>({
+					path: `/projects/${encodePathSegment(parsed.data.projectId)}/pages/${encodePathSegment(parsed.data.artifactId)}`,
+					method: "PATCH",
+					body: { state: { status: "Archived" } }
+				}, undefined, { tags: sidebarMutationTags(parsed.data.projectId) });
+				break;
+			default:
+				return { success: false, error: "Unsupported sidebar prefix" };
+		}
+
+		if (!result.success) {
+			return result;
+		}
+
+		return {
+			success: true,
+			data: {
+				id: parsed.data.artifactId
 			}
-		});
+		};
 	}
 );

@@ -86,7 +86,8 @@ export const loginRequest = async (event: RequestEvent, payload: LoginPayload): 
 			refreshToken: tokens.refreshToken,
 			accessExpiresAt: tokens.accessExpiresAt
 		},
-		payload.remember === true
+		payload.remember === true,
+		{ clearPermissionContext: true }
 	);
 };
 

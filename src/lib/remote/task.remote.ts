@@ -9,7 +9,19 @@ import {
 
 type TaskPageInput = {
 	projectId: string;
-	slug: string;
+	taskId: string;
+};
+
+type TaskListInput = {
+	projectId: string;
+	status?: "Planned" | "In Progress" | "Completed" | "Abandoned";
+	cursor?: string;
+	limit?: number;
+};
+
+type TaskListResult = {
+	items: TaskRow[];
+	nextCursor: string | null;
 };
 
 type LinkedProblem = {
@@ -53,7 +65,7 @@ const createTaskSchema = z.object({
 const updateTaskStatusSchema = z.object({
 	projectId: z.string().min(1),
 	taskId: z.string().min(1),
-	status: z.enum(["Planned", "In Progress", "Completed", "Abandoned", "Blocked"])
+	status: z.enum(["Planned", "In Progress", "Completed", "Abandoned"])
 });
 
 const updateTaskSchema = z.object({
@@ -79,12 +91,7 @@ const asStringArray = (value: unknown): string[] => {
 };
 
 const normalizeTaskStatus = (value: string): TaskStatus => {
-	if (
-		value === "In Progress" ||
-		value === "Completed" ||
-		value === "Abandoned" ||
-		value === "Blocked"
-	) {
+	if (value === "In Progress" || value === "Completed" || value === "Abandoned") {
 		return value;
 	}
 	return "Planned";
@@ -164,12 +171,52 @@ const mapIdeaOption = (value: unknown): LinkedIdeaOption | null => {
 	};
 };
 
-export const getTasks = query("unchecked", async (projectId: string): Promise<TaskRow[]> => {
-	const payload = await remoteQueryRequest<{ items?: TaskRow[] }>({
-		path: `/projects/${encodePathSegment(projectId)}/tasks`,
-		method: "GET"
+const buildTasksPath = (input: TaskListInput): string => {
+	const search = new URLSearchParams();
+	if (input.status) {
+		search.set("status", input.status);
+	}
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	if (cursor) {
+		search.set("cursor", cursor);
+	}
+	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set("limit", String(Math.trunc(input.limit)));
+	}
+	const query = search.toString();
+	const basePath = `/projects/${encodePathSegment(input.projectId)}/tasks`;
+	return query ? `${basePath}?${query}` : basePath;
+};
+
+export const getTasks = query("unchecked", async (input: TaskListInput): Promise<TaskListResult> => {
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const limit =
+		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+			? Math.trunc(input.limit)
+			: 20;
+	const payload = await remoteQueryRequest<{ items?: TaskRow[]; next_cursor?: string | null }>({
+		path: buildTasksPath(input),
+		method: "GET",
+		cachePolicy: {
+			namespace: "tasks-list",
+			ttlMs: 20_000,
+			keyParts: {
+				project_id: input.projectId,
+				status: input.status ?? null,
+				cursor: cursor || null,
+				limit,
+				sort: "last_updated_desc"
+			},
+			tags: ["tasks-list", `project:${input.projectId}`]
+		}
 	});
-	return Array.isArray(payload.items) ? payload.items : [];
+	return {
+		items: Array.isArray(payload.items) ? payload.items : [],
+		nextCursor:
+			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+				? payload.next_cursor
+				: null
+	};
 });
 
 export const getTaskPageData = query("unchecked", async (input: TaskPageInput) => {
@@ -187,13 +234,21 @@ export const getTaskPageData = query("unchecked", async (input: TaskPageInput) =
 			ideaOptions?: unknown[];
 		};
 	}>({
-		path: `/projects/${encodePathSegment(input.projectId)}/tasks/${encodePathSegment(input.slug)}`,
+		path: `/projects/${encodePathSegment(input.projectId)}/tasks/${encodePathSegment(input.taskId)}`,
 		method: "GET"
 	});
 
 	const task = asRecord(payload.task);
 	const detail = asRecord(payload.detail);
 	const reference = asRecord(payload.reference);
+	const legacyAssignedToId = asString(detail.assignedToId);
+	const assignedToIds = asStringArray(detail.assignedToIds);
+	const normalizedAssignedToIds =
+		assignedToIds.length > 0
+			? assignedToIds
+			: legacyAssignedToId
+				? [legacyAssignedToId]
+				: [];
 
 	return {
 		assigneeOptions: (Array.isArray(reference.assigneeOptions) ? reference.assigneeOptions : [])
@@ -205,7 +260,8 @@ export const getTaskPageData = query("unchecked", async (input: TaskPageInput) =
 		task: {
 			title: asString(task.title) || asString(detail.title),
 			status: normalizeTaskStatus(asString(task.status)),
-			assignedToId: asString(detail.assignedToId),
+			assignedToIds: normalizedAssignedToIds,
+			assignedToId: legacyAssignedToId || normalizedAssignedToIds[0] || "",
 			selectedIdeaId: asString(detail.selectedIdeaId),
 			deadline: asString(detail.deadline) || asString(task.deadline),
 			hypothesis: asString(detail.hypothesis),
@@ -251,7 +307,7 @@ export const updateTaskStatus = command(
 
 		return remoteMutationRequest<TaskRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks/${encodePathSegment(parsed.data.taskId)}/status`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				status: parsed.data.status
 			}
@@ -269,7 +325,7 @@ export const updateTask = command(
 
 		return remoteMutationRequest<TaskRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks/${encodePathSegment(parsed.data.taskId)}`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				state: parsed.data.state
 			}

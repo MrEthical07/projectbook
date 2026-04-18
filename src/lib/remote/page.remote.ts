@@ -26,7 +26,19 @@ const renamePageSchema = z.object({
 
 type PageEditorInput = {
 	projectId: string;
-	slug: string;
+	pageId: string;
+};
+
+type PageListInput = {
+	projectId: string;
+	status?: "Draft" | "Archived";
+	cursor?: string;
+	limit?: number;
+};
+
+type PageListResult = {
+	items: PageRow[];
+	nextCursor: string | null;
 };
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -66,12 +78,52 @@ const defaultLinkedArtifactOptions = [
 	"Resource - Sample Resource"
 ];
 
-export const getPages = query("unchecked", async (projectId: string): Promise<PageRow[]> => {
-	const payload = await remoteQueryRequest<PageRow[]>({
-		path: `/projects/${encodePathSegment(projectId)}/pages`,
-		method: "GET"
+const buildPagesPath = (input: PageListInput): string => {
+	const search = new URLSearchParams();
+	if (input.status) {
+		search.set("status", input.status);
+	}
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	if (cursor) {
+		search.set("cursor", cursor);
+	}
+	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set("limit", String(Math.trunc(input.limit)));
+	}
+	const query = search.toString();
+	const basePath = `/projects/${encodePathSegment(input.projectId)}/pages`;
+	return query ? `${basePath}?${query}` : basePath;
+};
+
+export const getPages = query("unchecked", async (input: PageListInput): Promise<PageListResult> => {
+	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const limit =
+		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
+			? Math.trunc(input.limit)
+			: 20;
+	const payload = await remoteQueryRequest<{ items?: PageRow[]; next_cursor?: string | null }>({
+		path: buildPagesPath(input),
+		method: "GET",
+		cachePolicy: {
+			namespace: "pages-list",
+			ttlMs: 20_000,
+			keyParts: {
+				project_id: input.projectId,
+				status: input.status ?? null,
+				cursor: cursor || null,
+				limit,
+				sort: "last_edited_desc"
+			},
+			tags: ["pages-list", `project:${input.projectId}`]
+		}
 	});
-	return Array.isArray(payload) ? payload : [];
+	return {
+		items: Array.isArray(payload.items) ? payload.items : [],
+		nextCursor:
+			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+				? payload.next_cursor
+				: null
+	};
 });
 
 export const getPageEditorData = query("unchecked", async (input: PageEditorInput) => {
@@ -89,7 +141,7 @@ export const getPageEditorData = query("unchecked", async (input: PageEditorInpu
 			linkedArtifactOptions?: unknown[];
 		};
 	}>({
-		path: `/projects/${encodePathSegment(input.projectId)}/pages/${encodePathSegment(input.slug)}`,
+		path: `/projects/${encodePathSegment(input.projectId)}/pages/${encodePathSegment(input.pageId)}`,
 		method: "GET"
 	});
 
@@ -160,7 +212,7 @@ export const updatePageEditor = command(
 
 		return remoteMutationRequest<PageRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/pages/${encodePathSegment(parsed.data.pageId)}`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				state: parsed.data.state
 			}
@@ -178,7 +230,7 @@ export const renamePage = command(
 
 		return remoteMutationRequest<{ id: string; title: string; lastEdited: string }>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/pages/${encodePathSegment(parsed.data.pageId)}/rename`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				title: parsed.data.title
 			}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { invalidateAll } from "$app/navigation";
+	import { invalidate } from "$app/navigation";
 	import * as Avatar from "$lib/components/ui/avatar";
 	import * as Badge from "$lib/components/ui/badge";
 	import { Button, buttonVariants } from "$lib/components/ui/button";
@@ -221,7 +221,7 @@
 		}
 		actionError = "";
 		archiveOpen = false;
-		await invalidateAll();
+		await invalidate((url) => url.pathname === page.url.pathname);
 	};
 
 	const deleteProject = async () => {
@@ -240,7 +240,7 @@
 		}
 		actionError = "";
 		deleteOpen = false;
-		await invalidateAll();
+		await invalidate((url) => url.pathname === page.url.pathname);
 	};
 
 </script>

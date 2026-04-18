@@ -12,6 +12,12 @@ type CalendarEventInput = {
 	eventId: string;
 };
 
+type CalendarListInput = {
+	projectId: string;
+	cursor?: string;
+	limit?: number;
+};
+
 type CalendarEventDetail = {
 	id: string;
 	title: string;
@@ -212,25 +218,56 @@ const normalizeUpdateState = (value: unknown): Record<string, unknown> => {
 	return state;
 };
 
-export const getCalendarData = query("unchecked", async (projectId: string) => {
+const appendPaginationQuery = (path: string, limit?: number, cursor?: string): string => {
+	const params = new URLSearchParams();
+	if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
+		params.set("limit", String(Math.trunc(limit)));
+	}
+	if (typeof cursor === "string" && cursor.trim().length > 0) {
+		params.set("cursor", cursor.trim());
+	}
+	const queryString = params.toString();
+	return queryString.length > 0 ? `${path}?${queryString}` : path;
+};
+
+export const getCalendarData = query("unchecked", async (input: CalendarListInput) => {
 	const payload = await remoteQueryRequest<{
-		events?: unknown[];
+		items?: unknown[];
+		next_cursor?: string | null;
 		reference?: {
 			phaseChoices?: unknown[];
 			manualKinds?: unknown[];
 			linkedArtifactOptions?: unknown[];
 		};
 	}>({
-		path: `/projects/${encodePathSegment(projectId)}/calendar`,
-		method: "GET"
+		path: appendPaginationQuery(
+			`/projects/${encodePathSegment(input.projectId)}/calendar`,
+			input.limit,
+			input.cursor
+		),
+		method: "GET",
+		cachePolicy: {
+			namespace: "project-calendar",
+			ttlMs: 15_000,
+			keyParts: {
+				project_id: input.projectId,
+				cursor: typeof input.cursor === "string" ? input.cursor : undefined,
+				limit: typeof input.limit === "number" ? Math.trunc(input.limit) : undefined
+			},
+			tags: [`project:${input.projectId}`, "project-calendar"]
+		}
 	});
 
 	const reference = asRecord(payload.reference);
 
 	return {
-		events: asArray(payload.events)
+		events: asArray(payload.items)
 			.map(mapListEvent)
 			.filter((item): item is CalendarEvent => item !== null),
+		nextCursor:
+			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+				? payload.next_cursor
+				: null,
 		reference: {
 			phaseChoices: mapPhaseChoices(reference.phaseChoices),
 			manualKinds: asStringArray(reference.manualKinds),
@@ -339,7 +376,7 @@ export const updateCalendarEvent = command(
 		const state = normalizeUpdateState(parsed.data.state);
 		return remoteMutationRequest<{ id: string; title: string; lastEdited: string }>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/calendar/${encodePathSegment(parsed.data.eventId)}`,
-			method: "PUT",
+			method: "PATCH",
 			body: {
 				state
 			}

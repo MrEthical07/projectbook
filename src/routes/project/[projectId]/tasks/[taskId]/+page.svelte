@@ -33,13 +33,14 @@
 		return value;
 	};
 	let projectId = $derived(page.params.projectId);
-	let taskId = $derived(page.params.slug);
+	const routeParams = page.params as Record<string, string | undefined>;
+	let taskId = $derived(routeParams.taskId ?? "");
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canChangeTaskStatus = can(permissions, "task", "statusChange");
 	const canEditTask = can(permissions, "task", "edit");
 
-	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned" | "Blocked";
+	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
 	type OptionalModuleKey = "plan" | "execution";
 
 	type LinkedProblem = {
@@ -75,7 +76,7 @@
 		role: string;
 	};
 
-	const statusOptions: TaskStatus[] = ["Planned", "In Progress", "Blocked", "Completed", "Abandoned"];
+	const statusOptions: TaskStatus[] = ["Planned", "In Progress", "Completed", "Abandoned"];
 
 	let assigneeOptions = $state<AssigneeOption[]>([]);
 	let ideaOptions = $state<LinkedIdea[]>([]);
@@ -96,23 +97,30 @@
 
 	let status = $state<TaskStatus>("Planned");
 	let title = $state("");
-	let assignedToId = $state("");
+	let assignedToIds = $state<string[]>([]);
 	let deadlineDate = $state<CalendarDate | undefined>(undefined);
 	let hypothesis = $state("");
 	let addSectionOpen = $state(false);
 	let statusDialogOpen = $state(false);
+	let statusMutationPending = $state(false);
 	let metadataOpen = $state(false);
 	let selectedIdeaId = $state("");
 
 	let selectedIdea = $derived(
 		ideaOptions.find((idea) => idea.id === selectedIdeaId) ?? null
 	);
-	let selectedAssignee = $derived(
-		assigneeOptions.find((assignee) => assignee.id === assignedToId) ?? null
+	let selectedAssignees = $derived(
+		assigneeOptions.filter((assignee) => assignedToIds.includes(assignee.id))
 	);
-	let assigneeLabel = $derived(
-		selectedAssignee ? `${selectedAssignee.name} - ${selectedAssignee.role}` : "Unassigned"
-	);
+	let assigneeLabel = $derived.by(() => {
+		if (selectedAssignees.length === 0) {
+			return "Unassigned";
+		}
+		if (selectedAssignees.length === 1) {
+			return `${selectedAssignees[0].name} - ${selectedAssignees[0].role}`;
+		}
+		return `${selectedAssignees.length} assignees selected`;
+	});
 	const deadlineFormatter = new DateFormatter("en-US", { dateStyle: "medium" });
 	let deadlineLabel = $derived(
 		deadlineDate
@@ -140,7 +148,7 @@
 		JSON.stringify({
 			title,
 			status,
-			assignedToId,
+			assignedToIds,
 			selectedIdeaId,
 			deadline: normalizedDeadline(deadlineDate),
 			hypothesis,
@@ -242,22 +250,28 @@
 
 	const changeStatus = async (nextStatus: TaskStatus) => {
 		if (!permissions || !canChangeTaskStatus) return;
+		if (statusMutationPending) return;
 		if (nextStatus === status) return;
-		const result = await updateTaskStatusRemote({
-			input: {
-				projectId,
-				taskId,
-				status: nextStatus
-			}
+		statusMutationPending = true;
+		try {
+			const result = await updateTaskStatusRemote({
+				input: {
+					projectId,
+					taskId,
+					status: nextStatus
+				}
 });
-		if (!result.success) {
-			toast.error("error" in result ? result.error : "Status change failed.");
-			return;
+			if (!result.success) {
+				toast.error("error" in result ? result.error : "Status change failed.");
+				return;
+			}
+			status = nextStatus;
+			savedSignature = currentSignature;
+			statusDialogOpen = false;
+			toast.success("Status changed");
+		} finally {
+			statusMutationPending = false;
 		}
-		status = nextStatus;
-		savedSignature = currentSignature;
-		statusDialogOpen = false;
-		toast.success("Status changed");
 	};
 
 	const triggerSave = async () => {
@@ -278,7 +292,8 @@
 				state: {
 					title,
 					status,
-					assignedToId,
+					assignedToIds,
+					assignedToId: assignedToIds[0] ?? "",
 					selectedIdeaId,
 					deadline: normalizedDeadline(deadlineDate),
 					hypothesis,
@@ -316,7 +331,14 @@
 
 			status = required(task.status as TaskStatus | undefined, "task.status");
 			title = required(task.title as string | undefined, "task.title");
-			assignedToId = "assignedToId" in task ? String(task.assignedToId) : "";
+			if (Array.isArray(task.assignedToIds)) {
+				assignedToIds = (structuredClone(task.assignedToIds) as unknown[])
+					.map((item) => String(item).trim())
+					.filter((item, index, list) => item.length > 0 && list.indexOf(item) === index);
+			} else {
+				const legacyAssignedToId = "assignedToId" in task ? String(task.assignedToId).trim() : "";
+				assignedToIds = legacyAssignedToId ? [legacyAssignedToId] : [];
+			}
 			deadlineDate = (() => {
 				const raw = String(required(task.deadline as string | undefined, "task.deadline")).trim();
 				if (!raw) return undefined;
@@ -343,6 +365,7 @@
 
 			addSectionOpen = false;
 			statusDialogOpen = false;
+			statusMutationPending = false;
 			metadataOpen = false;
 			planDragIndex = null;
 			savePhase = "idle";
@@ -350,7 +373,7 @@
 			savedSignature = JSON.stringify({
 				title,
 				status,
-				assignedToId,
+				assignedToIds,
 				selectedIdeaId,
 				deadline: normalizedDeadline(deadlineDate),
 				hypothesis,
@@ -385,7 +408,7 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-{#key page.params.slug}
+{#key taskId}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -433,8 +456,8 @@
 							</div>
 						{:else}
 						<Select.Root
-							type="single"
-							bind:value={assignedToId}
+							type="multiple"
+							bind:value={assignedToIds}
 							disabled={isReadOnly(status)}
 						>
 							<Select.Trigger class="w-full" id="assigned-to">
@@ -448,6 +471,27 @@
 								{/each}
 							</Select.Content>
 						</Select.Root>
+							{#if selectedAssignees.length > 0}
+								<div class="flex flex-wrap items-center gap-2">
+									{#each selectedAssignees as assignee (assignee.id)}
+										<div class="inline-flex items-center gap-2 rounded-md border border-border px-2 py-1 text-xs">
+											<span>{assignee.name}</span>
+											<Button
+												variant="ghost"
+												size="sm"
+												class="h-5 w-5 p-0"
+												onclick={() => {
+													assignedToIds = assignedToIds.filter((id) => id !== assignee.id);
+												}}
+												disabled={isReadOnly(status)}
+												aria-label={`Remove ${assignee.name}`}
+											>
+												<X class="h-3.5 w-3.5" />
+											</Button>
+										</div>
+									{/each}
+								</div>
+							{/if}
 						{/if}
 					</div>
 					<div class="flex flex-col gap-2 min-w-55">
@@ -815,7 +859,7 @@
 					<Dialog.Root bind:open={statusDialogOpen}>
 						<Dialog.Trigger
 							class={buttonVariants({ variant: "outline" })}
-							disabled={isReadOnly(status) || !canChangeTaskStatus}
+							disabled={isReadOnly(status) || !canChangeTaskStatus || statusMutationPending}
 						>
 							Change Status
 						</Dialog.Trigger>
@@ -829,10 +873,10 @@
 										class={buttonVariants({
 											variant: status === option ? "default" : "outline",
 										})}
-										disabled={!canChangeTaskStatus}
+										disabled={!canChangeTaskStatus || statusMutationPending}
 										onclick={() => changeStatus(option)}
 									>
-										{option}
+										{statusMutationPending ? "Updating..." : option}
 									</Button>
 								{/each}
 							</div>

@@ -61,7 +61,7 @@
 			</div>
 			<Card.Title>Verify your email with OTP</Card.Title>
 			<Card.Description>
-				Enter the 6-digit OTP from your inbox, or request a new code.
+				Use this page for both verification-link and OTP flows.
 			</Card.Description>
 		</Card.Header>
 
@@ -93,9 +93,14 @@
 					{/if}
 				</div>
 
-				{#if !verificationContextAvailable}
+				{#if verificationContextAvailable}
+					<div class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+						Verification context is ready. Enter the 6-digit OTP from your inbox and submit.
+					</div>
+				{:else}
 					<div class="rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground">
-						Use the verification link from your email first, or request a new OTP below.
+						This page supports OTP verification directly. Request a new OTP below to activate code
+						verification on this screen.
 					</div>
 				{/if}
 

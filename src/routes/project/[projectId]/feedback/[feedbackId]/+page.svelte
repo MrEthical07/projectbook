@@ -40,7 +40,8 @@
 		return value;
 	};
 	let projectId = $derived(page.params.projectId);
-	let feedbackId = $derived(page.params.slug);
+	const routeParams = page.params as Record<string, string | undefined>;
+	let feedbackId = $derived(routeParams.feedbackId ?? "");
 	const access = getContext<ProjectAccess | undefined>("access");
 	const permissions = access?.permissions;
 	const canEditFeedback = can(permissions, "feedback", "edit");
@@ -61,6 +62,7 @@
 	let statusDialogOpen = $state(false);
 	let statusConfirmOpen = $state(false);
 	let pendingOutcome = $state<OutcomeStatus | null>(null);
+	let statusMutationPending = $state(false);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
 	let metadataOpen = $state(false);
@@ -207,20 +209,29 @@
 	};
 
 	const confirmOutcomeChange = async () => {
-		if (!pendingOutcome) {
+		if (!pendingOutcome || statusMutationPending) {
 			return;
 		}
 
-		outcome = pendingOutcome;
+		const previousOutcome = outcome;
+		const nextOutcome = pendingOutcome;
+		statusMutationPending = true;
+		outcome = nextOutcome;
+		const saved = await triggerSave();
+		if (!saved) {
+			outcome = previousOutcome;
+			statusMutationPending = false;
+			return;
+		}
 		pendingOutcome = null;
 		statusConfirmOpen = false;
-		await triggerSave();
+		statusMutationPending = false;
 	};
 
 	const triggerSave = async () => {
-		if (!permissions || !canEditFeedback) return;
+		if (!permissions || !canEditFeedback) return false;
 		if (savePhase === "saving" || !isDirty) {
-			return;
+			return false;
 		}
 
 		if (saveTimer) {
@@ -239,6 +250,7 @@
 				state: {
 					title,
 					outcome,
+					status: isArchived ? "Archived" : "Active",
 					isArchived,
 					observation,
 					interpretation,
@@ -254,7 +266,7 @@
 		if (!result.success) {
 			savePhase = "idle";
 			toast.error("Failed to save changes");
-			return;
+			return false;
 		}
 		savedSignature = currentSignature;
 		savePhase = "saved";
@@ -264,6 +276,7 @@
 				savePhase = "idle";
 			}
 		}, 1400);
+		return true;
 	};
 
 	onDestroy(() => {
@@ -309,6 +322,7 @@
 			savePhase = "idle";
 			pendingOutcome = null;
 			statusConfirmOpen = false;
+			statusMutationPending = false;
 
 			savedSignature = JSON.stringify({
 				title,
@@ -338,7 +352,7 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-{#key page.params.slug}
+{#key feedbackId}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -853,11 +867,11 @@
 			New outcome: {pendingOutcome ?? "None"}
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+			<Dialog.Close class={buttonVariants({ variant: "outline" })} disabled={statusMutationPending}>
 				Cancel
 			</Dialog.Close>
-			<Button onclick={confirmOutcomeChange}>
-				Confirm outcome
+			<Button onclick={confirmOutcomeChange} disabled={statusMutationPending}>
+				{statusMutationPending ? "Saving..." : "Confirm outcome"}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

@@ -4,10 +4,12 @@ import {
 	ACCESS_TOKEN_FALLBACK_TTL_MS,
 	AUTH_ACCESS_TOKEN_COOKIE,
 	AUTH_NOTICE_COOKIE,
+	AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE,
 	AUTH_PERMISSION_CONTEXT_COOKIE,
 	AUTH_REFRESH_TOKEN_COOKIE,
 	AUTH_SESSION_COOKIE,
 	DEFAULT_SESSION_TTL_MS,
+	PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_MS,
 	PERMISSION_CONTEXT_TTL_MS,
 	REMEMBER_SESSION_TTL_MS
 } from "./constants";
@@ -89,6 +91,24 @@ export const clearPermissionContextCookie = (cookies: Cookies): void => {
 	cookies.delete(AUTH_PERMISSION_CONTEXT_COOKIE, { path: "/" });
 };
 
+export const setPermissionContextRevalidateCooldownCookie = (
+	cookies: Cookies,
+	cooldownMs = PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_MS
+): void => {
+	const maxAge = Math.max(1, Math.ceil(cooldownMs / 1000));
+	cookies.set(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE, "1", {
+		...baseCookieOptions,
+		maxAge
+	});
+};
+
+export const hasPermissionContextRevalidateCooldownCookie = (cookies: Cookies): boolean =>
+	cookies.get(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE) === "1";
+
+export const clearPermissionContextRevalidateCooldownCookie = (cookies: Cookies): void => {
+	cookies.delete(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE, { path: "/" });
+};
+
 export const setApiAuthTokenCookies = (
 	cookies: Cookies,
 	tokens: {
@@ -96,9 +116,14 @@ export const setApiAuthTokenCookies = (
 		refreshToken: string;
 		accessExpiresAt?: string | Date | null;
 	},
-	remember = false
+	remember = false,
+	options?: {
+		clearPermissionContext?: boolean;
+	}
 ): void => {
-	clearPermissionContextCookie(cookies);
+	if (options?.clearPermissionContext === true) {
+		clearPermissionContextCookie(cookies);
+	}
 	setAccessTokenCookie(cookies, tokens.accessToken, tokens.accessExpiresAt);
 	setRefreshTokenCookie(cookies, tokens.refreshToken, remember);
 };
@@ -107,6 +132,7 @@ export const clearApiAuthTokenCookies = (cookies: Cookies): void => {
 	clearAccessTokenCookie(cookies);
 	clearRefreshTokenCookie(cookies);
 	clearPermissionContextCookie(cookies);
+	clearPermissionContextRevalidateCooldownCookie(cookies);
 };
 
 export const setSessionCookie = (

@@ -10,6 +10,7 @@
     import { ChevronDown, ChevronRight, Info, Plus, Trash2, X } from "@lucide/svelte"
 	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+    import { invalidate } from "$app/navigation";
 	import { page } from "$app/state";
 	import { updateStory } from "$lib/remote/story.remote";
 	import { can } from "$lib/utils/permission";
@@ -45,7 +46,8 @@
 
     let { data } = $props();
     let projectId = $derived(page.params.projectId);
-    let storyId = $derived(page.params.slug);
+    const routeParams = page.params as Record<string, string | undefined>;
+    let storyId = $derived(routeParams.storyId ?? "");
     const access = getContext<ProjectAccess | undefined>("access");
     const permissions = access?.permissions;
     const canEditStory = can(permissions, "story", "edit");
@@ -99,6 +101,7 @@
     let saveBadgeTimer: ReturnType<typeof setTimeout> | null = null;
     let statusConfirmOpen = $state(false);
     let pendingStatus = $state<StoryStatus | null>(null);
+    let statusMutationPending = $state(false);
     let savedSignature = $state("");
     let saveReady = $state(false);
     let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -263,41 +266,60 @@
         return "default";
     };
 
+    const canSelectStatusOption = (nextStatus: StoryStatus): boolean => {
+        if (story.status === "locked") {
+            return nextStatus === "archived";
+        }
+        if (story.status === "archived") {
+            return nextStatus === "draft";
+        }
+        return true;
+    };
+
     const requestStatusChange = (nextStatus: StoryStatus) => {
+        if (!canSelectStatusOption(nextStatus)) return;
         if (nextStatus === story.status) return;
         pendingStatus = nextStatus;
         statusConfirmOpen = true;
     };
 
     const confirmStatusChange = async () => {
-        if (!pendingStatus || !permissions || !canChangeStoryStatus) return;
-        const result = await updateStory({
-            input: {
-                projectId,
-                storyId,
-                story: {
-                    ...story,
-                    status: pendingStatus,
-                    addOnSections
+        if (!pendingStatus || !permissions || !canChangeStoryStatus || statusMutationPending) return;
+        const targetStatus = pendingStatus;
+        statusMutationPending = true;
+        try {
+            const result = await updateStory({
+                input: {
+                    projectId,
+                    storyId,
+                    story: {
+                        status: targetStatus,
+                    }
                 }
+    });
+            if (!result.success) {
+                toast.error("error" in result ? result.error : "Status update failed.");
+                return;
             }
-});
-        if (!result.success) return;
-        story.status = pendingStatus;
-        savedSignature = JSON.stringify({
-            title: story.title,
-            description: story.description,
-            persona: story.persona,
-            context: story.context,
-            empathyMap: story.empathyMap,
-            painPoints: story.painPoints,
-            hypothesis: story.hypothesis,
-            notes: story.notes,
-            addOnSections
-        });
-        pendingStatus = null;
-        statusConfirmOpen = false;
-        toast.success("Status updated");
+            story.status = targetStatus;
+            await invalidate((url) => url.pathname === page.url.pathname);
+            savedSignature = JSON.stringify({
+                title: story.title,
+                description: story.description,
+                persona: story.persona,
+                context: story.context,
+                empathyMap: story.empathyMap,
+                painPoints: story.painPoints,
+                hypothesis: story.hypothesis,
+                notes: story.notes,
+                addOnSections
+            });
+            pendingStatus = null;
+            statusConfirmOpen = false;
+            toast.success("Status updated");
+        } finally {
+            statusMutationPending = false;
+        }
     };
 
     onDestroy(() => {
@@ -330,6 +352,7 @@
             savePhase = "idle";
             pendingStatus = null;
             statusConfirmOpen = false;
+            statusMutationPending = false;
             newPoint = "";
             newHypothesis = "";
             savedSignature = JSON.stringify({
@@ -359,7 +382,7 @@
     <meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-{#key page.params.slug}
+{#key storyId}
 <div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
     <header
 			class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
@@ -1203,7 +1226,7 @@
                     <Button
                         variant={story.status === option ? "default" : "outline"}
                         onclick={() => requestStatusChange(option)}
-                        disabled={story.status === option}
+                        disabled={story.status === option || statusMutationPending || !canSelectStatusOption(option)}
                     >
                         {option.charAt(0).toUpperCase() + option.slice(1)}
                     </Button>
@@ -1211,15 +1234,15 @@
             </div>
         {/if}
         <Dialog.Footer>
-            <Dialog.Close class={buttonVariants({ variant: "outline" })}>
+            <Dialog.Close class={buttonVariants({ variant: "outline" })} disabled={statusMutationPending}>
                 Cancel
             </Dialog.Close>
             {#if pendingStatus}
                 <Button
-                    disabled={!canChangeStoryStatus}
+                    disabled={!canChangeStoryStatus || statusMutationPending}
                     onclick={confirmStatusChange}
                 >
-                    Confirm
+                    {statusMutationPending ? "Saving..." : "Confirm"}
                 </Button>
             {/if}
         </Dialog.Footer>

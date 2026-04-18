@@ -9,7 +9,13 @@ export const getProjectAccess = query("unchecked", async (projectId: string): Pr
 		permissions: EffectivePermissions;
 	}>({
 		path: `/projects/${encodePathSegment(projectId)}/access`,
-		method: "GET"
+		method: "GET",
+		cachePolicy: {
+			namespace: "project-access",
+			ttlMs: 30_000,
+			keyParts: { project_id: projectId },
+			tags: [`project:${projectId}`, "project-access"]
+		}
 	});
 
 	return {

@@ -1,12 +1,16 @@
 import type { RequestEvent } from "@sveltejs/kit";
+import { z } from "zod";
 import {
+	clearPermissionContextCookie,
 	clearApiAuthTokenCookies,
 	getAccessTokenCookie,
+	hasPermissionContextRevalidateCooldownCookie,
 	getRefreshTokenCookie,
+	setPermissionContextRevalidateCooldownCookie,
 	setApiAuthTokenCookies
 } from "$lib/server/auth/cookies";
 import { buildApiUrl, resolveBackendApiBaseUrl } from "./config";
-import { createApiRequestError } from "./error-mapping";
+import { createApiRequestError, isApiRequestError } from "./error-mapping";
 
 const SENSITIVE_HINTS = [
 	"password",
@@ -90,7 +94,8 @@ const logApiResponse = <TData>(
 	url: string,
 	options: ApiRequestOptions,
 	response: Response,
-	envelope: ApiEnvelope<TData> | null
+	envelope: ApiEnvelope<TData> | null,
+	durationMs: number
 ): void => {
 	console.info("[api:response]", {
 		method: resolvedMethod(options),
@@ -98,6 +103,8 @@ const logApiResponse = <TData>(
 		url,
 		status: response.status,
 		ok: response.ok,
+		response_time_ms: durationMs,
+		request_id: envelope?.request_id,
 		envelope: redactForLog(envelope)
 	});
 };
@@ -120,15 +127,148 @@ const logApiError = (
 	});
 };
 
-type ApiEnvelope<T> = {
-	success?: boolean;
+const apiIssueSchema = z
+	.object({
+		path: z.string().optional(),
+		code: z.string().optional(),
+		message: z.string().optional(),
+		received: z.unknown().optional(),
+		expected: z.unknown().optional()
+	})
+	.passthrough();
+
+const apiErrorSchema = z
+	.object({
+		code: z.string().min(1),
+		message: z.string().min(1),
+		details: z.unknown().optional(),
+		retryable: z.boolean().optional(),
+		timestamp: z.string().optional(),
+		issues: z.array(apiIssueSchema).optional()
+	})
+	.passthrough();
+
+const apiEnvelopeSchema = z
+	.object({
+		success: z.boolean(),
+		data: z.unknown().optional(),
+		error: apiErrorSchema.optional(),
+		meta: z.unknown().optional(),
+		request_id: z.string().optional()
+	})
+	.strict();
+
+type ParsedApiEnvelope = z.infer<typeof apiEnvelopeSchema>;
+type ApiEnvelope<T> = Omit<ParsedApiEnvelope, "data"> & {
 	data?: T;
-	error?: unknown;
-	request_id?: string;
-	requestId?: string;
 };
 
-const PROACTIVE_REFRESH_WINDOW_SECONDS = 45;
+const parseApiEnvelope = <TData>(
+	payload: unknown,
+	statusCode: number,
+	options: ApiRequestOptions
+): ApiEnvelope<TData> => {
+	if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "API response violated envelope contract.",
+			details: {
+				path: options.path,
+				status_code: statusCode,
+				reason: "envelope must be a JSON object"
+			}
+		});
+	}
+
+	const candidate = payload as Record<string, unknown>;
+	if (Object.prototype.hasOwnProperty.call(candidate, "requestId")) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "API response violated envelope contract.",
+			details: {
+				path: options.path,
+				status_code: statusCode,
+				reason: "legacy requestId field is not allowed"
+			}
+		});
+	}
+
+	const parsed = apiEnvelopeSchema.safeParse(payload);
+	if (!parsed.success) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "API response violated envelope contract.",
+			details: {
+				path: options.path,
+				status_code: statusCode,
+				issues: parsed.error.issues
+			}
+		});
+	}
+
+	const envelope = parsed.data;
+	if (envelope.success && envelope.error !== undefined) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "API response violated envelope contract.",
+			details: {
+				path: options.path,
+				status_code: statusCode,
+				reason: "success response cannot include error payload"
+			}
+		});
+	}
+	if (!envelope.success && envelope.error === undefined) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "API response violated envelope contract.",
+			details: {
+				path: options.path,
+				status_code: statusCode,
+				reason: "failed response must include error payload"
+			}
+		});
+	}
+	if (!envelope.success && envelope.data !== undefined) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "API response violated envelope contract.",
+			details: {
+				path: options.path,
+				status_code: statusCode,
+				reason: "failed response cannot include data payload"
+			}
+		});
+	}
+	if (statusCode < 400 && !envelope.success) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "API response violated envelope contract.",
+			details: {
+				path: options.path,
+				status_code: statusCode,
+				reason: "success HTTP status cannot return success=false"
+			}
+		});
+	}
+	if (statusCode >= 400 && envelope.success) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "API response violated envelope contract.",
+			details: {
+				path: options.path,
+				status_code: statusCode,
+				reason: "error HTTP status cannot return success=true"
+			}
+		});
+	}
+
+	return envelope as ApiEnvelope<TData>;
+};
+
+// Refresh only when already expired to minimize churn and rate-limit pressure.
+const PROACTIVE_REFRESH_WINDOW_SECONDS = 0;
+const REFRESH_PROMISE_LOCAL_KEY = "__projectbook_refresh_promise";
 
 export type ApiAuthTokenSet = {
 	accessToken: string;
@@ -144,6 +284,7 @@ export type ApiRequestOptions<TBody = unknown> = {
 	headers?: HeadersInit;
 	auth?: boolean;
 	retryOnUnauthorized?: boolean;
+	allowCookieWrites?: boolean;
 };
 
 const parseJsonSafe = async <T>(response: Response): Promise<T | null> => {
@@ -205,11 +346,41 @@ const isAccessTokenNearExpiry = (token: string): boolean => {
 		return false;
 	}
 	const nowUnix = Math.floor(Date.now() / 1000);
-	return expiryUnix-nowUnix <= PROACTIVE_REFRESH_WINDOW_SECONDS;
+	return expiryUnix - nowUnix <= PROACTIVE_REFRESH_WINDOW_SECONDS;
 };
 
 const shouldClearOnRefreshFailure = (statusCode: number): boolean =>
-	statusCode === 400 || statusCode === 401 || statusCode === 403;
+	statusCode === 401;
+
+const envelopeErrorCode = <TData>(envelope: ApiEnvelope<TData> | null): string => {
+	if (!envelope?.error || typeof envelope.error !== "object") {
+		return "";
+	}
+	const code = (envelope.error as { code?: unknown }).code;
+	return typeof code === "string" ? code.trim().toLowerCase() : "";
+};
+
+const shouldInvalidatePermissionContext = <TData>(
+	statusCode: number,
+	envelope: ApiEnvelope<TData> | null
+): boolean => {
+	if (statusCode !== 403) {
+		return false;
+	}
+	const code = envelopeErrorCode(envelope);
+	return code === "forbidden" || code === "permission_denied";
+};
+
+const readRefreshPromise = (event: RequestEvent): Promise<boolean> | null => {
+	const candidate = event.locals[REFRESH_PROMISE_LOCAL_KEY];
+	if (!candidate || typeof candidate !== "object") {
+		return null;
+	}
+	if (typeof (candidate as Promise<boolean>).then !== "function") {
+		return null;
+	}
+	return candidate as Promise<boolean>;
+};
 
 export const extractApiAuthTokens = (payload: unknown): ApiAuthTokenSet | null => {
 	if (!payload || typeof payload !== "object") {
@@ -218,48 +389,20 @@ export const extractApiAuthTokens = (payload: unknown): ApiAuthTokenSet | null =
 
 	const candidate = payload as Record<string, unknown>;
 	const accessToken =
-		typeof candidate.access_token === "string"
-			? candidate.access_token
-			: typeof candidate.accessToken === "string"
-				? candidate.accessToken
-				: null;
+		typeof candidate.access_token === "string" ? candidate.access_token : null;
 	const refreshToken =
-		typeof candidate.refresh_token === "string"
-			? candidate.refresh_token
-			: typeof candidate.refreshToken === "string"
-				? candidate.refreshToken
-				: null;
+		typeof candidate.refresh_token === "string" ? candidate.refresh_token : null;
+	const accessExpiresAt = parseDateFromUnix(candidate.access_expires_unix);
 
-	const accessExpiresAt =
-		typeof candidate.access_expires_utc === "string"
-			? candidate.access_expires_utc
-			: typeof candidate.accessExpiresUTC === "string"
-				? candidate.accessExpiresUTC
-				: parseDateFromUnix(candidate.access_expires_unix) ??
-					parseDateFromUnix(candidate.accessExpiresUnix);
-
-	if (accessToken && refreshToken) {
-		return {
-			accessToken,
-			refreshToken,
-			accessExpiresAt
-		};
+	if (!accessToken || !refreshToken || !accessExpiresAt) {
+		return null;
 	}
 
-	// Compatibility fallback for legacy response shapes.
-	if (candidate.session && typeof candidate.session === "object") {
-		const session = candidate.session as Record<string, unknown>;
-		if (typeof session.token === "string") {
-			return {
-				accessToken: session.token,
-				refreshToken: session.token,
-				accessExpiresAt:
-					typeof session.expiresAt === "string" ? session.expiresAt : null
-			};
-		}
-	}
-
-	return null;
+	return {
+		accessToken,
+		refreshToken,
+		accessExpiresAt
+	};
 };
 
 const executeRequest = async <TData, TBody>(
@@ -270,8 +413,19 @@ const executeRequest = async <TData, TBody>(
 	const baseUrl = resolveBackendApiBaseUrl(event.url.origin);
 	const url = buildApiUrl(baseUrl, options.path);
 	const method = resolvedMethod(options);
+	if (method === "DELETE" && (options.body !== undefined || options.rawBody !== undefined)) {
+		throw createApiRequestError({
+			statusCode: 500,
+			fallbackReason: "DELETE requests must not include a body.",
+			details: {
+				path: options.path,
+				method
+			}
+		});
+	}
 	const headers = buildRequestHeaders(options, accessToken);
 	logApiRequest(url, options, headers, event.url.origin);
+	const startedAtUnixMs = Date.now();
 	let response: Response;
 	try {
 		response = await event.fetch(url, {
@@ -299,73 +453,106 @@ const executeRequest = async <TData, TBody>(
 			}
 		});
 	}
-	const envelope = await parseJsonSafe<ApiEnvelope<TData>>(response);
-	logApiResponse(url, options, response, envelope);
+	const rawEnvelope = await parseJsonSafe<unknown>(response);
+	const envelope =
+		rawEnvelope === null ? null : parseApiEnvelope<TData>(rawEnvelope, response.status, options);
+	logApiResponse(url, options, response, envelope, Date.now() - startedAtUnixMs);
 	return { response, envelope };
 };
 
-const refreshAccessToken = async (event: RequestEvent): Promise<boolean> => {
-	const refreshToken = getRefreshTokenCookie(event.cookies);
-	if (!refreshToken) {
-		clearApiAuthTokenCookies(event.cookies);
-		return false;
+const refreshAccessToken = async (
+	event: RequestEvent,
+	options?: {
+		allowCookieWrites?: boolean;
 	}
+): Promise<boolean> => {
+	const pendingRefresh = readRefreshPromise(event);
+	if (pendingRefresh) {
+		return pendingRefresh;
+	}
+	const canWriteCookies = options?.allowCookieWrites !== false;
 
-	let response: Response;
-	let envelope: ApiEnvelope<unknown> | null;
-	try {
-		const refreshResult = await executeRequest<unknown, { refresh_token: string }>(
-			event,
-			{
-				path: "/auth/refresh",
-				method: "POST",
-				auth: false,
-				retryOnUnauthorized: false,
-				body: {
-					refresh_token: refreshToken
-				}
+	const refreshPromise = (async (): Promise<boolean> => {
+		const refreshToken = getRefreshTokenCookie(event.cookies);
+		if (!refreshToken) {
+			if (canWriteCookies) {
+				clearApiAuthTokenCookies(event.cookies);
 			}
-		);
-		response = refreshResult.response;
-		envelope = refreshResult.envelope;
-	} catch (err) {
-		// Refresh transport failures are retryable; preserve existing cookies.
-		throw err;
-	}
-
-	if (!response.ok) {
-		if (shouldClearOnRefreshFailure(response.status)) {
-			clearApiAuthTokenCookies(event.cookies);
 			return false;
 		}
-		throw createApiRequestError({
-			statusCode: response.status,
-			envelope,
-			fallbackReason: "Unable to refresh session token."
-		});
-	}
 
-	if (!envelope || envelope.success !== true || envelope.data === undefined) {
-		throw createApiRequestError({
-			statusCode: 503,
-			fallbackReason: "Refresh response was incomplete."
-		});
-	}
+		let response: Response;
+		let envelope: ApiEnvelope<unknown> | null;
+		try {
+			const refreshResult = await executeRequest<unknown, { refresh_token: string }>(
+				event,
+				{
+					path: "/auth/refresh",
+					method: "POST",
+					auth: false,
+					retryOnUnauthorized: false,
+					body: {
+						refresh_token: refreshToken
+					}
+				}
+			);
+			response = refreshResult.response;
+			envelope = refreshResult.envelope;
+		} catch (err) {
+			// Refresh transport failures are retryable; preserve existing cookies.
+			throw err;
+		}
 
-	const nextTokens = extractApiAuthTokens(envelope.data);
-	if (!nextTokens) {
-		throw createApiRequestError({
-			statusCode: 503,
-			fallbackReason: "Refresh response did not include tokens."
-		});
-	}
+		if (!response.ok) {
+			if (shouldClearOnRefreshFailure(response.status)) {
+				if (canWriteCookies) {
+					clearApiAuthTokenCookies(event.cookies);
+				}
+				return false;
+			}
+			throw createApiRequestError({
+				statusCode: response.status,
+				envelope,
+				fallbackReason: "Unable to refresh session token."
+			});
+		}
 
-	setApiAuthTokenCookies(event.cookies, {
-		accessToken: nextTokens.accessToken,
-		refreshToken: nextTokens.refreshToken,
-		accessExpiresAt: nextTokens.accessExpiresAt
-	});
-	return true;
+		if (!envelope || envelope.success !== true || envelope.data === undefined) {
+			throw createApiRequestError({
+				statusCode: 503,
+				fallbackReason: "Refresh response was incomplete."
+			});
+		}
+
+		const nextTokens = extractApiAuthTokens(envelope.data);
+		if (!nextTokens) {
+			throw createApiRequestError({
+				statusCode: 503,
+				fallbackReason: "Refresh response did not include tokens."
+			});
+		}
+
+		if (canWriteCookies) {
+			setApiAuthTokenCookies(
+				event.cookies,
+				{
+					accessToken: nextTokens.accessToken,
+					refreshToken: nextTokens.refreshToken,
+					accessExpiresAt: nextTokens.accessExpiresAt
+				},
+				false,
+				{ clearPermissionContext: false }
+			);
+		}
+		return true;
+	})();
+
+	event.locals[REFRESH_PROMISE_LOCAL_KEY] = refreshPromise;
+	try {
+		return await refreshPromise;
+	} finally {
+		delete event.locals[REFRESH_PROMISE_LOCAL_KEY];
+	}
 };
 
 export const apiRequest = async <TData, TBody = unknown>(
@@ -376,16 +563,34 @@ export const apiRequest = async <TData, TBody = unknown>(
 	const url = buildApiUrl(baseUrl, options.path);
 
 	const requestOnce = async (canRetryWithRefresh: boolean): Promise<TData> => {
+		const allowCookieWrites = options.allowCookieWrites !== false;
 		let accessToken = options.auth === false ? null : getAccessTokenCookie(event.cookies);
 		if (
 			options.auth !== false &&
 			canRetryWithRefresh &&
+			allowCookieWrites &&
 			accessToken &&
 			isAccessTokenNearExpiry(accessToken)
 		) {
-			const refreshed = await refreshAccessToken(event);
-			if (refreshed) {
-				accessToken = getAccessTokenCookie(event.cookies);
+			try {
+				const refreshed = await refreshAccessToken(event, {
+					allowCookieWrites
+				});
+				if (refreshed) {
+					accessToken = getAccessTokenCookie(event.cookies);
+				}
+			} catch (err) {
+				if (
+					isApiRequestError(err) &&
+					(err.statusCode === 429 || err.statusCode === 503 || err.statusCode === 504)
+				) {
+					// Keep using the current access token and let reactive refresh handle true expiry.
+					logApiError(url, options, "proactive-refresh-skipped", err, {
+						statusCode: err.statusCode
+					});
+				} else {
+					throw err;
+				}
 			}
 		}
 		const { response, envelope } = await executeRequest<TData, TBody>(event, options, accessToken);
@@ -394,15 +599,27 @@ export const apiRequest = async <TData, TBody = unknown>(
 			response.status === 401 &&
 			options.auth !== false &&
 			options.retryOnUnauthorized !== false &&
-			canRetryWithRefresh
+			canRetryWithRefresh &&
+			allowCookieWrites
 		) {
-			const refreshed = await refreshAccessToken(event);
+			const refreshed = await refreshAccessToken(event, {
+				allowCookieWrites
+			});
 			if (refreshed) {
 				return requestOnce(false);
 			}
 		}
 
 		if (!response.ok) {
+			if (
+				options.auth !== false &&
+				allowCookieWrites &&
+				shouldInvalidatePermissionContext(response.status, envelope) &&
+				!hasPermissionContextRevalidateCooldownCookie(event.cookies)
+			) {
+				clearPermissionContextCookie(event.cookies);
+				setPermissionContextRevalidateCooldownCookie(event.cookies);
+			}
 			const apiError = createApiRequestError({
 				statusCode: response.status,
 				envelope,
@@ -448,5 +665,5 @@ export const apiRequest = async <TData, TBody = unknown>(
 		return envelope.data;
 	};
 
-	return requestOnce(true);
+	return requestOnce(options.allowCookieWrites !== false);
 };

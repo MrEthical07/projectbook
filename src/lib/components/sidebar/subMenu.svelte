@@ -13,6 +13,7 @@
 	import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 	import { PlusIcon, EllipsisIcon, Pen, Trash } from "@lucide/svelte";
+	import Folder from "@lucide/svelte/icons/folder";
 	import type { Component } from "svelte";
 	import { Button } from "../ui/button";
 	import { Input } from "../ui/input";
@@ -29,7 +30,7 @@
 
 	type SidebarSubItem = {
 		title: string;
-		slug: string;
+		id: string;
 	};
 
 	type DomainKey = "story" | "problem" | "idea" | "task" | "feedback" | "page";
@@ -187,7 +188,7 @@
 			input: {
 				projectId,
 				prefix: item.prefix as SidebarPrefix,
-				artifactId: targetItem.slug,
+				artifactId: targetItem.id,
 				actorId,
 				title
 			}
@@ -218,14 +219,14 @@
 			return;
 		}
 
-		const deletingSlug = targetItem.slug;
-		const wasViewingThisItem = path.endsWith(`${item.prefix}/${deletingSlug}`);
+		const deletingId = targetItem.id;
+		const wasViewingThisItem = path.endsWith(`${item.prefix}/${deletingId}`);
 		isMutating = true;
 		const result = (await deleteSidebarArtifact({
 			input: {
 				projectId,
 				prefix: item.prefix as SidebarPrefix,
-				artifactId: deletingSlug,
+				artifactId: deletingId,
 				actorId
 			}
 		})) as MutationResult<{ id: string }>;
@@ -252,7 +253,11 @@
 				<Collapsible.Trigger>
 					{#snippet child({ props })}
 						<Sidebar.MenuButton {...props} tooltipContent={item.title}>
-							{#if item.icon}<item.icon />{/if}
+								{#if item.icon}
+									<item.icon />
+								{:else}
+									<Folder />
+								{/if}
 							<span class="whitespace-nowrap truncate">{item.title}</span>
 							<ChevronRightIcon
 								size={16}
@@ -272,11 +277,11 @@
 								{/snippet}
 							</Sidebar.MenuSubButton>
 						</Sidebar.MenuSubItem>
-						{#each item.items as subItem (subItem.slug)}
+						{#each item.items as subItem (subItem.id)}
 							<Sidebar.MenuSubItem class="w-full mr-0 pr-0">
-								<Sidebar.MenuSubButton class={path.endsWith(item.prefix + "/" + subItem.slug) ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""}>
+								<Sidebar.MenuSubButton class={path.endsWith(item.prefix + "/" + subItem.id) ? " bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary" : ""}>
 									{#snippet child({ props })}
-										<a href="/project/{projectId}/{item.prefix}/{subItem.slug}" {...props}>
+										<a href="/project/{projectId}/{item.prefix}/{subItem.id}" {...props}>
 											<span class="pr-6">{subItem.title}</span>
 										</a>
 										{#if hasAnyRowAction}
