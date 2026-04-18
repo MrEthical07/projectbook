@@ -114,7 +114,7 @@ export const getPages = query("unchecked", async (input: PageListInput): Promise
 				limit,
 				sort: "last_edited_desc"
 			},
-			tags: ["pages-list", `project:${input.projectId}`]
+			tags: ["pages-list", `pages-list:${input.projectId}`]
 		}
 	});
 	return {

@@ -118,7 +118,7 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 |--------|------|----------------|
 | GET | /api/v1/projects/{projectId}/dashboard | `getProjectDashboard()` |
 | GET | /api/v1/projects/{projectId}/access | `getProjectAccess()` |
-| GET | /api/v1/projects/{projectId}/sidebar | `getProjectSidebarData()` |
+| GET | /api/v1/projects/{projectId}/navigation | `getProjectNavigationData()` |
 | GET | /api/v1/projects/{projectId}/settings | `getProjectSettings()` |
 | PUT | /api/v1/projects/{projectId}/settings | `updateProjectSettings()` |
 | POST | /api/v1/projects/{projectId}/archive | `archiveProject()` |
@@ -215,12 +215,8 @@ Both files will be placed in the project root (`d:\Files\League\ProjectBook\Web\
 | PUT | /api/v1/projects/{projectId}/calendar/{eventId} | `updateCalendarEvent()` |
 | DELETE | /api/v1/projects/{projectId}/calendar/{eventId} | `deleteCalendarEvent()` |
 
-### Sidebar Artifacts (3)
-| Method | Path | Source Function |
-|--------|------|----------------|
-| POST | /api/v1/projects/{projectId}/sidebar/artifacts | `createSidebarArtifact()` |
-| PUT | /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId}/rename | `renameSidebarArtifact()` |
-| DELETE | /api/v1/projects/{projectId}/sidebar/artifacts/{artifactId} | `deleteSidebarArtifact()` |
+### Sidebar Interactions
+No dedicated sidebar API endpoints are used by the current web flow. Sidebar create actions delegate to the existing artifact module endpoints (`/stories`, `/journeys`, `/problems`, `/ideas`, `/tasks`, `/feedback`, `/pages`).
 
 ### Activity (3)
 | Method | Path | Source Function |

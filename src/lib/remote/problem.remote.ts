@@ -215,7 +215,7 @@ export const getProblems = query("unchecked", async (input: ProblemListInput): P
 				limit,
 				sort: "last_updated_desc"
 			},
-			tags: ["problems-list", `project:${input.projectId}`]
+			tags: ["problems-list", `problems-list:${input.projectId}`]
 		}
 	});
 	return {

@@ -33,7 +33,7 @@ tags:
   - name: Home
     description: Cross-project home operations — dashboard, projects, invites, notifications, activity, account settings
   - name: Project
-    description: Project-scoped operations — dashboard, access, sidebar, settings, archive, delete
+    description: Project-scoped operations — dashboard, access, navigation, settings, archive, delete
   - name: Team
     description: Team membership, invitations, roles, and permission customization
   - name: Stories
@@ -54,8 +54,6 @@ tags:
     description: Pages — custom documents with rich text and database views
   - name: Calendar
     description: Calendar — project milestones, meetings, and deadlines
-  - name: Sidebar
-    description: Sidebar Artifacts — quick create, rename, and delete from navigation
   - name: Activity
     description: Activity — chronological action logs
 
@@ -254,10 +252,6 @@ components:
         - cpu
         - bookOpen
         - flag
-
-    SidebarPrefix:
-      type: string
-      enum: [stories, journeys, problem-statement, ideas, tasks, feedback, pages]
 
     # ── Permission Schemas ──────────────────────────────────────────────
 
@@ -482,8 +476,9 @@ components:
         status:
           $ref: '#/components/schemas/ProjectStatus'
 
-    ProjectSidebarItem:
+    ProjectNavigationItem:
       type: object
+      required: [id, name, icon]
       properties:
         id:
           type: string
@@ -491,48 +486,30 @@ components:
           type: string
         icon:
           $ref: '#/components/schemas/ProjectIconKey'
-        status:
-          $ref: '#/components/schemas/ProjectStatus'
 
-    SidebarArtifact:
+    CurrentProjectNavigation:
       type: object
+      required: [id, name, status, role]
       properties:
         id:
           type: string
-        title:
+        name:
           type: string
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+        role:
+          $ref: '#/components/schemas/ProjectRole'
 
-    SidebarArtifacts:
+    ProjectNavigationResponse:
       type: object
+      required: [current_project, project_list]
       properties:
-        stories:
+        current_project:
+          $ref: '#/components/schemas/CurrentProjectNavigation'
+        project_list:
           type: array
           items:
-            $ref: '#/components/schemas/SidebarArtifact'
-        journeys:
-          type: array
-          items:
-            $ref: '#/components/schemas/SidebarArtifact'
-        problems:
-          type: array
-          items:
-            $ref: '#/components/schemas/SidebarArtifact'
-        ideas:
-          type: array
-          items:
-            $ref: '#/components/schemas/SidebarArtifact'
-        tasks:
-          type: array
-          items:
-            $ref: '#/components/schemas/SidebarArtifact'
-        feedback:
-          type: array
-          items:
-            $ref: '#/components/schemas/SidebarArtifact'
-        pages:
-          type: array
-          items:
-            $ref: '#/components/schemas/SidebarArtifact'
+            $ref: '#/components/schemas/ProjectNavigationItem'
 
     ProjectSettings:
       type: object
@@ -2403,16 +2380,16 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /projects/{projectId}/sidebar:
+  /projects/{projectId}/navigation:
     get:
       tags: [Project]
-      summary: Get sidebar navigation data
-      operationId: getProjectSidebar
+      summary: Get project navigation data
+      operationId: getProjectNavigation
       parameters:
         - $ref: '#/components/parameters/projectId'
       responses:
         '200':
-          description: Sidebar data
+          description: Navigation data
           content:
             application/json:
               schema:
@@ -2422,16 +2399,7 @@ paths:
                     type: boolean
                     enum: [true]
                   data:
-                    type: object
-                    properties:
-                      user:
-                        $ref: '#/components/schemas/HomeUser'
-                      projects:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/ProjectSidebarItem'
-                      artifacts:
-                        $ref: '#/components/schemas/SidebarArtifacts'
+                    $ref: '#/components/schemas/ProjectNavigationResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -4925,143 +4893,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  # ── Sidebar Artifacts ──────────────────────────────────────────────
-
-  /projects/{projectId}/sidebar/artifacts:
-    post:
-      tags: [Sidebar]
-      summary: Quick-create an artifact from sidebar
-      operationId: createSidebarArtifact
-      parameters:
-        - $ref: '#/components/parameters/projectId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [prefix, title]
-              properties:
-                prefix:
-                  $ref: '#/components/schemas/SidebarPrefix'
-                title:
-                  type: string
-                  minLength: 1
-      responses:
-        '201':
-          description: Artifact created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    enum: [true]
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      title:
-                        type: string
-                      prefix:
-                        $ref: '#/components/schemas/SidebarPrefix'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /projects/{projectId}/sidebar/artifacts/{artifactId}/rename:
-    put:
-      tags: [Sidebar]
-      summary: Rename an artifact from sidebar
-      operationId: renameSidebarArtifact
-      parameters:
-        - $ref: '#/components/parameters/projectId'
-        - $ref: '#/components/parameters/artifactId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [prefix, title]
-              properties:
-                prefix:
-                  $ref: '#/components/schemas/SidebarPrefix'
-                title:
-                  type: string
-                  minLength: 1
-      responses:
-        '200':
-          description: Artifact renamed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    enum: [true]
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      title:
-                        type: string
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /projects/{projectId}/sidebar/artifacts/{artifactId}:
-    delete:
-      tags: [Sidebar]
-      summary: Delete an artifact from sidebar
-      operationId: deleteSidebarArtifact
-      parameters:
-        - $ref: '#/components/parameters/projectId'
-        - $ref: '#/components/parameters/artifactId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [prefix]
-              properties:
-                prefix:
-                  $ref: '#/components/schemas/SidebarPrefix'
-      responses:
-        '200':
-          description: Artifact deleted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    enum: [true]
-                  data:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      status:
-                        type: string
-                        enum: [Deleted]
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':

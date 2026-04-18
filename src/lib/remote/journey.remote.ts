@@ -148,7 +148,7 @@ export const getJourneys = query("unchecked", async (input: JourneyListInput): P
 				limit,
 				sort: "last_updated_desc"
 			},
-			tags: ["journeys-list", `project:${input.projectId}`]
+			tags: ["journeys-list", `journeys-list:${input.projectId}`]
 		}
 	});
 	return {

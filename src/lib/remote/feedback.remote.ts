@@ -140,7 +140,7 @@ export const getFeedback = query("unchecked", async (input: FeedbackListInput): 
 				limit,
 				sort: "created_date_desc"
 			},
-			tags: ["feedback-list", `project:${input.projectId}`]
+			tags: ["feedback-list", `feedback-list:${input.projectId}`]
 		}
 	});
 	return {

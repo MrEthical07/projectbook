@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file.
 
 - Completed migration to a home/project information model across routes, remotes, datastore, and shared types.
 - Unified API contracts and implementation naming around `/home/*` and project-centric terminology.
+- Project shell navigation reads now target `GET /api/v1/projects/{projectId}/navigation` through the project navigation data flow.
+- Sidebar interaction expectations are aligned with current backend behavior: create delegates to artifact module create endpoints; rename/delete are no longer treated as sidebar-specific route contracts.
 - Updated architecture, security, and legal documentation to match the new home/project model.
 - Migrated all frontend remote modules in `src/lib/remote` from datastore-backed logic to backend API-backed requests via `src/lib/server/api/remote.ts`.
 - Updated artifact remotes (`problem`, `idea`, `task`, `feedback`, `page`, `resource`, `calendar`) to preserve page payload contracts while mapping backend response shapes.
@@ -19,6 +21,7 @@ All notable changes to this project are documented in this file.
 
 - API transport now normalizes network-unavailable failures into structured 503 responses with user-facing guidance, instead of leaking low-level fetch errors.
 - Removed redundant per-request identity fetch path by consuming backend session-context token snapshots in hooks.
+- Tightened project layout/sidebar typing by explicitly narrowing layout data and sidebar props, resolving `navigationData` type diagnostics in project layout integration.
 
 ### Removed
 

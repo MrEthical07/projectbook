@@ -165,7 +165,7 @@ export const getIdeas = query("unchecked", async (input: IdeaListInput): Promise
 				limit,
 				sort: "last_updated_desc"
 			},
-			tags: ["ideas-list", `project:${input.projectId}`]
+			tags: ["ideas-list", `ideas-list:${input.projectId}`]
 		}
 	});
 	return {

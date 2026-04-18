@@ -279,7 +279,8 @@ export const createProjectInvite = command(
 				"project-dashboard-my-work",
 				"project-dashboard-events",
 				"project-dashboard-activity",
-				"project-sidebar",
+				"project-navigation",
+				`project-navigation:${parsed.data.projectId}`,
 				"project-team",
 				"project-team-members"
 			]
@@ -306,7 +307,8 @@ export const cancelProjectInvite = command(
 				"project-dashboard-my-work",
 				"project-dashboard-events",
 				"project-dashboard-activity",
-				"project-sidebar",
+				"project-navigation",
+				`project-navigation:${parsed.data.projectId}`,
 				"project-team",
 				"project-team-members"
 			]
@@ -341,7 +343,8 @@ export const updateProjectRolePermissions = command(
 				tags: [
 					`project:${parsed.data.projectId}`,
 					"project-access",
-					"project-sidebar",
+					"project-navigation",
+					`project-navigation:${parsed.data.projectId}`,
 					"project-dashboard",
 					"project-dashboard-summary",
 					"project-dashboard-my-work",
@@ -391,7 +394,8 @@ export const updateProjectMemberPermissions = command(
 				tags: [
 					`project:${parsed.data.projectId}`,
 					"project-access",
-					"project-sidebar",
+					"project-navigation",
+					`project-navigation:${parsed.data.projectId}`,
 					"project-dashboard",
 					"project-dashboard-summary",
 					"project-dashboard-my-work",
@@ -436,7 +440,8 @@ export const updateProjectSettings = command(
 				"project-dashboard-events",
 				"project-dashboard-activity",
 				"project-access",
-				"project-sidebar",
+				"project-navigation",
+				`project-navigation:${parsed.data.projectId}`,
 				"project-team-members"
 			]
 		});
@@ -464,7 +469,8 @@ export const archiveProject = command(
 				"project-dashboard-events",
 				"project-dashboard-activity",
 				"project-access",
-				"project-sidebar",
+				"project-navigation",
+				`project-navigation:${parsed.data.projectId}`,
 				"project-team-members",
 				"home-dashboard",
 				"home-projects"
@@ -494,7 +500,8 @@ export const deleteProject = command(
 				"project-dashboard-events",
 				"project-dashboard-activity",
 				"project-access",
-				"project-sidebar",
+				"project-navigation",
+				`project-navigation:${parsed.data.projectId}`,
 				"project-team-members",
 				"home-dashboard",
 				"home-projects"

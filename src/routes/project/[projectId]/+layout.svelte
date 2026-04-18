@@ -7,20 +7,27 @@
 	import { page } from "$app/state";
 	import { setContext } from "svelte";
 	import type { LayoutProps } from "./$types";
+	import type { ProjectNavigationData } from "$lib/remote/project-navigation.remote";
+
+	type ProjectLayoutData = LayoutProps["data"] & {
+		access: ProjectAccess;
+		navigationData: ProjectNavigationData;
+	};
 
 	let { data, children }: LayoutProps = $props();
+	let layoutData = $derived(data as ProjectLayoutData);
 	const accessContext: ProjectAccess = {
 		get user() {
-			return data.access.user;
+			return layoutData.access.user;
 		},
 		get role() {
-			return data.access.role;
+			return layoutData.access.role;
 		},
 		get permissionMask() {
-			return data.access.permissionMask;
+			return layoutData.access.permissionMask;
 		},
 		get permissions() {
-			return data.access.permissions;
+			return layoutData.access.permissions;
 		}
 	};
 	setContext("access", accessContext);
@@ -48,11 +55,11 @@
 	};
 
 	let currentDomain = $derived(resolveDomain(page.url.pathname, page.params.projectId as string));
-	let canViewCurrentDomain = $derived(can(data.access?.permissions, currentDomain, "view"));
+	let canViewCurrentDomain = $derived(can(layoutData.access?.permissions, currentDomain, "view"));
 </script>
 
 <Sidebar.Provider>
-	<AppSidebar sidebarData={data.sidebarData} />
+	<AppSidebar navigationData={layoutData.navigationData} access={layoutData.access} />
 	<Sidebar.Inset>
 		<div class="bg-sidebar p-2 h-full">
 			{#if canViewCurrentDomain}

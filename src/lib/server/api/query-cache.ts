@@ -17,6 +17,7 @@ const lastProjectScopeByUser = new Map<string, string>();
 export type QueryCachePolicy = {
 	namespace: string;
 	ttlMs: number;
+	sessionPersistent?: boolean;
 	keyParts?: Record<string, unknown>;
 	tags?: string[];
 };
@@ -103,6 +104,9 @@ const isCachePolicyValid = (policy: QueryCachePolicy | undefined): policy is Que
 	}
 	if (policy.namespace.trim().length === 0) {
 		return false;
+	}
+	if (policy.sessionPersistent) {
+		return true;
 	}
 	return Number.isFinite(policy.ttlMs) && policy.ttlMs > 0;
 };
@@ -192,7 +196,7 @@ export const writeQueryCache = (
 	}
 
 	const key = buildCacheKey(event, options, policy);
-	const expiresAtUnixMs = Date.now() + policy.ttlMs;
+	const expiresAtUnixMs = policy.sessionPersistent ? Number.POSITIVE_INFINITY : Date.now() + policy.ttlMs;
 	queryCacheStore.set(key, {
 		value,
 		expiresAtUnixMs,
@@ -203,7 +207,7 @@ export const writeQueryCache = (
 		path: options.path,
 		method: requestMethod(options),
 		key,
-		ttl_ms: policy.ttlMs,
+		ttl_ms: policy.sessionPersistent ? "session" : policy.ttlMs,
 		expires_at_unix_ms: expiresAtUnixMs
 	});
 	pruneIfNecessary();

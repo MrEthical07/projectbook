@@ -207,7 +207,7 @@ export const getTasks = query("unchecked", async (input: TaskListInput): Promise
 				limit,
 				sort: "last_updated_desc"
 			},
-			tags: ["tasks-list", `project:${input.projectId}`]
+			tags: ["tasks-list", `tasks-list:${input.projectId}`]
 		}
 	});
 	return {

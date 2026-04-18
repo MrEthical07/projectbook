@@ -198,7 +198,7 @@ export const getStories = query("unchecked", async (input: StoryListInput): Prom
 				limit,
 				sort: "last_updated_desc"
 			},
-			tags: ["stories-list", `project:${input.projectId}`]
+			tags: ["stories-list", `stories-list:${input.projectId}`]
 		}
 	});
 	return {

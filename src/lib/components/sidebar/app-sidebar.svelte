@@ -3,11 +3,9 @@
 	import NavUser from "$lib/components/sidebar/nav-user.svelte";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import ProjectSwitcher from "$lib/components/sidebar/project-switcher.svelte";
-	import { invalidate } from "$app/navigation";
 	import { can } from "$lib/utils/permission";
 	import { resolveProjectIcon } from "$lib/utils/project-icons";
-	import { getContext } from "svelte";
-	import type { ComponentProps } from "svelte";
+	import type { ProjectNavigationData } from "$lib/remote/project-navigation.remote";
 	import { UserLock, Settings, Users, LayoutDashboard } from "@lucide/svelte";
 	import { page } from "$app/state";
 	import {
@@ -23,71 +21,20 @@
 		ClipboardList
 	} from "@lucide/svelte";
 
-	type SidebarNode = {
-		title: string;
-		id: string;
-	};
-
-	type SidebarRemoteData = {
-		user: {
-			name: string;
-			email: string;
-			avatar: string;
-		};
-		projects: Array<{
-			id: string;
-			name: string;
-			icon: ProjectIconKey;
-			status?: string;
-		}>;
-		artifacts: {
-			stories: SidebarNode[];
-			journeys: SidebarNode[];
-			problems: SidebarNode[];
-			ideas: SidebarNode[];
-			tasks: SidebarNode[];
-			feedback: SidebarNode[];
-			pages: SidebarNode[];
-		};
-	};
-
-	type SidebarQueryResult =
-		| {
-				success: true;
-				data: SidebarRemoteData;
-		  }
-		| {
-				success: false;
-				error: string;
-		  };
-
-	const sanitizeNodes = (value: SidebarNode[] | unknown): SidebarNode[] => {
-		if (!Array.isArray(value)) return [];
-		return value
-			.filter(
-				(item): item is SidebarNode =>
-					Boolean(
-						item &&
-						typeof item === "object" &&
-						typeof (item as SidebarNode).id === "string" &&
-						typeof (item as SidebarNode).title === "string"
-					)
-			)
-			.map((item) => ({
-				id: item.id.trim(),
-				title: item.title.trim()
-			}))
-			.filter((item) => item.id.length > 0 && item.title.length > 0);
-	};
+	type AppSidebarProps = {
+		navigationData: ProjectNavigationData;
+		access: ProjectAccess;
+		ref?: HTMLElement | null;
+		collapsible?: "offcanvas" | "icon" | "none";
+	} & Record<string, unknown>;
 
 	let {
-		sidebarData,
+		navigationData,
+		access,
 		ref = $bindable(null),
 		collapsible = "icon",
 		...restProps
-	}: ComponentProps<typeof Sidebar.Root> & {
-		sidebarData: SidebarQueryResult;
-	} = $props();
+	}: AppSidebarProps = $props();
 
 	let projectId = $derived.by(() => {
 		const id = page.params.projectId?.trim();
@@ -106,7 +53,7 @@
 		}
 		return page.url.pathname.slice(scopedBasePath.length + 1);
 	});
-	const access = getContext<ProjectAccess | undefined>("access");
+
 	let permissions = $derived(access?.permissions);
 	let canViewProject = $derived(can(permissions, "project", "view"));
 	let canManageTeam = $derived(can(permissions, "member", "edit"));
@@ -115,90 +62,35 @@
 	const activeClass =
 		" bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary";
 
-	const refreshSidebar = async () => {
-		if (!projectId) {
-			return;
-		}
-		await invalidate((url) => url.pathname.startsWith(`/project/${projectId}`));
-	};
-
-	let sidebarError = $derived.by(() => {
+	let navigationError = $derived.by(() => {
 		if (!projectId) return "Missing project id in route.";
-		if (!sidebarData) return "Sidebar data unavailable.";
-		if (!sidebarData.success) return sidebarData.error;
-		if (!sidebarData.data) return "Sidebar payload is empty.";
+		if (!navigationData?.currentProject?.id) return "Navigation payload is unavailable.";
 		if (!page.url.pathname.startsWith(`/project/${projectId}`)) {
 			return `Route is outside project scope: /project/${projectId}`;
 		}
 		return "";
 	});
-	let sourceData = $derived.by(() => {
-		if (!sidebarData || !sidebarData.success) {
-			return null;
-		}
-		return sidebarData.data;
-	});
 
 	let data = $derived.by(() => {
-		if (!sourceData || !projectId) return null;
-		const source = sourceData;
-		const sourceUser =
-			source.user && typeof source.user === "object"
-				? (source.user as Record<string, unknown>)
-				: {};
-		const user = {
-			name:
-				typeof sourceUser.name === "string" && sourceUser.name.trim().length > 0
-					? sourceUser.name.trim()
-					: "User",
-			email: typeof sourceUser.email === "string" ? sourceUser.email.trim() : "",
-			avatar:
-				typeof sourceUser.avatar === "string" && sourceUser.avatar.trim().length > 0
-					? sourceUser.avatar
-					: "/avatars/shadcn.jpg"
-		};
-		const sourceProjects = Array.isArray(source.projects) ? source.projects : [];
-		const projects = sourceProjects.flatMap((project) => {
-			if (!project || typeof project !== "object") {
-				return [];
-			}
+		if (!navigationData || !projectId) return null;
 
-			const candidate = project as {
-				id?: unknown;
-				name?: unknown;
-				icon?: unknown;
-			};
-			const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
+		const projects = navigationData.projectList.flatMap((project) => {
+			const id = project.id.trim();
 			if (id.length === 0) {
 				return [];
 			}
 
-			const name =
-				typeof candidate.name === "string" && candidate.name.trim().length > 0
-					? candidate.name.trim()
-					: "Project";
-
+			const name = project.name.trim().length > 0 ? project.name.trim() : "Project";
 			return [
 				{
 					id,
 					name,
 					url: `/project/${id}`,
-					icon:
-						typeof candidate.icon === "string"
-							? resolveProjectIcon(candidate.icon)
-							: resolveProjectIcon(null)
+					icon: resolveProjectIcon(project.icon)
 				}
 			];
 		});
-		const artifacts = source.artifacts ?? {
-			stories: [],
-			journeys: [],
-			problems: [],
-			ideas: [],
-			tasks: [],
-			feedback: [],
-			pages: []
-		};
+
 		const navTeam = [
 			...(canManageTeam
 				? [
@@ -236,8 +128,13 @@
 				typeof item?.tooltip === "string" &&
 				typeof item?.isActive === "boolean"
 		);
+
 		return {
-			user,
+			user: {
+				name: access.user.name?.trim() || "User",
+				email: access.user.email?.trim() || "",
+				avatar: "/avatars/shadcn.jpg"
+			},
 			projects,
 			dashboard: {
 				title: "Dashboard",
@@ -256,15 +153,13 @@
 								title: "User Stories",
 								icon: UserRound,
 								prefix: "stories",
-								isActive: path === "stories" || path.startsWith("stories/"),
-								items: sanitizeNodes(artifacts.stories)
+								isActive: path === "stories" || path.startsWith("stories/")
 							},
 							{
 								title: "User Journeys",
 								icon: Route,
 								prefix: "journeys",
-								isActive: path === "journeys" || path.startsWith("journeys/"),
-								items: sanitizeNodes(artifacts.journeys)
+								isActive: path === "journeys" || path.startsWith("journeys/")
 							}
 						]
 					},
@@ -275,8 +170,7 @@
 								title: "Problem Statement",
 								icon: Target,
 								prefix: "problem-statement",
-								isActive: path === "problem-statement" || path.startsWith("problem-statement/"),
-								items: sanitizeNodes(artifacts.problems)
+								isActive: path === "problem-statement" || path.startsWith("problem-statement/")
 							}
 						]
 					},
@@ -287,8 +181,7 @@
 								title: "Ideas",
 								icon: Lightbulb,
 								prefix: "ideas",
-								isActive: path === "ideas" || path.startsWith("ideas/"),
-								items: sanitizeNodes(artifacts.ideas)
+								isActive: path === "ideas" || path.startsWith("ideas/")
 							}
 						]
 					},
@@ -299,8 +192,7 @@
 								title: "Task Board",
 								icon: ClipboardList,
 								prefix: "tasks",
-								isActive: path === "tasks" || path.startsWith("tasks/"),
-								items: sanitizeNodes(artifacts.tasks)
+								isActive: path === "tasks" || path.startsWith("tasks/")
 							}
 						]
 					},
@@ -311,8 +203,7 @@
 								title: "Feedback",
 								icon: MessageSquareQuote,
 								prefix: "feedback",
-								isActive: path === "feedback" || path.startsWith("feedback/"),
-								items: sanitizeNodes(artifacts.feedback)
+								isActive: path === "feedback" || path.startsWith("feedback/")
 							}
 						]
 					}
@@ -336,8 +227,7 @@
 						title: "Pages",
 						prefix: "pages",
 						icon: NotepadText,
-						isActive: path === "pages" || path.startsWith("pages/"),
-						items: sanitizeNodes(artifacts.pages)
+						isActive: path === "pages" || path.startsWith("pages/")
 					}
 				}
 			},
@@ -353,7 +243,7 @@
 		{:else}
 			<div class="px-3 py-2">
 				<p class="text-xs font-medium">Project navigation unavailable</p>
-				<p class="mt-1 text-xs text-destructive">{sidebarError}</p>
+				<p class="mt-1 text-xs text-destructive">{navigationError}</p>
 			</div>
 		{/if}
 	</Sidebar.Header>
@@ -383,7 +273,7 @@
 								<Sidebar.GroupLabel class="-mt-1 text-xs">{subMenu.name}</Sidebar.GroupLabel>
 								<Sidebar.GroupContent>
 									{#each subMenu.items as item (item.prefix)}
-										<SubMenu item={item} projectId={projectId} path={path} onMutated={refreshSidebar} />
+										<SubMenu item={item} projectId={projectId} />
 									{/each}
 								</Sidebar.GroupContent>
 							</Sidebar.Group>
@@ -426,12 +316,7 @@
 									{/snippet}
 								</Sidebar.MenuButton>
 							</Sidebar.MenuItem>
-							<SubMenu
-								item={data.projectSupport.items.pages}
-								projectId={projectId}
-								path={path}
-								onMutated={refreshSidebar}
-							/>
+							<SubMenu item={data.projectSupport.items.pages} projectId={projectId} />
 						</Sidebar.GroupContent>
 					</Sidebar.Group>
 				</Sidebar.GroupContent>
@@ -465,7 +350,7 @@
 					<p class="text-xs text-muted-foreground">
 						The sidebar could not be loaded for this project.
 					</p>
-					<p class="mt-1 text-xs text-destructive">{sidebarError}</p>
+					<p class="mt-1 text-xs text-destructive">{navigationError}</p>
 				</Sidebar.GroupContent>
 			</Sidebar.Group>
 		{/if}
