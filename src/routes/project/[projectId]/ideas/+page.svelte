@@ -108,6 +108,8 @@
 			});
 			rows = mergeRows(rows, result.items as IdeaRow[]);
 			nextCursor = result.nextCursor;
+		} catch (error) {
+			console.error("Failed to load more ideas", error);
 		} finally {
 			isLoadingMore = false;
 		}
@@ -134,22 +136,28 @@
 		const title = createTitle.trim();
 		if (!title) return;
 		isCreatingIdea = true;
-		const result = await createIdeaRemote({
-			input: {
-				projectId: page.params.projectId,
-				actorId,
-				title
+		try {
+			const result = await createIdeaRemote({
+				input: {
+					projectId: page.params.projectId,
+					actorId,
+					title
+				}
+			});
+			if (!result.success) {
+				createError = result.error;
+				return;
 			}
-});
-		isCreatingIdea = false;
-		if (!result.success) {
-			createError = result.error;
-			return;
+			const created = result.data as { id: string };
+			createTitle = "";
+			createOpen = false;
+			await goto(`/project/${page.params.projectId}/ideas/${created.id}`);
+		} catch (error) {
+			console.error("Failed to create idea", error);
+			createError = "Unable to create idea right now.";
+		} finally {
+			isCreatingIdea = false;
 		}
-		const created = result.data as { id: string };
-		createTitle = "";
-		createOpen = false;
-		await goto(`/project/${page.params.projectId}/ideas/${created.id}`);
 	};
 </script>
 

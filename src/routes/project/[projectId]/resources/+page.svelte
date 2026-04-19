@@ -160,6 +160,8 @@
 			});
 			resources = mergeRows(resources, result.items as ResourceRow[]);
 			nextCursor = result.nextCursor;
+		} catch (error) {
+			console.error("Failed to load more resources", error);
 		} finally {
 			isLoadingMore = false;
 		}
@@ -206,57 +208,69 @@
 
 		uploadError = "";
 		isUploading = true;
-		const result = await createResourceRemote({
-			input: {
-				projectId,
-				actorId,
-				name: trimmedName,
-				docType: selectedDocType
+		try {
+			const result = await createResourceRemote({
+				input: {
+					projectId,
+					actorId,
+					name: trimmedName,
+					docType: selectedDocType
+				}
+			});
+
+			if (!result.success) {
+				uploadError = result.error;
+				return;
 			}
-});
-		isUploading = false;
 
-		if (!result.success) {
-			uploadError = result.error;
-			return;
+			const created = result.data as ResourceRow;
+			resources = [created, ...resources];
+			resetUploadForm();
+			uploadOpen = false;
+			await goto(`/project/${projectId}/resources/${created.id}`);
+		} catch (error) {
+			console.error("Failed to create resource", error);
+			uploadError = "Unable to upload resource right now.";
+		} finally {
+			isUploading = false;
 		}
-
-		const created = result.data as ResourceRow;
-		resources = [created, ...resources];
-		resetUploadForm();
-		uploadOpen = false;
-		await goto(`/project/${projectId}/resources/${created.id}`);
 	};
 
 	const confirmArchive = async () => {
 		if (!permissions || !canEditResource || !pendingArchiveId || isArchiving) return;
 		archiveError = "";
 		isArchiving = true;
-		const result = await updateResourceStatusRemote({
-			input: {
-				projectId,
-				resourceId: pendingArchiveId,
-				status: "Archived"
+		try {
+			const result = await updateResourceStatusRemote({
+				input: {
+					projectId,
+					resourceId: pendingArchiveId,
+					status: "Archived"
+				}
+			});
+			if (!result.success) {
+				archiveError = result.error;
+				return;
 			}
-});
-		isArchiving = false;
-		if (!result.success) {
-			archiveError = result.error;
-			return;
-		}
 
-		const updated = result.data as ResourceRow;
-		resources = resources.map((item) =>
-			item.id === pendingArchiveId
-				? {
-						...item,
-						status: updated.status,
-						lastUpdated: updated.lastUpdated
-					}
-				: item
-		);
-		archiveDialogOpen = false;
-		pendingArchiveId = "";
+			const updated = result.data as ResourceRow;
+			resources = resources.map((item) =>
+				item.id === pendingArchiveId
+					? {
+							...item,
+							status: updated.status,
+							lastUpdated: updated.lastUpdated
+						}
+					: item
+			);
+			archiveDialogOpen = false;
+			pendingArchiveId = "";
+		} catch (error) {
+			console.error("Failed to archive resource", error);
+			archiveError = "Unable to archive resource right now.";
+		} finally {
+			isArchiving = false;
+		}
 	};
 
 	const handleFileDrop = (event: DragEvent) => {

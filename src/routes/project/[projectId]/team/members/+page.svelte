@@ -227,23 +227,29 @@
 		}
 
 		isSubmittingInvite = true;
-		const result = await createProjectInvite({
-			input: {
-				projectId,
-				email,
-				role: canEditMember ? inviteForm.role : "Limited Access"
+		try {
+			const result = await createProjectInvite({
+				input: {
+					projectId,
+					email,
+					role: canEditMember ? inviteForm.role : "Limited Access"
+				}
+			});
+			if (!result.success) {
+				toast.error(result.error);
+				return;
 			}
-});
-		isSubmittingInvite = false;
-		if (!result.success) {
-			toast.error(result.error);
-			return;
-		}
 
-		toast.success(`Invite sent to ${email}.`);
-		isInviteOpen = false;
-		resetInviteForm();
-		await invalidate((url) => url.pathname === page.url.pathname);
+			toast.success(`Invite sent to ${email}.`);
+			isInviteOpen = false;
+			resetInviteForm();
+			await invalidate((url) => url.pathname === page.url.pathname);
+		} catch (error) {
+			console.error("Failed to send project invite", error);
+			toast.error("Unable to send invite right now.");
+		} finally {
+			isSubmittingInvite = false;
+		}
 	};
 
 	const cancelInvite = async (email: string) => {
@@ -253,19 +259,25 @@
 			return;
 		}
 		pendingCancelEmail = email;
-		const result = await cancelProjectInvite({
-			input: {
-				projectId,
-				email
+		try {
+			const result = await cancelProjectInvite({
+				input: {
+					projectId,
+					email
+				}
+			});
+			if (!result.success) {
+				toast.error(result.error);
+				return;
 			}
-});
-		pendingCancelEmail = "";
-		if (!result.success) {
-			toast.error(result.error);
-			return;
+			toast.info(`Invite to ${email} cancelled.`);
+			await invalidate((url) => url.pathname === page.url.pathname);
+		} catch (error) {
+			console.error("Failed to cancel project invite", error);
+			toast.error("Unable to cancel invite right now.");
+		} finally {
+			pendingCancelEmail = "";
 		}
-		toast.info(`Invite to ${email} cancelled.`);
-		await invalidate((url) => url.pathname === page.url.pathname);
 	};
 
 	let filteredMembers = $derived(filterMembers(searchQuery));

@@ -13,6 +13,12 @@
 
 	let { user }: { user: { name: string; email: string; avatar: string } } = $props();
 	const sidebar = useSidebar();
+
+	const safeGoto = (href: string) => {
+		void goto(href).catch((error) => {
+			console.error("Navigation failed", error);
+		});
+	};
 </script>
 
 <Sidebar.Menu>
@@ -57,21 +63,21 @@
 				</DropdownMenu.Label>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
-					<DropdownMenu.Item onSelect={() => goto("/account")} class="gap-2 items-center">
+					<DropdownMenu.Item onSelect={() => safeGoto("/account")} class="gap-2 items-center">
 						<BadgeCheckIcon class="h-4 w-4" />
 						Account
 					</DropdownMenu.Item>
-					<DropdownMenu.Item onSelect={() => goto("/invites")} class="gap-2 items-center">
+					<DropdownMenu.Item onSelect={() => safeGoto("/invites")} class="gap-2 items-center">
 						<Mail class="h-4 w-4" />
 						Invites
 					</DropdownMenu.Item>
-					<DropdownMenu.Item onSelect={() => goto("/notifications")} class="gap-2 items-center">
+					<DropdownMenu.Item onSelect={() => safeGoto("/notifications")} class="gap-2 items-center">
 						<BellIcon class="h-4 w-4" />
 						Notifications
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Item onSelect={() => goto("/logout")} class="gap-2 items-center">
+				<DropdownMenu.Item onSelect={() => safeGoto("/logout")} class="gap-2 items-center">
 					<LogOutIcon class="h-4 w-4" />
 					Log out
 				</DropdownMenu.Item>

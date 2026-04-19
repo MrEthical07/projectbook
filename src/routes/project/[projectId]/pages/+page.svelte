@@ -114,6 +114,8 @@
 			});
 			rows = mergeRows(rows, result.items as PageRow[]);
 			nextCursor = result.nextCursor;
+		} catch (error) {
+			console.error("Failed to load more pages", error);
 		} finally {
 			isLoadingMore = false;
 		}
@@ -151,23 +153,29 @@
 		const title = createTitle.trim();
 		if (!title) return;
 		isCreatingPage = true;
-		const result = await createPageRemote({
-			input: {
-				projectId: page.params.projectId,
-				actorId,
-				title
+		try {
+			const result = await createPageRemote({
+				input: {
+					projectId: page.params.projectId,
+					actorId,
+					title
+				}
+			});
+			if (!result.success) {
+				mutationError = result.error;
+				return;
 			}
-});
-		isCreatingPage = false;
-		if (!result.success) {
-			mutationError = result.error;
-			return;
+			const created = result.data;
+			rows = [created as PageRow, ...rows];
+			createTitle = "";
+			createOpen = false;
+			await goto(`/project/${page.params.projectId}/pages/${created.id}`);
+		} catch (error) {
+			console.error("Failed to create page", error);
+			mutationError = "Unable to create page right now.";
+		} finally {
+			isCreatingPage = false;
 		}
-		const created = result.data;
-		rows = [created as PageRow, ...rows];
-		createTitle = "";
-		createOpen = false;
-		await goto(`/project/${page.params.projectId}/pages/${created.id}`);
 	};
 
 	const beginRename = (row: PageRow) => {
@@ -189,23 +197,28 @@
 		if (!editingId) return;
 		const nextTitle = editingTitle.trim();
 		if (!nextTitle) return;
-		const result = await renamePageRemote({
-			input: {
-				projectId: page.params.projectId,
-				pageId: editingId,
-				title: nextTitle
+		try {
+			const result = await renamePageRemote({
+				input: {
+					projectId: page.params.projectId,
+					pageId: editingId,
+					title: nextTitle
+				}
+			});
+			if (!result.success) {
+				mutationError = result.error;
+				return;
 			}
-});
-		if (!result.success) {
-			mutationError = result.error;
-			return;
+			rows = rows.map((row) =>
+				row.id === editingId
+					? { ...row, title: result.data.title, lastEdited: result.data.lastEdited }
+					: row
+			);
+			cancelRename();
+		} catch (error) {
+			console.error("Failed to rename page", error);
+			mutationError = "Unable to rename page right now.";
 		}
-		rows = rows.map((row) =>
-			row.id === editingId
-				? { ...row, title: result.data.title, lastEdited: result.data.lastEdited }
-				: row
-		);
-		cancelRename();
 	};
 </script>
 

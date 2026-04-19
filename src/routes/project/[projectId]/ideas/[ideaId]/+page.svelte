@@ -235,6 +235,9 @@
 			await invalidate((url) => url.pathname === page.url.pathname);
 			isArchived = nextArchived;
 			savedSignature = currentSignature;
+		} catch (error) {
+			console.error("Failed to update idea archive state", error);
+			toast.error("Status change failed.");
 		} finally {
 			statusMutationPending = false;
 		}
@@ -276,6 +279,9 @@
 			pendingStatus = null;
 			statusDialogOpen = false;
 			statusConfirmOpen = false;
+		} catch (error) {
+			console.error("Failed to update idea status", error);
+			toast.error("Status change failed.");
 		} finally {
 			statusMutationPending = false;
 		}

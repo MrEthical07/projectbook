@@ -169,36 +169,42 @@
 		if (saveTimer) clearTimeout(saveTimer);
 		if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
 		savePhase = "saving";
-		const result = await updateProjectSettingsRemote({
-			input: {
-				projectId,
-				settings: {
-					projectName,
-					projectDescription,
-					projectStatus,
-					whiteboardsEnabled,
-					advancedDatabasesEnabled,
-					calendarManualEventsEnabled,
-					resourceVersioningEnabled,
-					feedbackAggregationEnabled,
-					notifyArtifactCreated,
-					notifyArtifactLocked,
-					notifyFeedbackAdded,
-					notifyResourceUpdated,
-					deliveryChannel
+		try {
+			const result = await updateProjectSettingsRemote({
+				input: {
+					projectId,
+					settings: {
+						projectName,
+						projectDescription,
+						projectStatus,
+						whiteboardsEnabled,
+						advancedDatabasesEnabled,
+						calendarManualEventsEnabled,
+						resourceVersioningEnabled,
+						feedbackAggregationEnabled,
+						notifyArtifactCreated,
+						notifyArtifactLocked,
+						notifyFeedbackAdded,
+						notifyResourceUpdated,
+						deliveryChannel
+					}
 				}
+			});
+			if (!result.success) {
+				savePhase = "idle";
+				actionError = result.error;
+				return;
 			}
-});
-		if (!result.success) {
+			savedSignature = currentSignature;
+			savePhase = "saved";
+			savedBadgeTimer = setTimeout(() => {
+				if (!isDirty) savePhase = "idle";
+			}, 1400);
+		} catch (error) {
+			console.error("Failed to save project settings", error);
 			savePhase = "idle";
-			actionError = result.error;
-			return;
+			actionError = "Unable to save settings right now.";
 		}
-		savedSignature = currentSignature;
-		savePhase = "saved";
-		savedBadgeTimer = setTimeout(() => {
-			if (!isDirty) savePhase = "idle";
-		}, 1400);
 	};
 
 	onMount(() => {
@@ -210,18 +216,23 @@
 			actionError = "Permissions context is unavailable.";
 			return;
 		}
-		const result = await archiveProjectRemote({
-			input: {
-				projectId
+		try {
+			const result = await archiveProjectRemote({
+				input: {
+					projectId
+				}
+			});
+			if (!result.success) {
+				actionError = result.error;
+				return;
 			}
-});
-		if (!result.success) {
-			actionError = result.error;
-			return;
+			actionError = "";
+			archiveOpen = false;
+			await invalidate((url) => url.pathname === page.url.pathname);
+		} catch (error) {
+			console.error("Failed to archive project", error);
+			actionError = "Unable to archive project right now.";
 		}
-		actionError = "";
-		archiveOpen = false;
-		await invalidate((url) => url.pathname === page.url.pathname);
 	};
 
 	const deleteProject = async () => {
@@ -229,18 +240,23 @@
 			actionError = "Permissions context is unavailable.";
 			return;
 		}
-		const result = await deleteProjectRemote({
-			input: {
-				projectId
+		try {
+			const result = await deleteProjectRemote({
+				input: {
+					projectId
+				}
+			});
+			if (!result.success) {
+				actionError = result.error;
+				return;
 			}
-});
-		if (!result.success) {
-			actionError = result.error;
-			return;
+			actionError = "";
+			deleteOpen = false;
+			await invalidate((url) => url.pathname === page.url.pathname);
+		} catch (error) {
+			console.error("Failed to delete project", error);
+			actionError = "Unable to delete project right now.";
 		}
-		actionError = "";
-		deleteOpen = false;
-		await invalidate((url) => url.pathname === page.url.pathname);
 	};
 
 </script>

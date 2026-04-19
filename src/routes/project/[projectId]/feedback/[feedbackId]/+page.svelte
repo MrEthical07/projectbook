@@ -217,15 +217,21 @@
 		const nextOutcome = pendingOutcome;
 		statusMutationPending = true;
 		outcome = nextOutcome;
-		const saved = await triggerSave();
-		if (!saved) {
+		try {
+			const saved = await triggerSave();
+			if (!saved) {
+				outcome = previousOutcome;
+				statusMutationPending = false;
+				return;
+			}
+			pendingOutcome = null;
+			statusConfirmOpen = false;
+			statusMutationPending = false;
+		} catch (error) {
+			console.error("Failed to confirm outcome change", error);
 			outcome = previousOutcome;
 			statusMutationPending = false;
-			return;
 		}
-		pendingOutcome = null;
-		statusConfirmOpen = false;
-		statusMutationPending = false;
 	};
 
 	const triggerSave = async () => {
@@ -243,40 +249,47 @@
 		}
 
 		savePhase = "saving";
-		const result = await updateFeedback({
-			input: {
-				projectId,
-				feedbackId,
-				state: {
-					title,
-					outcome,
-					status: isArchived ? "Archived" : "Active",
-					isArchived,
-					observation,
-					interpretation,
-					notesText,
-					linkedArtifacts,
-					activeModules,
-					evidenceText,
-					evidenceLocked,
-					nextStepsText
+		try {
+			const result = await updateFeedback({
+				input: {
+					projectId,
+					feedbackId,
+					state: {
+						title,
+						outcome,
+						status: isArchived ? "Archived" : "Active",
+						isArchived,
+						observation,
+						interpretation,
+						notesText,
+						linkedArtifacts,
+						activeModules,
+						evidenceText,
+						evidenceLocked,
+						nextStepsText
+					}
 				}
+			});
+			if (!result.success) {
+				savePhase = "idle";
+				toast.error("Failed to save changes");
+				return false;
 			}
-});
-		if (!result.success) {
+			savedSignature = currentSignature;
+			savePhase = "saved";
+			toast.success("Changes saved");
+			savedBadgeTimer = setTimeout(() => {
+				if (!isDirty) {
+					savePhase = "idle";
+				}
+			}, 1400);
+			return true;
+		} catch (error) {
+			console.error("Failed to save feedback", error);
 			savePhase = "idle";
 			toast.error("Failed to save changes");
 			return false;
 		}
-		savedSignature = currentSignature;
-		savePhase = "saved";
-		toast.success("Changes saved");
-		savedBadgeTimer = setTimeout(() => {
-			if (!isDirty) {
-				savePhase = "idle";
-			}
-		}, 1400);
-		return true;
 	};
 
 	onDestroy(() => {

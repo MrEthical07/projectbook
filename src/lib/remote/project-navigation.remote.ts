@@ -46,15 +46,6 @@ export const getProjectNavigationData = query(
 	async (projectId: string): Promise<ProjectNavigationData> => {
 		const parsedProjectId = z.string().trim().min(1).parse(projectId);
 		const scopedPathId = encodePathSegment(parsedProjectId);
-		const homeProjectsPromise = remoteQueryRequest<unknown[]>({
-			path: "/home/projects",
-			method: "GET",
-			cachePolicy: {
-				namespace: "home-projects",
-				ttlMs: 30_000,
-				tags: ["home", "home-projects"]
-			}
-		});
 
 		let overviewPayload: unknown;
 		try {
@@ -85,7 +76,23 @@ export const getProjectNavigationData = query(
 			});
 		}
 
-		const homeProjects = await homeProjectsPromise;
+		let homeProjects: unknown[] = [];
+		try {
+			homeProjects = await remoteQueryRequest<unknown[]>({
+				path: "/home/projects",
+				method: "GET",
+				cachePolicy: {
+					namespace: "home-projects",
+					ttlMs: 30_000,
+					tags: ["home", "home-projects"]
+				}
+			});
+		} catch (err) {
+			// Navigation can still render using the scoped project overview.
+			if (!isApiRequestError(err) || (err.statusCode !== 401 && err.statusCode !== 403)) {
+				throw err;
+			}
+		}
 
 		const normalizedRequestedId = parsedProjectId.toLowerCase();
 		const matchingHomeProject = (Array.isArray(homeProjects) ? homeProjects : [])

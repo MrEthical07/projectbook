@@ -156,36 +156,45 @@
 			clearTimeout(savedBadgeTimer);
 		}
 		savePhase = "saving";
-		const result = await updateCalendarEvent({
-			input: {
-				projectId,
-				eventId,
-				state: event
-			}
-});
-		if (!result.success) {
-			savePhase = "idle";
-			return;
-		}
-		savedSignature = currentSignature;
-		savePhase = "saved";
-		savedBadgeTimer = setTimeout(() => {
-			if (!isDirty) {
+		try {
+			const result = await updateCalendarEvent({
+				input: {
+					projectId,
+					eventId,
+					state: event
+				}
+			});
+			if (!result.success) {
 				savePhase = "idle";
+				return;
 			}
-		}, 1400);
+			savedSignature = currentSignature;
+			savePhase = "saved";
+			savedBadgeTimer = setTimeout(() => {
+				if (!isDirty) {
+					savePhase = "idle";
+				}
+			}, 1400);
+		} catch (error) {
+			console.error("Failed to save calendar event", error);
+			savePhase = "idle";
+		}
 	};
 
 	const deleteEvent = async () => {
 		if (!permissions || !canDeleteCalendar) return;
-		const result = await deleteCalendarEvent({
-			input: {
-				projectId,
-				eventId
-			}
-});
-		if (!result.success) return;
-		await goto(`/project/${projectId}/calendar`);
+		try {
+			const result = await deleteCalendarEvent({
+				input: {
+					projectId,
+					eventId
+				}
+			});
+			if (!result.success) return;
+			await goto(`/project/${projectId}/calendar`);
+		} catch (error) {
+			console.error("Failed to delete calendar event", error);
+		}
 	};
 
 	onDestroy(() => {

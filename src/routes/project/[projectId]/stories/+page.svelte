@@ -110,6 +110,8 @@
 			});
 			rows = mergeRows(rows, result.items as StoryRow[]);
 			nextCursor = result.nextCursor;
+		} catch (error) {
+			console.error("Failed to load more stories", error);
 		} finally {
 			isLoadingMore = false;
 		}
@@ -147,22 +149,28 @@
 		if (!title) return;
 		const projectId = page.params.projectId;
 		isCreatingStory = true;
-		const result = await createStoryRemote({
-			input: {
-				projectId,
-				actorId,
-				title
+		try {
+			const result = await createStoryRemote({
+				input: {
+					projectId,
+					actorId,
+					title
+				}
+			});
+			if (!result.success) {
+				createError = result.error;
+				return;
 			}
-});
-		isCreatingStory = false;
-		if (!result.success) {
-			createError = result.error;
-			return;
+			const created = result.data as { id: string };
+			createOpen = false;
+			createTitle = "";
+			await goto(`/project/${projectId}/stories/${created.id}`);
+		} catch (error) {
+			console.error("Failed to create story", error);
+			createError = "Unable to create story right now.";
+		} finally {
+			isCreatingStory = false;
 		}
-		const created = result.data as { id: string };
-		createOpen = false;
-		createTitle = "";
-		await goto(`/project/${projectId}/stories/${created.id}`);
 	};
 </script>
 

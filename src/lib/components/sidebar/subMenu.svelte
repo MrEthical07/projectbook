@@ -98,23 +98,29 @@
 
 		isCreating = true;
 		mutationError = "";
-		const result = (await createSidebarArtifact({
-			input: {
-				projectId,
-				prefix: item.prefix as SidebarPrefix,
-				title
+		try {
+			const result = (await createSidebarArtifact({
+				input: {
+					projectId,
+					prefix: item.prefix as SidebarPrefix,
+					title
+				}
+			})) as MutationResult<{ id: string }>;
+
+			if (!result.success) {
+				mutationError = result.error;
+				return;
 			}
-		})) as MutationResult<{ id: string }>;
-		isCreating = false;
 
-		if (!result.success) {
-			mutationError = result.error;
-			return;
+			addOpen = false;
+			newArtifactTitle = "";
+			await goto(`/project/${projectId}/${item.prefix}/${result.data.id}`);
+		} catch (error) {
+			console.error("Failed to create sidebar artifact", error);
+			mutationError = "Unable to create item right now.";
+		} finally {
+			isCreating = false;
 		}
-
-		addOpen = false;
-		newArtifactTitle = "";
-		await goto(`/project/${projectId}/${item.prefix}/${result.data.id}`);
 	};
 </script>
 

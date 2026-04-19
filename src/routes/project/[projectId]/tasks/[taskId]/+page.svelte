@@ -260,7 +260,7 @@
 					taskId,
 					status: nextStatus
 				}
-});
+			});
 			if (!result.success) {
 				toast.error("error" in result ? result.error : "Status change failed.");
 				return;
@@ -269,6 +269,9 @@
 			savedSignature = currentSignature;
 			statusDialogOpen = false;
 			toast.success("Status changed");
+		} catch (error) {
+			console.error("Failed to change task status", error);
+			toast.error("Status change failed.");
 		} finally {
 			statusMutationPending = false;
 		}
@@ -285,41 +288,47 @@
 		}
 
 		savePhase = "saving";
-		const result = await updateTaskRemote({
-			input: {
-				projectId,
-				taskId,
-				state: {
-					title,
-					status,
-					assignedToIds,
-					assignedToId: assignedToIds[0] ?? "",
-					selectedIdeaId,
-					deadline: normalizedDeadline(deadlineDate),
-					hypothesis,
-					planItems,
-					executionLinks,
-					notesText,
-					activeModules,
-					abandonReason,
-					hasFeedback
+		try {
+			const result = await updateTaskRemote({
+				input: {
+					projectId,
+					taskId,
+					state: {
+						title,
+						status,
+						assignedToIds,
+						assignedToId: assignedToIds[0] ?? "",
+						selectedIdeaId,
+						deadline: normalizedDeadline(deadlineDate),
+						hypothesis,
+						planItems,
+						executionLinks,
+						notesText,
+						activeModules,
+						abandonReason,
+						hasFeedback
+					}
 				}
-			}
-});
-		if (!result.success) {
-			savePhase = "idle";
-			toast.error("error" in result ? result.error : "Save failed.");
-			return;
-		}
-
-		savedSignature = currentSignature;
-		savePhase = "saved";
-		toast.success("Changes saved");
-		savedBadgeTimer = setTimeout(() => {
-			if (!isDirty) {
+			});
+			if (!result.success) {
 				savePhase = "idle";
+				toast.error("error" in result ? result.error : "Save failed.");
+				return;
 			}
-		}, 1400);
+
+			savedSignature = currentSignature;
+			savePhase = "saved";
+			toast.success("Changes saved");
+			savedBadgeTimer = setTimeout(() => {
+				if (!isDirty) {
+					savePhase = "idle";
+				}
+			}, 1400);
+		} catch (error) {
+			console.error("Failed to save task", error);
+			savePhase = "idle";
+			toast.error("Save failed. Please try again.");
+		}
 	};
 
 	$effect(() => {

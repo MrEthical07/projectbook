@@ -28,9 +28,15 @@
 		currentProjectId.trim().length > 0 && activeProject === null
 	);
 
-	const selectProject = async (projectUrl: string) => {
+	const safeGoto = (href: string) => {
+		void goto(href).catch((error) => {
+			console.error("Navigation failed", error);
+		});
+	};
+
+	const selectProject = (projectUrl: string) => {
 		if (!projectUrl) return;
-		await goto(projectUrl);
+		safeGoto(projectUrl);
 	};
 </script>
 
@@ -81,7 +87,7 @@
 						{:else}
 							{#each projects as project (project.id)}
 								{@const ProjectIcon = resolveIconComponent(project.Icon, FolderKanbanIcon)}
-								<DropdownMenu.Item onSelect={() => void selectProject(project.url)} class="gap-2 p-2 hover:scale-101">
+								<DropdownMenu.Item onSelect={() => selectProject(project.url)} class="gap-2 p-2 hover:scale-101">
 									<div class="flex size-6 items-center justify-center rounded-md border">
 										<ProjectIcon class="size-3.5 shrink-0" />
 									</div>
@@ -90,7 +96,7 @@
 							{/each}
 						{/if}
 						<DropdownMenu.Separator />
-						<DropdownMenu.Item class="gap-2 p-2" onSelect={() => void goto("/projects/new")}>
+						<DropdownMenu.Item class="gap-2 p-2" onSelect={() => safeGoto("/projects/new")}>
 							<div class="flex size-6 items-center justify-center rounded-md border bg-transparent hover:scale-101">
 								<PlusIcon class="size-4" />
 							</div>

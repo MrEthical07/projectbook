@@ -111,21 +111,26 @@
 		const trimmed = projectName.trim();
 		const description = projectDescription.trim();
 		isCreatingProject = true;
-		const result = await createProject({ name: trimmed, description, icon: selectedIcon });
-		if (!result.success) {
-			actionError = result.error;
+		try {
+			const result = await createProject({ name: trimmed, description, icon: selectedIcon });
+			if (!result.success) {
+				actionError = result.error;
+				return;
+			}
+			const created = result.data as { projectId: string };
+			createdProjectId = created.projectId;
+			projectName = trimmed;
+			projectDescription = description;
+			createConfirmOpen = false;
+			startSave(() => {
+				isCreatingProject = false;
+				step = "invite";
+			});
+		} catch (error) {
+			console.error("Failed to create project", error);
+			actionError = "Unable to create project right now.";
 			isCreatingProject = false;
-			return;
 		}
-		const created = result.data as { projectId: string };
-		createdProjectId = created.projectId;
-		projectName = trimmed;
-		projectDescription = description;
-		createConfirmOpen = false;
-		startSave(() => {
-			isCreatingProject = false;
-			step = "invite";
-		});
 	};
 
 	const addInviteRow = () => {
@@ -168,23 +173,34 @@
 		}
 
 		isSendingInvites = true;
-		const result = await sendProjectInvites({ projectId: createdProjectId, invites: inviteList });
-		isSendingInvites = false;
-		if (!result.success) {
-			actionError = result.error;
-			emailErrors = inviteEmails.map((email) => (email.trim() ? result.error : ""));
-			return;
-		}
+		try {
+			const result = await sendProjectInvites({ projectId: createdProjectId, invites: inviteList });
+			if (!result.success) {
+				actionError = result.error;
+				emailErrors = inviteEmails.map((email) => (email.trim() ? result.error : ""));
+				return;
+			}
 
-		startSave(() => {});
+			startSave(() => {});
+		} catch (error) {
+			console.error("Failed to send project invites", error);
+			actionError = "Unable to send invites right now.";
+		} finally {
+			isSendingInvites = false;
+		}
 	};
 
 	const finishCreation = async () => {
-		if (!createdProjectId) {
-			await goto("/projects");
-			return;
+		try {
+			if (!createdProjectId) {
+				await goto("/projects");
+				return;
+			}
+			await goto(`/project/${createdProjectId}`);
+		} catch (error) {
+			console.error("Failed to finish project creation navigation", error);
+			actionError = "Unable to navigate right now.";
 		}
-		await goto(`/project/${createdProjectId}`);
 	};
 </script>
 

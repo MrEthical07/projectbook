@@ -61,15 +61,21 @@
 		const target = acceptTarget;
 		if (!target || target.expired) return;
 		inviteActionInFlight = "accept";
-		const result = await acceptProjectInvite({ inviteId: target.id });
-		inviteActionInFlight = null;
-		if (!result.success) {
-			actionError = result.error;
-			return;
+		try {
+			const result = await acceptProjectInvite({ inviteId: target.id });
+			if (!result.success) {
+				actionError = result.error;
+				return;
+			}
+			acceptOpen = false;
+			acceptTarget = null;
+			await invalidate((url) => url.pathname === "/invites" || url.pathname === "/");
+		} catch (error) {
+			console.error("Failed to accept invite", error);
+			actionError = "Unable to accept invitation right now.";
+		} finally {
+			inviteActionInFlight = null;
 		}
-		acceptOpen = false;
-		acceptTarget = null;
-		await invalidate((url) => url.pathname === "/invites" || url.pathname === "/");
 	};
 
 	const declineInvite = async () => {
@@ -78,15 +84,21 @@
 		const target = declineTarget;
 		if (!target) return;
 		inviteActionInFlight = "decline";
-		const result = await declineProjectInvite({ inviteId: target.id });
-		inviteActionInFlight = null;
-		if (!result.success) {
-			actionError = result.error;
-			return;
+		try {
+			const result = await declineProjectInvite({ inviteId: target.id });
+			if (!result.success) {
+				actionError = result.error;
+				return;
+			}
+			declineOpen = false;
+			declineTarget = null;
+			await invalidate((url) => url.pathname === "/invites" || url.pathname === "/");
+		} catch (error) {
+			console.error("Failed to decline invite", error);
+			actionError = "Unable to decline invitation right now.";
+		} finally {
+			inviteActionInFlight = null;
 		}
-		declineOpen = false;
-		declineTarget = null;
-		await invalidate((url) => url.pathname === "/invites" || url.pathname === "/");
 	};
 </script>
 

@@ -108,6 +108,8 @@
 			});
 			rows = mergeRows(rows, result.items as JourneyRow[]);
 			nextCursor = result.nextCursor;
+		} catch (error) {
+			console.error("Failed to load more journeys", error);
 		} finally {
 			isLoadingMore = false;
 		}
@@ -138,22 +140,28 @@
 		if (!title) return;
 		const projectId = page.params.projectId;
 		isCreatingJourney = true;
-		const result = await createJourneyRemote({
-			input: {
-				projectId,
-				actorId,
-				title
+		try {
+			const result = await createJourneyRemote({
+				input: {
+					projectId,
+					actorId,
+					title
+				}
+			});
+			if (!result.success) {
+				createError = result.error;
+				return;
 			}
-});
-		isCreatingJourney = false;
-		if (!result.success) {
-			createError = result.error;
-			return;
+			const created = result.data as { id: string };
+			createTitle = "";
+			createOpen = false;
+			await goto(`/project/${projectId}/journeys/${created.id}`);
+		} catch (error) {
+			console.error("Failed to create journey", error);
+			createError = "Unable to create journey right now.";
+		} finally {
+			isCreatingJourney = false;
 		}
-		const created = result.data as { id: string };
-		createTitle = "";
-		createOpen = false;
-		await goto(`/project/${projectId}/journeys/${created.id}`);
 	};
 </script>
 

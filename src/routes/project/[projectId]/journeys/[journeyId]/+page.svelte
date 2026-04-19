@@ -167,25 +167,31 @@
         if (saveBadgeTimer) clearTimeout(saveBadgeTimer);
         if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
         savePhase = "saving";
-        const result = await updateJourney({
-            input: {
-                projectId,
-                journeyId,
-                journey
-            }
-});
-        if (!result.success) {
-            savePhase = "idle";
-            return;
-        }
-        savedSignature = currentSignature;
-        savePhase = "saved";
-        toast.success("Changes saved");
-        savedBadgeTimer = setTimeout(() => {
-            if (!isDirty) {
+        try {
+            const result = await updateJourney({
+                input: {
+                    projectId,
+                    journeyId,
+                    journey
+                }
+            });
+            if (!result.success) {
                 savePhase = "idle";
+                return;
             }
-        }, 1400);
+            savedSignature = currentSignature;
+            savePhase = "saved";
+            toast.success("Changes saved");
+            savedBadgeTimer = setTimeout(() => {
+                if (!isDirty) {
+                    savePhase = "idle";
+                }
+            }, 1400);
+        } catch (error) {
+            console.error("Failed to save journey", error);
+            savePhase = "idle";
+            toast.error("Save failed. Please try again.");
+        }
     };
 
     const statusVariant = (s: string) => {
@@ -242,6 +248,9 @@
             pendingStatus = null;
             statusConfirmOpen = false;
             toast.success("Status updated");
+        } catch (error) {
+            console.error("Failed to update journey status", error);
+            toast.error("Status update failed.");
         } finally {
             statusMutationPending = false;
         }

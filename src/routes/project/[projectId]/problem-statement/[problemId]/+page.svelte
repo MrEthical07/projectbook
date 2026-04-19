@@ -325,6 +325,10 @@ let saveIndicator = $derived.by(() => {
 			toast.success("Problem statement locked");
 			await invalidate((url) => url.pathname === page.url.pathname);
 			return true;
+		} catch (error) {
+			console.error("Failed to lock problem statement", error);
+			toast.error("Lock failed.");
+			return false;
 		} finally {
 			statusMutationPending = false;
 		}
@@ -384,6 +388,9 @@ let availableJourneyOptions = $derived.by(() =>
 
 			pendingStatus = null;
 			statusConfirmOpen = false;
+		} catch (error) {
+			console.error("Failed to update problem status", error);
+			toast.error("Status change failed.");
 		} finally {
 			statusMutationPending = false;
 		}
@@ -484,22 +491,28 @@ let availableJourneyOptions = $derived.by(() =>
 		}
 
 		savePhase = "saving";
-		const result = await updateProblem({
-			input: {
-				projectId,
-				problemId,
-				state: buildProblemState()
+		try {
+			const result = await updateProblem({
+				input: {
+					projectId,
+					problemId,
+					state: buildProblemState()
+				}
+			});
+			if (!result.success) {
+				savePhase = "idle";
+				toast.error("error" in result ? result.error : "Save failed.");
+				return;
 			}
-});
-		if (!result.success) {
+			savedSignature = currentSignature;
+			toast.success("Changes saved");
+			await invalidate((url) => url.pathname === page.url.pathname);
+			setSavedBadge();
+		} catch (error) {
+			console.error("Failed to save problem statement", error);
 			savePhase = "idle";
-			toast.error("error" in result ? result.error : "Save failed.");
-			return;
+			toast.error("Save failed. Please try again.");
 		}
-		savedSignature = currentSignature;
-		toast.success("Changes saved");
-		await invalidate((url) => url.pathname === page.url.pathname);
-		setSavedBadge();
 	};
 
 onDestroy(() => {

@@ -148,6 +148,8 @@
 			status = nextStatus;
 			pendingStatus = null;
 			statusConfirmOpen = false;
+		} catch (error) {
+			console.error("Failed to update resource status", error);
 		} finally {
 			statusMutationPending = false;
 		}

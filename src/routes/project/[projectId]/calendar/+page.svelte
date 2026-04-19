@@ -298,33 +298,39 @@
 		const eventKind = newKind === "Other" ? newCustomKind.trim() : newKind;
 		const tags = parseTags(newTags);
 		isCreatingEvent = true;
-		const result = await createCalendarEvent({
-			input: {
-				projectId,
-				actorId,
-				title: newTitle.trim(),
-				start: newDateValue.toString(),
-				end: newDateValue.toString(),
-				allDay: newAllDay,
-				startTime: newStartTime,
-				endTime: newEndTime,
-				owner: newOwner,
-				phase: newPhase,
-				description: newDescription,
-				location: newLocation,
-				eventKind,
-				linkedArtifacts: newLinked,
-				tags
+		try {
+			const result = await createCalendarEvent({
+				input: {
+					projectId,
+					actorId,
+					title: newTitle.trim(),
+					start: newDateValue.toString(),
+					end: newDateValue.toString(),
+					allDay: newAllDay,
+					startTime: newStartTime,
+					endTime: newEndTime,
+					owner: newOwner,
+					phase: newPhase,
+					description: newDescription,
+					location: newLocation,
+					eventKind,
+					linkedArtifacts: newLinked,
+					tags
+				}
+			});
+			if (!result.success) {
+				createError = result.error;
+				return;
 			}
-});
-		isCreatingEvent = false;
-		if (!result.success) {
-			createError = result.error;
-			return;
+			const created = result.data as CalendarEvent;
+			events = [...events, created];
+			addEventOpen = false;
+		} catch (error) {
+			console.error("Failed to create calendar event", error);
+			createError = "Unable to create event right now.";
+		} finally {
+			isCreatingEvent = false;
 		}
-		const created = result.data as CalendarEvent;
-		events = [...events, created];
-		addEventOpen = false;
 	};
 
 	const loadMoreEvents = async () => {

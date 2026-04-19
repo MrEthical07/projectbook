@@ -250,6 +250,9 @@
 			archiveDialogOpen = false;
 			unarchiveDialogOpen = false;
 			toast.success("Status updated");
+		} catch (error) {
+			console.error("Failed to update page status", error);
+			toast.error("Status update failed.");
 		} finally {
 			statusMutationPending = false;
 		}
@@ -552,39 +555,45 @@
 		}
 
 		savePhase = "saving";
-		const result = await updatePageEditor({
-			input: {
-				projectId,
-				pageId,
-				state: {
-					status,
-					title,
-					owner,
-					description,
-					tags,
-					linkedArtifacts,
-					docHeading,
-					docBody,
-					views,
-					activeViewId,
-					tableColumns,
-					tableRows,
-					databaseItems
+		try {
+			const result = await updatePageEditor({
+				input: {
+					projectId,
+					pageId,
+					state: {
+						status,
+						title,
+						owner,
+						description,
+						tags,
+						linkedArtifacts,
+						docHeading,
+						docBody,
+						views,
+						activeViewId,
+						tableColumns,
+						tableRows,
+						databaseItems
+					}
 				}
-			}
-});
-		if (!result.success) {
-			savePhase = "idle";
-			return;
-		}
-		lastEdited = new Date().toISOString().slice(0, 10);
-		savedSignature = currentSignature;
-		savePhase = "saved";
-		savedBadgeTimer = setTimeout(() => {
-			if (!isDirty) {
+			});
+			if (!result.success) {
 				savePhase = "idle";
+				return;
 			}
-		}, 1400);
+			lastEdited = new Date().toISOString().slice(0, 10);
+			savedSignature = currentSignature;
+			savePhase = "saved";
+			savedBadgeTimer = setTimeout(() => {
+				if (!isDirty) {
+					savePhase = "idle";
+				}
+			}, 1400);
+		} catch (error) {
+			console.error("Failed to save page editor state", error);
+			savePhase = "idle";
+			toast.error("Save failed. Please try again.");
+		}
 	};
 
 	onDestroy(() => {

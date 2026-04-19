@@ -106,6 +106,8 @@
 			});
 			rows = mergeRows(rows, result.items as FeedbackRow[]);
 			nextCursor = result.nextCursor;
+		} catch (error) {
+			console.error("Failed to load more feedback", error);
 		} finally {
 			isLoadingMore = false;
 		}
@@ -132,22 +134,28 @@
 		const title = createTitle.trim();
 		if (!title) return;
 		isCreatingFeedback = true;
-		const result = await createFeedbackRemote({
-			input: {
-				projectId: page.params.projectId,
-				actorId,
-				title
+		try {
+			const result = await createFeedbackRemote({
+				input: {
+					projectId: page.params.projectId,
+					actorId,
+					title
+				}
+			});
+			if (!result.success) {
+				createError = result.error;
+				return;
 			}
-});
-		isCreatingFeedback = false;
-		if (!result.success) {
-			createError = result.error;
-			return;
+			const created = result.data as { id: string };
+			createTitle = "";
+			createOpen = false;
+			await goto(`/project/${page.params.projectId}/feedback/${created.id}`);
+		} catch (error) {
+			console.error("Failed to create feedback", error);
+			createError = "Unable to create feedback right now.";
+		} finally {
+			isCreatingFeedback = false;
 		}
-		const created = result.data as { id: string };
-		createTitle = "";
-		createOpen = false;
-		await goto(`/project/${page.params.projectId}/feedback/${created.id}`);
 	};
 </script>
 

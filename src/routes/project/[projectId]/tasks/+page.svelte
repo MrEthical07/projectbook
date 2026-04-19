@@ -129,6 +129,8 @@
 			});
 			rows = mergeRows(rows, result.items as TaskRow[]);
 			nextCursor = result.nextCursor;
+		} catch (error) {
+			console.error("Failed to load more tasks", error);
 		} finally {
 			isLoadingMore = false;
 		}
@@ -170,15 +172,19 @@
 		if (!draggingTaskId) return;
 		const taskId = draggingTaskId;
 		draggingTaskId = "";
-		const result = await updateTaskStatusRemote({
-			input: {
-				projectId: page.params.projectId,
-				taskId,
-				status: targetStatus
-			}
-});
-		if (!result.success) return;
-		await invalidate((url) => url.pathname === page.url.pathname);
+		try {
+			const result = await updateTaskStatusRemote({
+				input: {
+					projectId: page.params.projectId,
+					taskId,
+					status: targetStatus
+				}
+			});
+			if (!result.success) return;
+			await invalidate((url) => url.pathname === page.url.pathname);
+		} catch (error) {
+			console.error("Failed to update task status", error);
+		}
 	};
 
 	const createTask = async () => {
@@ -197,22 +203,28 @@
 		const title = createTitle.trim();
 		if (!title) return;
 		isCreatingTask = true;
-		const result = await createTaskRemote({
-			input: {
-				projectId: page.params.projectId,
-				actorId,
-				title
+		try {
+			const result = await createTaskRemote({
+				input: {
+					projectId: page.params.projectId,
+					actorId,
+					title
+				}
+			});
+			if (!result.success) {
+				createError = result.error;
+				return;
 			}
-});
-		isCreatingTask = false;
-		if (!result.success) {
-			createError = result.error;
-			return;
+			const created = result.data as { id: string };
+			createTitle = "";
+			createOpen = false;
+			await goto(`/project/${page.params.projectId}/tasks/${created.id}`);
+		} catch (error) {
+			console.error("Failed to create task", error);
+			createError = "Unable to create task right now.";
+		} finally {
+			isCreatingTask = false;
 		}
-		const created = result.data as { id: string };
-		createTitle = "";
-		createOpen = false;
-		await goto(`/project/${page.params.projectId}/tasks/${created.id}`);
 	};
 </script>
 

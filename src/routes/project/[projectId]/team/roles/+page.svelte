@@ -240,44 +240,51 @@
 		permissionsSavePhase = "saving";
 		if (permissionsSavedBadgeTimer) clearTimeout(permissionsSavedBadgeTimer);
 
-		const result = await updateProjectRolePermissions({
-			input: {
-				projectId,
-				role: selectedRole,
-				permissionMask: selectedRoleMask
+		try {
+			const result = await updateProjectRolePermissions({
+				input: {
+					projectId,
+					role: selectedRole,
+					permissionMask: selectedRoleMask
+				}
+			});
+
+			if (!result.success) {
+				permissionsSavePhase = "idle";
+				toast.error(result.error);
+				return;
 			}
-		});
 
-		permissionsSaving = false;
-		if (!result.success) {
-			permissionsSavePhase = "idle";
-			toast.error(result.error);
-			return;
-		}
-
-		const normalizedMask = normalizePermissionMask(result.data.permissionMask);
-		rolePermissionMasks = {
-			...rolePermissionMasks,
-			[selectedRole]: normalizedMask
-		};
-		members = members.map((member) => {
-			if (member.role !== selectedRole || member.isCustom) return member;
-			return {
-				...member,
-				permissionMask: normalizedMask
+			const normalizedMask = normalizePermissionMask(result.data.permissionMask);
+			rolePermissionMasks = {
+				...rolePermissionMasks,
+				[selectedRole]: normalizedMask
 			};
-		});
+			members = members.map((member) => {
+				if (member.role !== selectedRole || member.isCustom) return member;
+				return {
+					...member,
+					permissionMask: normalizedMask
+				};
+			});
 
-		permissionsSavedSignature = JSON.stringify({
-			...rolePermissionMasks,
-			[selectedRole]: normalizedMask
-		});
-		permissionsSavePhase = "saved";
-		roleMatrixAlert = roleMatrixChangeAlertText;
-		toast.success("Role permissions saved.");
-		permissionsSavedBadgeTimer = setTimeout(() => {
-			if (!permissionsDirty) permissionsSavePhase = "idle";
-		}, 1400);
+			permissionsSavedSignature = JSON.stringify({
+				...rolePermissionMasks,
+				[selectedRole]: normalizedMask
+			});
+			permissionsSavePhase = "saved";
+			roleMatrixAlert = roleMatrixChangeAlertText;
+			toast.success("Role permissions saved.");
+			permissionsSavedBadgeTimer = setTimeout(() => {
+				if (!permissionsDirty) permissionsSavePhase = "idle";
+			}, 1400);
+		} catch (error) {
+			console.error("Failed to save role permissions", error);
+			permissionsSavePhase = "idle";
+			toast.error("Unable to save role permissions right now.");
+		} finally {
+			permissionsSaving = false;
+		}
 	};
 
 	let memberDialogOpen = $state(false);
@@ -378,35 +385,41 @@
 			return;
 		}
 
-		const result = await updateProjectMemberPermissions({
-			input: {
-				projectId,
-				memberId: editingMember.id,
-				role: memberDraftRole,
-				isCustom: memberDraftEffectiveIsCustom,
-				permissionMask: effectivePermissionMask
+		try {
+			const result = await updateProjectMemberPermissions({
+				input: {
+					projectId,
+					memberId: editingMember.id,
+					role: memberDraftRole,
+					isCustom: memberDraftEffectiveIsCustom,
+					permissionMask: effectivePermissionMask
+				}
+			});
+
+			if (!result.success) {
+				toast.error(result.error);
+				return;
 			}
-		});
 
-		memberSavePending = false;
-		if (!result.success) {
-			toast.error(result.error);
-			return;
+			members = members.map((member) => {
+				if (member.id !== editingMember.id) return member;
+				return {
+					...member,
+					role: result.data.role,
+					isCustom: result.data.isCustom,
+					permissionMask: normalizePermissionMask(result.data.permissionMask),
+					updatedAt: "Just now"
+				};
+			});
+
+			toast.success(`Permissions updated for ${editingMember.name}.`);
+			closeMemberPermissionDialog();
+		} catch (error) {
+			console.error("Failed to save member permissions", error);
+			toast.error("Unable to save member permissions right now.");
+		} finally {
+			memberSavePending = false;
 		}
-
-		members = members.map((member) => {
-			if (member.id !== editingMember.id) return member;
-			return {
-				...member,
-				role: result.data.role,
-				isCustom: result.data.isCustom,
-				permissionMask: normalizePermissionMask(result.data.permissionMask),
-				updatedAt: "Just now"
-			};
-		});
-
-		toast.success(`Permissions updated for ${editingMember.name}.`);
-		closeMemberPermissionDialog();
 	};
 
 	const formatDomainLabel = (domain: PermissionDomain): string =>

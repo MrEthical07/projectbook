@@ -14,6 +14,7 @@
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
 	import { mode, setMode } from "mode-watcher";
+	import { onMount } from "svelte";
 	import {
 		Moon,
 		Sun,
@@ -84,6 +85,7 @@
 
 	let searchQuery = $state("");
 	let searchInput = $state<HTMLInputElement | null>(null);
+	let searchPopoverAnchor = $state<HTMLDivElement | null>(null);
 	let searchPopoverOpen = $state(false);
 	let debouncedSearchQuery = $state("");
 	let searchResults = $state<ProjectSearchResultItem[]>([]);
@@ -98,6 +100,22 @@
 	let feedbackMessage = $state("");
 
 	let modeValue = $state<"light" | "dark">("light");
+
+	let sidebarState = $state(true);
+
+	const toggleSidebar = () => {
+		sidebarState = !sidebarState;
+		localStorage.setItem("sidebarState", sidebarState.toString());
+	};
+	
+	onMount(() => {
+		modeValue =
+			localStorage.modeValue ||
+			(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'light');
+		document.documentElement.classList.toggle('dark', modeValue === 'dark');
+
+		sidebarState = localStorage.sidebarState === "false" ? false : true;
+	});
 
 	const searchTypeIconMap: Record<string, typeof FileText> = {
 		story: FileText,
@@ -128,9 +146,11 @@
 	};
 
 	const openSearchPopover = () => {
-		if (searchQuery.trim().length >= 2) {
-			searchPopoverOpen = true;
+		if (searchQuery.trim().length < 2) {
+			searchPopoverOpen = false;
+			return;
 		}
+		searchPopoverOpen = true;
 	};
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -174,10 +194,16 @@
 		searchResults = [];
 		activeSearchIndex = -1;
 		hoveredResultId = "";
-		await goto(result.href);
+		try {
+			await goto(result.href);
+		} catch (error) {
+			console.error("Search navigation failed", error);
+			toast.error("Unable to open the selected result.");
+		}
 	};
 
 	const clearSearchState = () => {
+		searchRequestToken += 1;
 		searchResults = [];
 		searchPopoverOpen = false;
 		searching = false;
@@ -199,35 +225,43 @@
 		}
 
 		feedbackSubmitting = true;
-		const result = await submitGlobalFeedback({
-			input: {
-				subject,
-				message,
-				context: {
-					projectId: page.params.projectId,
-					path: page.url.pathname,
-					userAgent: typeof navigator === "undefined" ? "" : navigator.userAgent,
-					mode: modeValue,
-					submittedAt: new Date().toISOString()
+		try {
+			const result = await submitGlobalFeedback({
+				input: {
+					subject,
+					message,
+					context: {
+						projectId: page.params.projectId,
+						path: page.url.pathname,
+						userAgent: typeof navigator === "undefined" ? "" : navigator.userAgent,
+						mode: modeValue,
+						submittedAt: new Date().toISOString()
+					}
 				}
+			});
+
+			if (!result.success) {
+				toast.error(result.error);
+				return;
 			}
-		});
-		feedbackSubmitting = false;
 
-		if (!result.success) {
-			toast.error(result.error);
-			return;
+			feedbackDialogOpen = false;
+			feedbackSubject = "";
+			feedbackMessage = "";
+			toast.success("Feedback submitted. Thank you.");
+		} catch (error) {
+			console.error("Failed to submit feedback", error);
+			toast.error("Unable to submit feedback right now.");
+		} finally {
+			feedbackSubmitting = false;
 		}
-
-		feedbackDialogOpen = false;
-		feedbackSubject = "";
-		feedbackMessage = "";
-		toast.success("Feedback submitted. Thank you.");
 	};
 
 	const toggleMode = () => {
 		const nextMode = modeValue === "dark" ? "light" : "dark";
+		document.documentElement.classList.toggle('dark', nextMode === 'dark');
 		setMode(nextMode);
+		localStorage.setItem('modeValue', nextMode);
 		modeValue = nextMode;
 	};
 
@@ -246,27 +280,34 @@
 	$effect(() => {
 		const scopedProjectId = page.params.projectId?.trim() ?? "";
 		if (debouncedSearchQuery.length < 2 || scopedProjectId.length === 0) {
-			if (debouncedSearchQuery.length === 0) {
-				clearSearchState();
-			}
+			clearSearchState();
 			return;
 		}
 
 		const token = ++searchRequestToken;
 		searching = true;
+		if (document.activeElement === searchInput) {
+			searchPopoverOpen = true;
+		}
 
 		void searchProject({ projectId: scopedProjectId, q: debouncedSearchQuery, limit: 10 })
 			.then((payload) => {
 				if (token !== searchRequestToken) return;
 				searchResults = Array.isArray(payload.items) ? payload.items.slice(0, 10) : [];
-				searchPopoverOpen = true;
+				// only open if input is still focused
+				if (document.activeElement === searchInput) {
+					searchPopoverOpen = true;
+				}
+
 				activeSearchIndex = searchResults.length > 0 ? 0 : -1;
 				hoveredResultId = searchResults[0]?.id ?? "";
 			})
 			.catch(() => {
 				if (token !== searchRequestToken) return;
 				searchResults = [];
-				searchPopoverOpen = true;
+				if (document.activeElement === searchInput && debouncedSearchQuery.length >= 2) {
+					searchPopoverOpen = true;
+				}
 			})
 			.finally(() => {
 				if (token !== searchRequestToken) return;
@@ -274,25 +315,27 @@
 			});
 	});
 
+
 </script>
 
 <svelte:document onkeydown={handleKeydown} />
 
-<Sidebar.Provider>
+<Sidebar.Provider onOpenChange={toggleSidebar} open={sidebarState}>
 	<AppSidebar navigationData={layoutData.navigationData} access={layoutData.access} />
 	<Sidebar.Inset>
-		<div class="w-full p-2 bg-sidebar flex flex-row md:items-end justify-end gap-2">
+		<div class="w-full p-2 bg-sidebar flex flex-row justify-between gap-2">
+			<div class="w-full"></div>
 			<Popover.Root bind:open={searchPopoverOpen}>
-				<Popover.Trigger class="w-full">
+				<div bind:this={searchPopoverAnchor} class="w-full max-w-sm">
 					<div
-						class="bg-background max-w-100 focus-within:border-primary relative flex h-fit w-full items-center gap-2 rounded-lg border px-2 focus-within:border"
+						class="bg-background max-w-100 focus-within:border-primary relative flex h-fit w-full items-center rounded-lg border px-2 focus-within:border"
 					>
 						<div class="pointer-events-none inset-y-0 left-0 flex items-center p-2 text-muted-foreground">
 							<Search class="size-4" />
 						</div>
 						<Input
 							type="text"
-							class="bg-background block h-8.5 w-full rounded-lg border-0 py-1.5 pr-2 shadow-none focus-visible:ring-0"
+							class="bg-background block h-8.5 w-full rounded-lg border-0 py-1.5 pr-2 pl-0.5 shadow-none focus-visible:ring-0"
 							placeholder="Search for artifacts, pages, and more..."
 							bind:value={searchQuery}
 							bind:ref={searchInput}
@@ -302,12 +345,20 @@
 							<Command class="text-muted-foreground" size="16" /> K
 						</div>
 					</div>
-				</Popover.Trigger>
-				<Popover.Content align="start" class="w-[min(42rem,calc(100vw-2rem))] p-2">
+				</div>
+				<Popover.Content
+					customAnchor={searchPopoverAnchor}
+					align="start"
+					onOpenAutoFocus={(e) => e.preventDefault()}
+					onCloseAutoFocus={(event) => event.preventDefault()}
+					class="w-[min(42rem,calc(100vw-2rem))] p-2"
+				>
 					{#if searching}
 						<div class="px-2 py-3 text-sm text-muted-foreground">Searching...</div>
+					{:else if searchResults.length === 0 && searchQuery.length >= 2}
+						<div class="px-2 py-3 text-sm text-muted-foreground">No results found.</div>
 					{:else if searchResults.length === 0}
-						<div class="px-2 py-3 text-sm text-muted-foreground">No results yet. Try at least 2 characters.</div>
+						<div class="px-2 py-3 text-sm text-muted-foreground">Type at least 2 characters to search.</div>
 					{:else}
 						<div class="space-y-1">
 							{#each searchResults as result, index (result.type + ":" + result.id)}
@@ -352,33 +403,35 @@
 					{/if}
 				</Popover.Content>
 			</Popover.Root>
-			<Button
-				variant="outline"
-				class="hidden md:flex text-muted-foreground"
-				onclick={() => (feedbackDialogOpen = true)}
-			>
-				Feedback
-			</Button>
-			<Tooltip.Root>
-				<Tooltip.Trigger>
-					<Button
-						variant="outline"
-						size="icon"
-						class="text-muted-foreground"
-						onclick={toggleMode}
-						aria-label="Toggle dark mode"
-					>
-						{#if modeValue === "dark"}
-							<Sun class="size-4" />
-						{:else}
-							<Moon class="size-4" />
-						{/if}
-					</Button>
-				</Tooltip.Trigger>
-				<Tooltip.Content>
-					Switch to {modeValue === "dark" ? "light" : "dark"} mode
-				</Tooltip.Content>
-			</Tooltip.Root>
+			<div class="flex flex-row gap-2 w-full justify-end">
+				<Button
+					variant="outline"
+					class="hidden md:flex text-muted-foreground"
+					onclick={() => (feedbackDialogOpen = true)}
+				>
+					Feedback
+				</Button>
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						<Button
+							variant="outline"
+							size="icon"
+							class="text-muted-foreground"
+							onclick={toggleMode}
+							aria-label="Toggle dark mode"
+						>
+							{#if modeValue === "dark"}
+								<Sun class="size-4" />
+							{:else}
+								<Moon class="size-4" />
+							{/if}
+						</Button>
+					</Tooltip.Trigger>
+					<Tooltip.Content>
+						Switch to {modeValue === "dark" ? "light" : "dark"} mode
+					</Tooltip.Content>
+				</Tooltip.Root>
+			</div>
 
 		</div>
 		<div class="bg-sidebar p-2 pt-0 h-full">

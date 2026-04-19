@@ -106,6 +106,8 @@
 			});
 			rows = mergeRows(rows, result.items as ProblemRow[]);
 			nextCursor = result.nextCursor;
+		} catch (error) {
+			console.error("Failed to load more problems", error);
 		} finally {
 			isLoadingMore = false;
 		}
@@ -137,22 +139,28 @@
 		const title = createTitle.trim();
 		if (!title) return;
 		isCreatingProblem = true;
-		const result = await createProblemRemote({
-			input: {
-				projectId: page.params.projectId,
-				actorId,
-				statement: title
+		try {
+			const result = await createProblemRemote({
+				input: {
+					projectId: page.params.projectId,
+					actorId,
+					statement: title
+				}
+			});
+			if (!result.success) {
+				createError = result.error;
+				return;
 			}
-});
-		isCreatingProblem = false;
-		if (!result.success) {
-			createError = result.error;
-			return;
+			const created = result.data as { id: string };
+			createTitle = "";
+			createOpen = false;
+			await goto(`/project/${page.params.projectId}/problem-statement/${created.id}`);
+		} catch (error) {
+			console.error("Failed to create problem statement", error);
+			createError = "Unable to create problem statement right now.";
+		} finally {
+			isCreatingProblem = false;
 		}
-		const created = result.data as { id: string };
-		createTitle = "";
-		createOpen = false;
-		await goto(`/project/${page.params.projectId}/problem-statement/${created.id}`);
 	};
 </script>
 
