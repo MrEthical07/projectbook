@@ -221,10 +221,10 @@ const normalizeUpdateState = (value: unknown): Record<string, unknown> => {
 const appendPaginationQuery = (path: string, limit?: number, cursor?: string): string => {
 	const params = new URLSearchParams();
 	if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
-		params.set("limit", String(Math.trunc(limit)));
+		params.set("pagination.limit", String(Math.trunc(limit)));
 	}
 	if (typeof cursor === "string" && cursor.trim().length > 0) {
-		params.set("cursor", cursor.trim());
+		params.set("pagination.cursor", cursor.trim());
 	}
 	const queryString = params.toString();
 	return queryString.length > 0 ? `${path}?${queryString}` : path;
@@ -251,7 +251,7 @@ export const getCalendarData = query("unchecked", async (input: CalendarListInpu
 			ttlMs: 15_000,
 			keyParts: {
 				project_id: input.projectId,
-				cursor: typeof input.cursor === "string" ? input.cursor : undefined,
+				cursor_present: typeof input.cursor === "string" && input.cursor.trim().length > 0,
 				limit: typeof input.limit === "number" ? Math.trunc(input.limit) : undefined
 			},
 			tags: [`project:${input.projectId}`, "project-calendar"]

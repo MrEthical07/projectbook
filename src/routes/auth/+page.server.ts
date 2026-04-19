@@ -17,6 +17,7 @@ import { parsePermissionContextToken } from "$lib/server/auth/permission-context
 import { isApiRequestError } from "$lib/server/api/error-mapping";
 import {
 	loginRequest,
+	resendVerificationRequest,
 	sessionContextRequest,
 	signupRequest
 } from "$lib/server/api/auth";
@@ -63,15 +64,31 @@ const apiErrorVerificationId = (details: unknown): string => {
 	return "";
 };
 
+const buildVerifyRedirectPath = (email: string, verificationID = ""): string => {
+	const query = new URLSearchParams();
+	const normalizedEmail = email.trim();
+	const normalizedVerificationID = verificationID.trim();
+	if (normalizedEmail.length > 0) {
+		query.set("email", normalizedEmail);
+	}
+	if (normalizedVerificationID.length > 0) {
+		query.set("verificationId", normalizedVerificationID);
+	}
+	const serialized = query.toString();
+	return serialized.length > 0 ? `/auth/verify?${serialized}` : "/auth/verify";
+};
+
 export const load: PageServerLoad = async (event) => {
 	const accessToken = getAccessTokenCookie(event.cookies);
 	if (accessToken) {
 		const cachedPermissionContext = parsePermissionContextToken(
 			getPermissionContextCookie(event.cookies)
 		);
+		let resolvedContext = cachedPermissionContext;
 		if (!cachedPermissionContext) {
 			try {
 				const sessionContext = await sessionContextRequest(event);
+				resolvedContext = sessionContext;
 				const contextToken = sessionContext.context_token?.trim() ?? "";
 				if (contextToken.length > 0) {
 					setPermissionContextCookie(
@@ -96,6 +113,9 @@ export const load: PageServerLoad = async (event) => {
 		}
 
 		if (getAccessTokenCookie(event.cookies)) {
+			if (resolvedContext?.email_verified === false) {
+				throw redirect(303, buildVerifyRedirectPath(resolvedContext.email ?? ""));
+			}
 			throw redirect(303, "/");
 		}
 	}
@@ -129,7 +149,66 @@ export const actions: Actions = {
 				password: loginForm.data.password,
 				remember: loginForm.data.remember
 			});
+
+			let requiresVerification = false;
+			let contextEmail = loginForm.data.email.trim();
+			try {
+				const sessionContext = await sessionContextRequest(event);
+				const contextToken = sessionContext.context_token?.trim() ?? "";
+				if (contextToken.length > 0) {
+					setPermissionContextCookie(
+						event.cookies,
+						contextToken,
+						sessionContext.context_token_expires_utc ??
+							(sessionContext.context_token_expires_unix
+								? new Date(sessionContext.context_token_expires_unix * 1000)
+								: null)
+					);
+				} else {
+					clearPermissionContextCookie(event.cookies);
+				}
+				clearPermissionContextRevalidateCooldownCookie(event.cookies);
+
+				requiresVerification = sessionContext.email_verified === false;
+				if ((sessionContext.email ?? "").trim().length > 0) {
+					contextEmail = sessionContext.email!.trim();
+				}
+			} catch (err) {
+				if (isApiRequestError(err) && err.statusCode === 401) {
+					clearPermissionContextCookie(event.cookies);
+					clearApiAuthTokenCookies(event.cookies);
+				} else {
+					console.error("[auth:login] session context failed", err);
+					clearPermissionContextCookie(event.cookies);
+				}
+			}
+
+			if (requiresVerification) {
+				let verificationID = "";
+				try {
+					const resend = await resendVerificationRequest(event, {
+						email: contextEmail
+					});
+					verificationID = resend.verificationId?.trim() ?? "";
+				} catch (err) {
+					console.error("[auth:login] resend verification failed", err);
+				}
+
+				setAuthNoticeCookie(
+					event.cookies,
+					"You are signed in. Verify your email with the OTP to continue."
+				);
+				throw redirect(303, buildVerifyRedirectPath(contextEmail, verificationID));
+			}
 		} catch (err) {
+			if (
+				err &&
+				typeof err === "object" &&
+				"status" in err &&
+				"location" in err
+			) {
+				throw err;
+			}
 			console.error("[auth:login] request failed", err);
 			if (isApiRequestError(err)) {
 				const reason = err.reason.toLowerCase();

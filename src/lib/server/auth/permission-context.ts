@@ -119,9 +119,13 @@ export const parsePermissionContextToken = (
 		: [];
 
 	const contextTokenVersion = asFiniteNumber(claims.v);
+	const email = typeof claims.email === "string" ? claims.email.trim() : "";
+	const emailVerified = claims.email_verified === false ? false : true;
 
 	return {
 		user_id: userID,
+		email: email.length > 0 ? email : undefined,
+		email_verified: emailVerified,
 		backend_role:
 			typeof claims.backend_role === "string"
 				? claims.backend_role.trim() || undefined

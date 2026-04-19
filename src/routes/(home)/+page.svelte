@@ -7,6 +7,7 @@
 	import * as Dialog from "$lib/components/ui/dialog";
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { resolveIconComponent } from "$lib/utils/icon-fallback";
 	import { resolveProjectIcon } from "$lib/utils/project-icons";
 	import {
 		acceptProjectInvite,
@@ -24,7 +25,7 @@
 		Trash2,
 		UserPlus
 	} from "@lucide/svelte";
-	import { onMount } from "svelte";
+	import { onMount, type Component } from "svelte";
 
 	let { data } = $props();
 
@@ -53,7 +54,7 @@
 		id: string;
 		text: string;
 		timestamp: string;
-		icon: typeof Bell;
+		icon: Component;
 		url: string;
 		unread?: boolean;
 	};
@@ -135,7 +136,10 @@
 	const toNotifications = (items: NotificationSource[]): Notification[] =>
 		items.map((item) => ({
 			...item,
-			icon: item.url === "/invites" ? Mail : item.unread ? MessageSquare : Bell
+				icon: resolveIconComponent(
+					item.url === "/invites" ? Mail : item.unread ? MessageSquare : Bell,
+					Bell
+				)
 		}));
 
 	let notifications = $derived<Notification[]>(
@@ -181,7 +185,10 @@
 	let recentProjects = $derived.by(() => {
 		return sortedProjects.slice(0, 6).map((project) => ({
 			...project,
-			iconComponent: resolveProjectIcon(project.icon)
+				iconComponent: resolveIconComponent(
+					resolveProjectIcon(project.icon),
+					FolderKanban
+				)
 		}));
 	});
 	let hasMoreProjects = $derived(sortedProjects.length > 6);
@@ -425,12 +432,13 @@
 					{:else}
 						<div class="space-y-1">
 							{#each notificationItems as item (item.id)}
+								{@const NotificationIcon = resolveIconComponent(item.icon, Bell)}
 								<a
 									href={item.url}
 									class="flex items-start gap-3 rounded-md p-2 transition hover:bg-muted/60"
 								>
 									<div class="mt-0.5 rounded-md bg-muted p-1.5">
-										<item.icon class="h-3.5 w-3.5" />
+										<NotificationIcon class="h-3.5 w-3.5" />
 									</div>
 									<div class="min-w-0 flex-1">
 										<div class="line-clamp-2 text-xs">{item.text}</div>

@@ -8,7 +8,11 @@ import {
 	verifyEmailRequest
 } from "$lib/server/api/auth";
 import { isApiRequestError } from "$lib/server/api/error-mapping";
-import { setAuthNoticeCookie } from "$lib/server/auth/cookies";
+import {
+	clearPermissionContextCookie,
+	clearPermissionContextRevalidateCooldownCookie,
+	setAuthNoticeCookie
+} from "$lib/server/auth/cookies";
 
 const VERIFY_FORM_ID = "verify-email-form";
 const RESEND_FORM_ID = "resend-verification-form";
@@ -81,8 +85,10 @@ export const actions: Actions = {
 			return fail(500, { verifyForm, resendForm });
 		}
 
-		setAuthNoticeCookie(cookies, "Email verified successfully. Sign in to continue.");
-		redirect(303, "/auth");
+		clearPermissionContextCookie(cookies);
+		clearPermissionContextRevalidateCooldownCookie(cookies);
+		setAuthNoticeCookie(cookies, "Email verified successfully. Welcome back.");
+		throw redirect(303, "/");
 	},
 
 	resend: async (event) => {

@@ -1,18 +1,19 @@
-name: PR CI
+name: Frontend CI
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   push:
-    branches: [main]
+    branches:
+      - "**"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: pr-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: frontend-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -20,6 +21,20 @@ env:
   PNPM_VERSION: "9"
 
 jobs:
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
+
   check:
     name: Check
     runs-on: ubuntu-latest
@@ -32,12 +47,14 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
+          run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -45,8 +62,11 @@ jobs:
       - name: Secret lint
         run: pnpm run lint:secrets
 
-      - name: Run checks
+      - name: Contract + type checks
         run: pnpm run check
+
+      - name: Run tests when present
+        run: pnpm run test --if-present
 
   build:
     name: Build
@@ -60,23 +80,100 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
+          run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
+      - name: Build (Vercel)
         run: pnpm run build
 
-  pr-gate:
-    name: PR Gate
+      - name: Build (Node adapter)
+        run: pnpm run build:node
+
+  docker-smoke:
+    name: Docker Build + Runtime Smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [check, build]
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build web image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: projectbook-web:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start container
+        run: |
+          docker run -d --name projectbook-web-ci -p 3000:3000 \
+            -e PROJECTBOOK_API_BASE_URL=http://127.0.0.1:8080/api/v1 \
+            -e API_URL=http://127.0.0.1:8080 \
+            projectbook-web:ci
+
+      - name: Wait for health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/healthz > /tmp/healthz.json; then
+              cat /tmp/healthz.json
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Health endpoint did not become ready in time."
+          docker logs projectbook-web-ci || true
+          exit 1
+
+      - name: Check readiness endpoint
+        run: curl -fsS http://127.0.0.1:3000/readyz
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs projectbook-web-ci
+
+      - name: Cleanup container
+        if: always()
+        run: docker rm -f projectbook-web-ci || true
+
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [dependency-review, check, build, docker-smoke]
+    steps:
+      - name: Show upstream job results
+        run: |
+          echo "dependency-review=${{ needs['dependency-review'].result }}"
+          echo "check=${{ needs.check.result }}"
+          echo "build=${{ needs.build.result }}"
+          echo "docker-smoke=${{ needs['docker-smoke'].result }}"
+
+      - name: Enforce required job outcomes
+        run: |
+          if [[ "${{ needs['dependency-review'].result }}" != "success" && "${{ needs['dependency-review'].result }}" != "skipped" ]]; then
+            echo "dependency-review must be success or skipped"
+            exit 1
+          fi
+          [[ "${{ needs.check.result }}" == "success" ]] || exit 1
+          [[ "${{ needs.build.result }}" == "success" ]] || exit 1
+          [[ "${{ needs['docker-smoke'].result }}" == "success" ]] || exit 1
+
       - name: Confirm required jobs passed
-        run: echo "All required CI jobs passed."
+        run: echo "Frontend CI passed."

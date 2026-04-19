@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from "$lib/components/ui/button";
 	import * as Card from "$lib/components/ui/card";
+	import { resolveIconComponent } from "$lib/utils/icon-fallback";
 	import { Ban, CircleHelp, ShieldAlert, TriangleAlert } from "@lucide/svelte";
 
 	type ErrorCardProps = {
@@ -15,7 +16,7 @@
 		description: string;
 		primaryLabel: string;
 		primaryHref: string;
-		icon: any;
+		icon: unknown;
 		iconContainerClass: string;
 		iconClass: string;
 		showRetry?: boolean;
@@ -88,6 +89,8 @@
 		}
 	});
 
+	let uiIcon = $derived.by(() => resolveIconComponent(uiState.icon, CircleHelp));
+
 	const retry = () => {
 		window.location.reload();
 	};
@@ -108,7 +111,7 @@
 				<div class="text-5xl font-bold tracking-tight text-primary">{status}</div>
 			{:else}
 				<div class={`mx-auto flex size-12 items-center justify-center rounded-full ${uiState.iconContainerClass}`}>
-					<uiState.icon class={`size-6 ${uiState.iconClass}`} />
+					<uiIcon class={`size-6 ${uiState.iconClass}`}></uiIcon>
 				</div>
 			{/if}
 			<Card.Title>{uiState.title}</Card.Title>

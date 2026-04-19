@@ -26,146 +26,147 @@ export type LegalDocumentData = {
 	sections: LegalSection[];
 };
 
-const lastUpdated = "April 5, 2026";
+const lastUpdated = "April 19, 2026";
 
 export const privacyPolicy: LegalDocumentData = {
 	eyebrow: "Legal",
 	title: "Privacy Policy",
 	description:
-		"ProjectBook is built for collaborative design-thinking work. This policy explains what information the service handles, why it is used, how cookies support core product behavior, and what choices users and deployment operators should review before a production release.",
+		"This Privacy Policy describes how ProjectBook collects, uses, and protects your information when you use the Platform.",
 	lastUpdated,
 	reviewNotice:
-		"This page is a branded ProjectBook template based on the current repository behavior. It should be reviewed by legal counsel before production use.",
+		"For general privacy communication, contact contact@projectbook.dev. For security concerns, contact security@projectbook.dev.",
 	relatedLinks: [
 		{ href: "/terms-and-conditions", label: "Read the Terms and Conditions" }
 	],
 	sections: [
 		{
-			id: "scope",
-			title: "Scope and purpose",
+			id: "introduction",
+			title: "1. Introduction",
 			paragraphs: [
-				"This Privacy Policy describes how ProjectBook handles information when people sign in, create accounts, collaborate in projects, and use project tools across the application.",
-				"It is written for the current ProjectBook repository, which is a SvelteKit application with account authentication, project collaboration, project artifacts, and browser cookies that support sign-in, notices, sidebar preferences.",
-				"If a specific deployment of ProjectBook adds third-party services, integrations, or regulatory disclosures that are not present in this repository, that deployment should publish supplemental privacy details."
+				"This Privacy Policy describes how ProjectBook (\"we\", \"us\", \"our\") collects, uses, and protects your information when you use the Platform."
 			]
 		},
 		{
 			id: "information-collected",
-			title: "Information ProjectBook may collect",
+			title: "2. Information We Collect",
 			paragraphs: [
-				"ProjectBook may handle information that users provide directly, information created while using the product, and limited technical data needed to secure and operate the service.",
-				"The current repository behavior supports the following categories of information."
+				"We collect account, usage, and technical information required to operate and protect the Platform."
 			],
 			cards: [
 				{
-					title: "Account and profile information",
-					description:
-						"Examples include name, email address, login credentials, account verification state, and password-reset related records."
+					title: "a. Account Information",
+					description: "Name, email address, and authentication-related data."
 				},
 				{
-					title: "Project content",
+					title: "b. Usage Information",
 					description:
-						"Examples include projects, stories, journeys, problem statements, ideas, tasks, feedback, pages, resources, calendars, notifications, invites, and other collaboration records users create or view in the product."
+						"Actions performed within the Platform, feature interaction data, and system activity logs."
 				},
 				{
-					title: "Authentication and security data",
+					title: "c. Technical Information",
 					description:
-						"Examples include session identifiers, verification tokens, reset tokens, rate-limit events, request IDs, and security-related metadata used to prevent abuse or maintain access control."
-				},
-				{
-					title: "Browser, device, and usage context",
-					description:
-						"Examples include IP-based request limiting, browser cookie state, navigation context, and preference information needed to keep the interface usable."
+						"IP address, device and browser details, timestamps, and request metadata."
 				}
 			]
 		},
 		{
-			id: "cookies",
-			title: "Cookies and browser technologies",
+			id: "how-we-use",
+			title: "3. How We Use Information",
 			paragraphs: [
-				"ProjectBook uses cookies and similar browser state to provide core application behavior. Some of these technologies are essential for authentication or state continuity, while others support interface preferences.",
-				"This repository does not currently include a separate cookie banner or preference center. Users can use browser controls to manage cookies, but disabling essential cookies may prevent sign-in or break core workflows."
-			],
-			cards: [
-				{
-					title: "projectbook_session",
-					description:
-						"An HTTP-only session cookie used to keep an authenticated browser signed in. In the current implementation, it lasts about 7 days by default or up to 30 days when the user selects remember me."
-				},
-				{
-					title: "projectbook_auth_notice",
-					description:
-						"A short-lived notice cookie used to pass one-time auth messages between pages, such as password reset or verification confirmations."
-				},
-				{
-					title: "sidebar:state",
-					description:
-						"A browser cookie used to remember whether the sidebar is expanded or collapsed so the interface returns in the preferred layout."
-				}
+				"We use collected data to provide and operate the Platform, authenticate users and manage sessions, maintain security and prevent abuse, monitor performance and improve functionality, and detect and respond to unauthorized or harmful activity."
 			],
 			bullets: [
-				"Essential cookies support login, session continuity, and protected-route access.",
-				"Preference cookies support interface behavior such as sidebar state.",
-				"Cookie names, durations, and purposes should be reviewed again if the deployment model changes."
+				"Provide and operate the Platform",
+				"Authenticate users and manage sessions",
+				"Maintain security and prevent abuse",
+				"Monitor performance and improve functionality",
+				"Detect and respond to unauthorized or harmful activity"
 			]
 		},
 		{
-			id: "use-of-information",
-			title: "How ProjectBook may use information",
+			id: "legal-basis",
+			title: "4. Legal Basis for Processing (Where Applicable)",
 			paragraphs: [
-				"ProjectBook may use information to create and manage accounts, authenticate sessions, protect the application from abuse, and make project collaboration possible.",
-				"Information may also be used to render dashboards, load project artifacts, support password reset and email verification flows, enforce permissions, and preserve product state that users expect across requests.",
-				"Where a deployment adds support, operational teams may also use information to troubleshoot service issues, respond to support requests, maintain reliability, or comply with legal obligations."
+				"Where required by law, we process personal data based on performance of a contract, legitimate interests (such as security and system improvement), and user consent where applicable."
 			]
 		},
 		{
-			id: "sharing",
-			title: "How information may be shared",
+			id: "data-sharing",
+			title: "5. Data Sharing",
 			paragraphs: [
-				"Within the product, information is shared with authorized project participants according to account permissions, role assignments, and the pages they can access.",
-				"Outside the product, information may be disclosed when reasonably necessary to host, secure, maintain, investigate, or legally protect a ProjectBook deployment.",
-				"This repository does not describe selling personal information. If a production deployment introduces third-party processors, analytics, or other integrations, the operator of that deployment should disclose them clearly."
+				"We do not sell user data.",
+				"We may share data only with service providers necessary to operate the Platform (such as hosting infrastructure), when required by law or legal process, or to protect the rights, safety, or integrity of the Platform and its users."
 			]
 		},
 		{
 			id: "retention",
-			title: "Retention",
+			title: "6. Data Retention",
 			paragraphs: [
-				"ProjectBook retains information for as long as needed to operate the service, maintain account continuity, support collaboration records, and satisfy security or legal needs appropriate for the deployment.",
-				"Production operators should align retention schedules with contractual requirements, legal obligations, and the practical need to preserve project history."
+				"We retain data only for as long as necessary to provide the service, fulfill legal obligations, resolve disputes, and enforce agreements.",
+				"You may request deletion of your data, subject to operational and legal constraints."
 			]
 		},
 		{
 			id: "security",
-			title: "Security",
+			title: "7. Data Security",
 			paragraphs: [
-				"ProjectBook uses reasonable technical measures in the current codebase to protect accounts and sessions, including password hashing, HTTP-only session cookies for core authentication, permission checks, and rate limiting.",
-				"No internet service can guarantee absolute security, and deployment choices matter. Operators should evaluate hosting, transport security, backup practices, access logging, and incident response procedures before using ProjectBook in production."
+				"We implement reasonable technical and organizational measures to protect your data. However, no system can guarantee absolute security.",
+				"For security communication, contact security@projectbook.dev."
 			]
 		},
 		{
-			id: "choices-rights",
-			title: "User choices and privacy rights",
+			id: "user-rights",
+			title: "8. User Rights",
 			paragraphs: [
-				"Users may have choices regarding account information, cookie controls, and the content they create or remove inside the product, subject to organizational settings and legal obligations.",
-				"Depending on the jurisdiction and deployment, users may also have rights to request access, correction, deletion, or portability of certain personal information. ProjectBook does not make jurisdiction-specific promises in this template.",
-				"If a deployment collects personal information in ways that trigger additional notice, consent, or opt-out obligations, that deployment should publish the required disclosures and request-handling process."
+				"Depending on your jurisdiction, you may have rights to access your personal data, request correction of inaccurate data, request deletion of your data, and object to or restrict certain processing.",
+				"To exercise these rights, contact contact@projectbook.dev."
+			],
+			bullets: [
+				"Access your personal data",
+				"Request correction of inaccurate data",
+				"Request deletion of your data",
+				"Object to or restrict certain processing"
+			]
+		},
+		{
+			id: "cookies",
+			title: "9. Cookies and Session Management",
+			paragraphs: [
+				"We use essential cookies and session mechanisms required for authentication, security, and performance.",
+				"We do not use unnecessary tracking or profiling technologies."
+			],
+			bullets: ["Authentication", "Security", "Performance"]
+		},
+		{
+			id: "third-party",
+			title: "10. Third-Party Services",
+			paragraphs: [
+				"We may rely on third-party infrastructure providers to operate the Platform. These providers process data only as necessary to deliver their services."
 			]
 		},
 		{
 			id: "children",
-			title: "Children's privacy",
+			title: "11. Children's Privacy",
 			paragraphs: [
-				"ProjectBook is intended for professional, educational, or organizational collaboration use and is not designed as a service directed to children.",
-				"If an operator learns that personal information was submitted in a way that conflicts with applicable rules for children, that operator should review the submission and remove or remediate it as appropriate."
+				"The Platform is not intended for individuals under the age of 13, or the minimum legal age in their jurisdiction.",
+				"We do not knowingly collect personal data from such individuals. If such data is identified, it will be deleted."
 			]
 		},
 		{
-			id: "updates-contact",
-			title: "Policy updates and contact",
+			id: "changes",
+			title: "12. Changes to This Policy",
 			paragraphs: [
-				"ProjectBook may update this Privacy Policy as the service, legal obligations, or deployment model changes. When that happens, the updated version should be posted with a new effective or last-updated date.",
-				"This repository does not publish a dedicated legal or privacy contact email. Questions should be directed through the support, administrator, or account-management channel made available in the relevant ProjectBook deployment until a specific legal contact is published."
+				"We may update this Privacy Policy from time to time.",
+				"Continued use of the Platform after updates constitutes acceptance of the revised Policy."
+			]
+		},
+		{
+			id: "contact",
+			title: "13. Contact",
+			paragraphs: [
+				"For privacy-related inquiries, contact contact@projectbook.dev.",
+				"For security matters, contact security@projectbook.dev."
 			]
 		}
 	]
@@ -175,104 +176,143 @@ export const termsAndConditions: LegalDocumentData = {
 	eyebrow: "Legal",
 	title: "Terms and Conditions",
 	description:
-		"These Terms and Conditions govern access to and use of ProjectBook. They explain account responsibilities, acceptable use, service limits, cookie-related product behavior, and the contractual guardrails users should understand before relying on the service.",
+		"These Terms of Service govern your access to and use of ProjectBook. By using the Platform, you agree to these Terms.",
 	lastUpdated,
 	reviewNotice:
-		"This page is a ProjectBook template for the current repository behavior. It should be reviewed and adapted by counsel before production use.",
+		"For all communication, use contact@projectbook.dev. For security communication, use security@projectbook.dev.",
 	relatedLinks: [{ href: "/privacy-policy", label: "Read the Privacy Policy" }],
 	sections: [
 		{
-			id: "acceptance",
-			title: "Acceptance of the terms",
+			id: "introduction",
+			title: "1. Introduction",
 			paragraphs: [
-				"By accessing or using ProjectBook, you agree to these Terms and Conditions. If you use ProjectBook on behalf of an organization, you represent that you have authority to bind that organization to these terms.",
-				"If you do not agree to these terms, you should not access or use the service."
+				"Welcome to ProjectBook (\"Platform\", \"Service\", \"we\", \"us\", or \"our\"). These Terms of Service govern your access to and use of the Platform.",
+				"By accessing or using ProjectBook, you agree to be bound by these Terms. If you do not agree, you must not use the Platform."
 			]
 		},
 		{
-			id: "eligibility-account",
-			title: "Eligibility and account responsibilities",
+			id: "eligibility",
+			title: "2. Eligibility",
 			paragraphs: [
-				"You must provide accurate account information and keep your login credentials reasonably secure. You are responsible for activity that occurs through your account unless the activity results from the service operator's own failure to protect access controls.",
-				"ProjectBook may require account verification, password controls, session management, and other security steps before granting or restoring access."
+				"You must be at least 13 years old, or the minimum legal age required in your jurisdiction, to use the Platform.",
+				"By using the Platform, you represent and warrant that you meet this requirement."
 			]
 		},
 		{
-			id: "acceptable-use",
-			title: "Acceptable use",
+			id: "account-registration-security",
+			title: "3. Account Registration and Security",
 			paragraphs: [
-				"You may use ProjectBook only for lawful purposes and in a way that does not interfere with the service, other users, or the security of the environment.",
-				"You may not attempt to bypass permissions, misuse another person's account, introduce harmful code, reverse engineer protected parts of the service beyond what law permits, or use ProjectBook to store or distribute unlawful or infringing material."
+				"To access certain features, you may be required to create an account.",
+				"You agree to provide accurate and complete information, maintain the confidentiality of your login credentials, and be responsible for all activities under your account.",
+				"We are not liable for any loss or damage resulting from unauthorized access due to your failure to secure your account."
 			],
 			bullets: [
-				"Do not attempt unauthorized access to projects or accounts.",
-				"Do not use the service to disrupt availability, abuse rate limits, or degrade other users' experience.",
-				"Do not upload or publish material you do not have the right to use."
+				"Provide accurate and complete information",
+				"Maintain the confidentiality of your login credentials",
+				"Be responsible for all activities under your account"
 			]
 		},
 		{
-			id: "content-license",
-			title: "User content and service license",
+			id: "use-of-platform",
+			title: "4. Use of the Platform",
 			paragraphs: [
-				"Users retain responsibility for the content they submit to ProjectBook, including project records, project artifacts, uploaded resources, and collaboration notes.",
-				"To operate the service, users grant ProjectBook and the relevant deployment operator a limited license to host, process, display, back up, and transmit submitted content as necessary to provide the product's features and maintain the environment.",
-				"That license ends when the content is deleted or the account relationship ends, except where retention is reasonably required for backups, legal obligations, dispute resolution, or security review."
+				"You agree to use the Platform only for lawful purposes and in accordance with these Terms."
+			],
+			bullets: [
+				"Attempt to gain unauthorized access to systems, accounts, or data",
+				"Interfere with or disrupt platform performance or availability",
+				"Upload or distribute malicious code or harmful content",
+				"Circumvent authentication, security measures, or system protections",
+				"Engage in abusive, fraudulent, or harmful behavior"
 			]
 		},
 		{
-			id: "intellectual-property",
-			title: "Intellectual property",
+			id: "user-content",
+			title: "5. User Content",
 			paragraphs: [
-				"ProjectBook, including its interface, software, branding, and documentation, is protected by applicable intellectual property laws except where rights are granted by open-source licenses or other written terms.",
-				"These terms do not transfer ownership of the service itself. They only grant a limited right to use ProjectBook in accordance with the published features and rules of the relevant deployment."
+				"You retain ownership of all content you create, upload, or store on the Platform.",
+				"By using the Platform, you grant ProjectBook a limited, non-exclusive, worldwide license to store, process, and display your content solely for the purpose of operating, maintaining, and improving the service."
+			],
+			bullets: ["Store", "Process", "Display"]
+		},
+		{
+			id: "system-integrity",
+			title: "6. System Integrity and Abuse Prevention",
+			paragraphs: [
+				"You agree not to exploit vulnerabilities or system weaknesses, abuse system resources or platform functionality, or attempt to bypass safeguards such as authentication or access controls.",
+				"We reserve the right to monitor usage and take appropriate action to maintain system integrity.",
+				"For security-related reports, contact security@projectbook.dev."
+			],
+			bullets: [
+				"Exploit vulnerabilities or system weaknesses",
+				"Abuse system resources or platform functionality",
+				"Attempt to bypass safeguards such as authentication or access controls"
 			]
 		},
 		{
-			id: "cookies-browser-tech",
-			title: "Cookies and browser technologies",
+			id: "service-availability",
+			title: "7. Service Availability",
 			paragraphs: [
-				"ProjectBook uses cookies and related browser state as part of normal service operation, including session continuity, one-time auth notices, sidebar preferences, and scoped application state.",
-				"Examples in this repository include `projectbook_session`, `projectbook_auth_notice`, `sidebar:state`, and `projectbook_scope_state*`. Some are essential for access and core functionality, so disabling them may prevent normal use of the service.",
-				"For a fuller explanation of how these technologies are used, please review the Privacy Policy."
+				"We aim to provide a reliable service; however, we do not guarantee uninterrupted or error-free availability.",
+				"The Platform may be temporarily unavailable due to maintenance, updates, or technical issues beyond our control."
+			],
+			bullets: ["Maintenance", "Updates", "Technical issues beyond our control"]
+		},
+		{
+			id: "termination",
+			title: "8. Termination",
+			paragraphs: [
+				"We reserve the right to suspend or terminate your access to the Platform if you violate these Terms, if your activity poses a risk to the Platform or other users, or where necessary to protect system integrity.",
+				"You may discontinue use of the Platform at any time."
+			],
+			bullets: [
+				"If you violate these Terms",
+				"If your activity poses a risk to the Platform or other users",
+				"Where necessary to protect system integrity"
 			]
 		},
 		{
-			id: "availability-changes",
-			title: "Service availability and changes",
+			id: "disclaimer",
+			title: "9. Disclaimer of Warranties",
 			paragraphs: [
-				"ProjectBook may evolve over time. Features may be added, changed, limited, or removed as the product, infrastructure, or compliance needs change.",
-				"The service may be unavailable from time to time because of maintenance, outages, upgrades, security responses, or third-party infrastructure issues. ProjectBook does not promise uninterrupted availability unless a separate written agreement says otherwise."
-			]
-		},
-		{
-			id: "suspension-termination",
-			title: "Suspension and termination",
-			paragraphs: [
-				"ProjectBook may suspend or terminate access if a user violates these terms, creates security risk, misuses the service, or if continued access would expose the operator or other users to harm.",
-				"Users may also stop using the service at any time, subject to any organization-specific access or recordkeeping obligations that apply to their projects."
-			]
-		},
-		{
-			id: "disclaimers",
-			title: "Disclaimers",
-			paragraphs: [
-				"Unless a separate written agreement states otherwise, ProjectBook is provided on an as-is and as-available basis. To the extent permitted by law, warranties of merchantability, fitness for a particular purpose, non-infringement, and uninterrupted service are disclaimed.",
-			]
+				"The Platform is provided on an as-is and as-available basis.",
+				"We make no warranties, express or implied, regarding reliability, availability, accuracy, or fitness for a particular purpose."
+			],
+			bullets: ["Reliability", "Availability", "Accuracy", "Fitness for a particular purpose"]
 		},
 		{
 			id: "liability",
-			title: "Limitation of liability",
+			title: "10. Limitation of Liability",
 			paragraphs: [
-				"To the extent permitted by law, ProjectBook and its operators are not liable for indirect, incidental, special, consequential, exemplary, or punitive damages arising from or related to use of the service.",
-				"To the extent a limitation of liability may be applied, total liability should not exceed the amount paid for the service during the applicable claim period or, if no amount was paid, a nominal amount consistent with applicable law and the governing agreement for the deployment."
+				"To the maximum extent permitted by law, we shall not be liable for any indirect, incidental, or consequential damages.",
+				"Our total liability shall not exceed the amount paid by you (if any) for using the Platform."
+			],
+			bullets: [
+				"No liability for indirect, incidental, or consequential damages",
+				"Total liability capped at the amount paid by you, if any"
 			]
 		},
 		{
-			id: "updates-contact",
-			title: "Updates and contact",
+			id: "changes",
+			title: "11. Changes to Terms",
 			paragraphs: [
-				"ProjectBook may revise these terms as the product and its legal or operational requirements change. Updated terms should be posted with a revised effective or last-updated date.",
-				"This template does not publish a dedicated legal contact or governing-law clause. Questions should be directed through the support, administrator, or account-management channel provided by the relevant ProjectBook deployment until those details are formally published."
+				"We may update these Terms from time to time.",
+				"Continued use of the Platform after changes become effective constitutes acceptance of the revised Terms."
+			]
+		},
+		{
+			id: "governing-law",
+			title: "12. Governing Law",
+			paragraphs: [
+				"These Terms shall be governed by and interpreted in accordance with the laws applicable in your jurisdiction."
+			]
+		},
+		{
+			id: "contact",
+			title: "13. Contact",
+			paragraphs: [
+				"For questions regarding these Terms, contact contact@projectbook.dev.",
+				"For security matters, contact security@projectbook.dev."
 			]
 		}
 	]

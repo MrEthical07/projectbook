@@ -174,14 +174,14 @@ const mapIdeaOption = (value: unknown): LinkedIdeaOption | null => {
 const buildTasksPath = (input: TaskListInput): string => {
 	const search = new URLSearchParams();
 	if (input.status) {
-		search.set("status", input.status);
+		search.set("filter.status", input.status);
 	}
 	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
 	if (cursor) {
-		search.set("cursor", cursor);
+		search.set("pagination.cursor", cursor);
 	}
 	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
-		search.set("limit", String(Math.trunc(input.limit)));
+		search.set("pagination.limit", String(Math.trunc(input.limit)));
 	}
 	const query = search.toString();
 	const basePath = `/projects/${encodePathSegment(input.projectId)}/tasks`;
@@ -203,7 +203,7 @@ export const getTasks = query("unchecked", async (input: TaskListInput): Promise
 			keyParts: {
 				project_id: input.projectId,
 				status: input.status ?? null,
-				cursor: cursor || null,
+				cursor_present: cursor.length > 0,
 				limit,
 				sort: "last_updated_desc"
 			},
@@ -306,10 +306,12 @@ export const updateTaskStatus = command(
 		}
 
 		return remoteMutationRequest<TaskRow>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks/${encodePathSegment(parsed.data.taskId)}/status`,
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/tasks/${encodePathSegment(parsed.data.taskId)}`,
 			method: "PATCH",
 			body: {
-				status: parsed.data.status
+				state: {
+					status: parsed.data.status
+				}
 			}
 		});
 	}

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { cn, type WithElementRef, type WithoutChildren } from "$lib/utils.js";
+	import { resolveOptionalIconComponent } from "$lib/utils/icon-fallback";
 	import type { HTMLAttributes } from "svelte/elements";
 	import { getPayloadConfigFromPayload, useChart, type TooltipPayload } from "./chart-utils.js";
 	import { getTooltipContext, Tooltip as TooltipPrimitive } from "layerchart";
 	import type { Snippet } from "svelte";
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	function defaultFormatter(value: any, _payload: TooltipPayload[]) {
+	function defaultFormatter(value: unknown, _payload: TooltipPayload[]) {
 		return `${value}`;
 	}
 
@@ -32,8 +32,7 @@
 		labelKey?: string;
 		hideIndicator?: boolean;
 		labelClassName?: string;
-		labelFormatter?: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-			((value: any, payload: TooltipPayload[]) => string | number | Snippet) | null;
+		labelFormatter?: ((value: unknown, payload: TooltipPayload[]) => string | number | Snippet) | null;
 		formatter?: Snippet<
 			[
 				{
@@ -86,7 +85,7 @@
 <TooltipPrimitive.Root variant="none">
 	<div
 		class={cn(
-			"border-border/50 bg-background grid min-w-[9rem] items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl",
+			"border-border/50 bg-background grid min-w-36 items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl",
 			className
 		)}
 		{...restProps}
@@ -98,6 +97,7 @@
 			{#each tooltipCtx.payload as item, i (item.key + i)}
 				{@const key = `${nameKey || item.key || item.name || "value"}`}
 				{@const itemConfig = getPayloadConfigFromPayload(chart.config, item, key)}
+				{@const itemIcon = resolveOptionalIconComponent(itemConfig?.icon)}
 				{@const indicatorColor = color || item.payload?.color || item.color}
 				<div
 					class={cn(
@@ -114,8 +114,8 @@
 							payload: tooltipCtx.payload,
 						})}
 					{:else}
-						{#if itemConfig?.icon}
-							<itemConfig.icon />
+						{#if itemIcon}
+							<itemIcon></itemIcon>
 						{:else if !hideIndicator}
 							<div
 								style="--color-bg: {indicatorColor}; --color-border: {indicatorColor};"

@@ -5,6 +5,7 @@ import {
 	projectIconKeys,
 	type ProjectIconKey
 } from "$lib/constants/project-icons";
+import { isApiRequestError } from "$lib/server/api/error-mapping";
 import { encodePathSegment, remoteQueryRequest } from "$lib/server/api/remote";
 
 const asObject = (value: unknown): Record<string, unknown> =>
@@ -44,37 +45,76 @@ export const getProjectNavigationData = query(
 	"unchecked",
 	async (projectId: string): Promise<ProjectNavigationData> => {
 		const parsedProjectId = z.string().trim().min(1).parse(projectId);
-		const payload = asObject(
-			await remoteQueryRequest<unknown>({
-				path: `/projects/${encodePathSegment(parsedProjectId)}/navigation`,
+		const scopedPathId = encodePathSegment(parsedProjectId);
+		const homeProjectsPromise = remoteQueryRequest<unknown[]>({
+			path: "/home/projects",
+			method: "GET",
+			cachePolicy: {
+				namespace: "home-projects",
+				ttlMs: 30_000,
+				tags: ["home", "home-projects"]
+			}
+		});
+
+		let overviewPayload: unknown;
+		try {
+			overviewPayload = await remoteQueryRequest<unknown>({
+				path: `/projects/${scopedPathId}/overview`,
 				method: "GET",
 				cachePolicy: {
-					namespace: "project-navigation",
-					ttlMs: 1,
-					sessionPersistent: true,
+					namespace: "project-overview",
+					ttlMs: 20_000,
 					keyParts: { project_id: parsedProjectId },
-					tags: [
-						`project-navigation:${parsedProjectId}`,
-						"project-navigation",
-						"home-projects"
-					]
+					tags: [`project:${parsedProjectId}`, "project-overview", "project-dashboard"]
 				}
-			})
-		);
+			});
+		} catch (err) {
+			if (!isApiRequestError(err) || err.statusCode !== 404) {
+				throw err;
+			}
 
-		const currentProjectPayload = asObject(payload.current_project);
-		const currentProject: ProjectNavigationCurrentProject = {
-			id: asTrimmedString(currentProjectPayload.id),
-			name: asTrimmedString(currentProjectPayload.name) || "Project",
-			status: asTrimmedString(currentProjectPayload.status) || "Active",
-			role: asTrimmedString(currentProjectPayload.role) || "Member"
-		};
-		if (currentProject.id.length === 0) {
+			overviewPayload = await remoteQueryRequest<unknown>({
+				path: `/projects/${scopedPathId}/dashboard`,
+				method: "GET",
+				cachePolicy: {
+					namespace: "project-dashboard",
+					ttlMs: 20_000,
+					keyParts: { project_id: parsedProjectId },
+					tags: [`project:${parsedProjectId}`, "project-dashboard"]
+				}
+			});
+		}
+
+		const homeProjects = await homeProjectsPromise;
+
+		const normalizedRequestedId = parsedProjectId.toLowerCase();
+		const matchingHomeProject = (Array.isArray(homeProjects) ? homeProjects : [])
+			.map((value) => asObject(value))
+			.find((project) => asTrimmedString(project.id).toLowerCase() === normalizedRequestedId);
+		const overviewProject = asObject(asObject(overviewPayload).project);
+
+		const resolvedCurrentId =
+			asTrimmedString(overviewProject.id) ||
+			asTrimmedString(matchingHomeProject?.id) ||
+			parsedProjectId;
+		if (resolvedCurrentId.length === 0) {
 			throw new Error("Current project is unavailable.");
 		}
 
-		const projectListPayload = Array.isArray(payload.project_list) ? payload.project_list : [];
-		const projectList = projectListPayload.flatMap((value) => {
+		const currentProject: ProjectNavigationCurrentProject = {
+			id: resolvedCurrentId,
+			name:
+				asTrimmedString(overviewProject.name) ||
+				asTrimmedString(matchingHomeProject?.name) ||
+				"Project",
+			status:
+				asTrimmedString(overviewProject.status) ||
+				asTrimmedString(matchingHomeProject?.status) ||
+				"Active",
+			role: asTrimmedString(matchingHomeProject?.role) || "Member"
+		};
+
+		const projectList = (Array.isArray(homeProjects) ? homeProjects : []).flatMap((value) => {
 			const candidate = asObject(value);
 			const id = asTrimmedString(candidate.id);
 			if (id.length === 0) {
@@ -88,6 +128,14 @@ export const getProjectNavigationData = query(
 				}
 			];
 		});
+
+		if (!projectList.some((item) => item.id.toLowerCase() === resolvedCurrentId.toLowerCase())) {
+			projectList.unshift({
+				id: currentProject.id,
+				name: currentProject.name,
+				icon: defaultProjectIconKey
+			});
+		}
 
 		return {
 			currentProject,

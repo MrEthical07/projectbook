@@ -336,7 +336,7 @@ export const createProject = command(
 			method: "POST",
 			body: parsed.data
 		}, undefined, {
-			tags: ["home", "home-dashboard", "home-projects", "home-reference", "project-navigation"]
+			tags: ["home", "home-dashboard", "home-projects", "home-reference"]
 		});
 	}
 );
@@ -353,7 +353,7 @@ export const acceptProjectInvite = command(
 			path: `/home/invites/${encodePathSegment(parsed.data.inviteId)}/accept`,
 			method: "POST"
 		}, undefined, {
-			tags: ["home", "home-dashboard", "home-invites", "home-projects", "project-navigation"]
+			tags: ["home", "home-dashboard", "home-invites", "home-projects"]
 		});
 	}
 );

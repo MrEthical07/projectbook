@@ -4,6 +4,7 @@
 	import * as Dialog from "$lib/components/ui/dialog";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { createSidebarArtifact } from "$lib/remote/sidebar.remote";
+	import { resolveIconComponent } from "$lib/utils/icon-fallback";
 	import { PlusIcon } from "@lucide/svelte";
 	import Folder from "@lucide/svelte/icons/folder";
 	import type { Component } from "svelte";
@@ -28,7 +29,7 @@
 	}: {
 		item: {
 			title: string;
-			icon?: Component;
+			Icon: Component;
 			prefix: string;
 			isActive?: boolean;
 		};
@@ -123,19 +124,16 @@
 		tooltipContent={item.title}
 	>
 		{#snippet child({ props })}
+			{@const ItemIcon = resolveIconComponent(item.Icon, Folder)}
 			<a href={itemUrl} {...props}>
-				{#if item.icon}
-					<item.icon />
-				{:else}
-					<Folder />
-				{/if}
+				<ItemIcon />
 				<span class="whitespace-nowrap truncate">{item.title}</span>
 			</a>
 		{/snippet}
 	</Sidebar.MenuButton>
 	{#if canCreateItem}
 		<Sidebar.MenuAction aria-label={`Create ${item.title}`} onclick={openCreateDialog}>
-			<PlusIcon />
+			<PlusIcon color="var(--muted-foreground)" />
 			<span class="sr-only">Create {item.title}</span>
 		</Sidebar.MenuAction>
 	{/if}

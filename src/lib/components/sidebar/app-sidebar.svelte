@@ -4,6 +4,7 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import ProjectSwitcher from "$lib/components/sidebar/project-switcher.svelte";
 	import { can } from "$lib/utils/permission";
+	import { resolveIconComponent } from "$lib/utils/icon-fallback";
 	import { resolveProjectIcon } from "$lib/utils/project-icons";
 	import type { ProjectNavigationData } from "$lib/remote/project-navigation.remote";
 	import { UserLock, Settings, Users, LayoutDashboard } from "@lucide/svelte";
@@ -86,7 +87,7 @@
 					id,
 					name,
 					url: `/project/${id}`,
-					icon: resolveProjectIcon(project.icon)
+					Icon: resolveIconComponent(resolveProjectIcon(project.icon), Folder)
 				}
 			];
 		});
@@ -97,14 +98,14 @@
 						{
 							name: "Members",
 							url: `/project/${projectId}/team/members`,
-							icon: Users,
+							Icon: Users,
 							tooltip: "Manage Members",
 							isActive: path === "team/members" || path.startsWith("team/members/")
 						},
 						{
 							name: "Roles",
 							url: `/project/${projectId}/team/roles`,
-							icon: UserLock,
+							Icon: UserLock,
 							tooltip: "Manage Roles & Access",
 							isActive: path === "team/roles" || path.startsWith("team/roles/")
 						}
@@ -115,7 +116,7 @@
 						{
 							name: "Project Settings",
 							url: `/project/${projectId}/settings`,
-							icon: Settings,
+							Icon: Settings,
 							tooltip: "Project Settings",
 							isActive: path === "settings" || path.startsWith("settings/")
 						}
@@ -139,25 +140,25 @@
 			dashboard: {
 				title: "Dashboard",
 				url: `/project/${projectId}`,
-				icon: LayoutDashboard,
+				Icon: LayoutDashboard,
 				isActive: path === ""
 			},
 			designThinking: {
 				name: "Design Thinking",
-				icon: Compass,
+				Icon: Compass,
 				subMenus: [
 					{
 						name: "Empathize",
 						items: [
 							{
 								title: "User Stories",
-								icon: UserRound,
+								Icon: UserRound,
 								prefix: "stories",
 								isActive: path === "stories" || path.startsWith("stories/")
 							},
 							{
 								title: "User Journeys",
-								icon: Route,
+								Icon: Route,
 								prefix: "journeys",
 								isActive: path === "journeys" || path.startsWith("journeys/")
 							}
@@ -168,7 +169,7 @@
 						items: [
 							{
 								title: "Problem Statement",
-								icon: Target,
+								Icon: Target,
 								prefix: "problem-statement",
 								isActive: path === "problem-statement" || path.startsWith("problem-statement/")
 							}
@@ -179,7 +180,7 @@
 						items: [
 							{
 								title: "Ideas",
-								icon: Lightbulb,
+								Icon: Lightbulb,
 								prefix: "ideas",
 								isActive: path === "ideas" || path.startsWith("ideas/")
 							}
@@ -190,7 +191,7 @@
 						items: [
 							{
 								title: "Task Board",
-								icon: ClipboardList,
+								Icon: ClipboardList,
 								prefix: "tasks",
 								isActive: path === "tasks" || path.startsWith("tasks/")
 							}
@@ -201,7 +202,7 @@
 						items: [
 							{
 								title: "Feedback",
-								icon: MessageSquareQuote,
+								Icon: MessageSquareQuote,
 								prefix: "feedback",
 								isActive: path === "feedback" || path.startsWith("feedback/")
 							}
@@ -214,19 +215,19 @@
 					calendar: {
 						title: "Calendar",
 						url: `/project/${projectId}/calendar`,
-						icon: Calendar,
+						Icon: Calendar,
 						isActive: path === "calendar" || path.startsWith("calendar/")
 					},
 					resources: {
 						title: "Resources",
 						url: `/project/${projectId}/resources`,
-						icon: Folder,
+						Icon: Folder,
 						isActive: path === "resources" || path.startsWith("resources/")
 					},
 					pages: {
 						title: "Pages",
 						prefix: "pages",
-						icon: NotepadText,
+						Icon: NotepadText,
 						isActive: path === "pages" || path.startsWith("pages/")
 					}
 				}
@@ -256,11 +257,7 @@
 							<Sidebar.MenuButton class={data.dashboard.isActive ? activeClass : ""} tooltipContent="Project Dashboard">
 								{#snippet child({ props })}
 									<a href={data.dashboard.url} {...props}>
-										{#if data.dashboard.icon}
-											<data.dashboard.icon />
-										{:else}
-											<LayoutDashboard />
-										{/if}
+										<LayoutDashboard />
 										<span>{data.dashboard.title}</span>
 									</a>
 								{/snippet}
@@ -289,11 +286,7 @@
 								>
 									{#snippet child({ props })}
 										<a href={data.projectSupport.items.calendar.url} {...props}>
-											{#if data.projectSupport.items.calendar.icon}
-												<data.projectSupport.items.calendar.icon />
-											{:else}
-												<Calendar />
-											{/if}
+											<Calendar />
 											<span>{data.projectSupport.items.calendar.title}</span>
 										</a>
 									{/snippet}
@@ -306,11 +299,7 @@
 								>
 									{#snippet child({ props })}
 										<a href={data.projectSupport.items.resources.url} {...props}>
-											{#if data.projectSupport.items.resources.icon}
-												<data.projectSupport.items.resources.icon />
-											{:else}
-												<Folder />
-											{/if}
+											<Folder />
 											<span>{data.projectSupport.items.resources.title}</span>
 										</a>
 									{/snippet}
@@ -329,12 +318,9 @@
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton tooltipContent={item.tooltip} class={item.isActive ? activeClass : ""}>
 								{#snippet child({ props })}
+									{@const TeamIcon = resolveIconComponent(item.Icon, Settings)}
 									<a href={item.url} {...props}>
-										{#if item.icon}
-											<item.icon />
-										{:else}
-											<Settings />
-										{/if}
+										<TeamIcon />
 										<span>{item.name}</span>
 									</a>
 								{/snippet}

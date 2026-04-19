@@ -56,7 +56,6 @@ export const signupRequest = async (event: RequestEvent, payload: SignupPayload)
 			path: "/auth/signup",
 			method: "POST",
 			auth: false,
-			retryOnUnauthorized: false,
 			body: payload
 		}
 	);
@@ -67,7 +66,6 @@ export const loginRequest = async (event: RequestEvent, payload: LoginPayload): 
 		path: "/auth/login",
 		method: "POST",
 		auth: false,
-		retryOnUnauthorized: false,
 		body: payload
 	});
 
@@ -96,7 +94,6 @@ export const verifyEmailRequest = async (event: RequestEvent, payload: VerifyEma
 		path: "/auth/verify-email",
 		method: "POST",
 		auth: false,
-		retryOnUnauthorized: false,
 		body: payload
 	});
 };
@@ -109,7 +106,6 @@ export const resendVerificationRequest = async (
 		path: "/auth/resend-verification",
 		method: "POST",
 		auth: false,
-		retryOnUnauthorized: false,
 		body: payload
 	});
 };
@@ -122,7 +118,6 @@ export const forgotPasswordRequest = async (
 		path: "/auth/forgot-password",
 		method: "POST",
 		auth: false,
-		retryOnUnauthorized: false,
 		body: payload
 	});
 };
@@ -135,7 +130,6 @@ export const resetPasswordRequest = async (
 		path: "/auth/reset-password",
 		method: "POST",
 		auth: false,
-		retryOnUnauthorized: false,
 		body: payload
 	});
 };
@@ -188,6 +182,8 @@ export type SessionContextProjectPermission = {
 
 export type SessionContextResponse = {
 	user_id: string;
+	email?: string;
+	email_verified?: boolean;
 	backend_role?: string;
 	project_permissions: SessionContextProjectPermission[];
 	snapshot_hash?: string;

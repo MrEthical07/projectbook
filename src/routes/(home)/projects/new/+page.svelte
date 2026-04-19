@@ -14,8 +14,9 @@
 		sendProjectInvites
 	} from "$lib/remote/user-home.remote";
 	import { defaultProjectIconKey } from "$lib/constants/project-icons";
+	import { resolveIconComponent } from "$lib/utils/icon-fallback";
 	import { projectIconOptions } from "$lib/utils/project-icons";
-	import { Check, MailPlus, Plus, Trash2 } from "@lucide/svelte";
+	import { Check, FolderKanban, MailPlus, Plus, Trash2 } from "@lucide/svelte";
 
 	type Step = "details" | "invite";
 	type SavePhase = "idle" | "saving" | "saved";
@@ -61,6 +62,9 @@
 			projectIconOptions[0]
 		);
 	});
+	let selectedIconComponent = $derived.by(() =>
+		resolveIconComponent(selectedIconOption?.icon, FolderKanban)
+	);
 
 	const maxNameLength = 60;
 	const isNameValid = $derived(projectName.trim().length > 0);
@@ -254,7 +258,7 @@
 						<Select.Root type="single" bind:value={selectedIcon}>
 							<Select.Trigger class="w-full">
 								<div class="flex items-center gap-2">
-									<selectedIconOption.icon class="h-4 w-4" />
+									<selectedIconComponent class="h-4 w-4"></selectedIconComponent>
 									<span>{selectedIconOption.label}</span>
 								</div>
 							</Select.Trigger>
@@ -274,13 +278,14 @@
 								{:else}
 									<div class="grid max-h-72 grid-cols-3 max-w-100 gap-2 overflow-y-auto p-2">
 										{#each filteredIconOptions as option (option.key)}
+											{@const OptionIcon = resolveIconComponent(option.icon, FolderKanban)}
 											<Select.Item
 												value={option.key}
 												label={option.label}
 												class="h-auto min-h-16 justify-center rounded-md border px-2 py-2 text-center "
 											>
 												<div class="flex w-full flex-col items-center gap-1">
-													<option.icon class="h-4 w-4" />
+													<OptionIcon class="h-4 w-4" />
 													<span class="text-[10px] leading-tight">{option.label}</span>
 												</div>
 											</Select.Item>

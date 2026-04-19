@@ -3,7 +3,9 @@
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { useSidebar } from "$lib/components/ui/sidebar/index.js";
+	import { resolveIconComponent } from "$lib/utils/icon-fallback";
 	import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
+	import FolderKanbanIcon from "@lucide/svelte/icons/folder-kanban";
 	import PlusIcon from "@lucide/svelte/icons/plus";
 	import type { Component } from "svelte";
 
@@ -11,7 +13,7 @@
 		projects,
 		currentProjectId
 	}: {
-		projects: { id: string; name: string; url: string; icon: Component }[];
+		projects: { id: string; name: string; url: string; Icon: Component }[];
 		currentProjectId: string;
 	} = $props();
 	const sidebar = useSidebar();
@@ -47,7 +49,8 @@
 							>
 								<div class="flex aspect-square size-8 items-center justify-center rounded-lg">
 									{#if activeProject}
-										<activeProject.icon class="size-4" />
+										{@const ActiveProjectIcon = resolveIconComponent(activeProject.Icon, FolderKanbanIcon)}
+										<ActiveProjectIcon class="size-4" />
 									{:else}
 										<PlusIcon class="size-4" />
 									{/if}
@@ -76,10 +79,11 @@
 						{#if projects.length === 0}
 							<div class="px-2 py-1.5 text-xs text-muted-foreground">No projects available</div>
 						{:else}
-							{#each projects as project, index (project.id)}
+							{#each projects as project (project.id)}
+								{@const ProjectIcon = resolveIconComponent(project.Icon, FolderKanbanIcon)}
 								<DropdownMenu.Item onSelect={() => void selectProject(project.url)} class="gap-2 p-2 hover:scale-101">
 									<div class="flex size-6 items-center justify-center rounded-md border">
-										<project.icon class="size-3.5 shrink-0" />
+										<ProjectIcon class="size-3.5 shrink-0" />
 									</div>
 									{project.name}
 								</DropdownMenu.Item>

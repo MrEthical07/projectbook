@@ -125,23 +125,23 @@ const mapVersion = (value: unknown): VersionRow | null => {
 const buildResourcesPath = (input: ResourceListInput): string => {
 	const search = new URLSearchParams();
 	if (input.status) {
-		search.set("status", input.status);
+		search.set("filter.status", input.status);
 	}
 	if (input.docType) {
-		search.set("docType", input.docType);
+		search.set("filter.docType", input.docType);
 	}
 	if (input.sort) {
-		search.set("sort", input.sort);
+		search.set("sorting.sort", input.sort);
 	}
 	if (input.order) {
-		search.set("order", input.order);
+		search.set("sorting.order", input.order);
 	}
 	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
 	if (cursor) {
-		search.set("cursor", cursor);
+		search.set("pagination.cursor", cursor);
 	}
 	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
-		search.set("limit", String(Math.trunc(input.limit)));
+		search.set("pagination.limit", String(Math.trunc(input.limit)));
 	}
 	const query = search.toString();
 	const basePath = `/projects/${encodePathSegment(input.projectId)}/resources`;
@@ -179,7 +179,7 @@ export const getResources = query("unchecked", async (input: ResourceListInput):
 				doc_type: input.docType ?? null,
 				sort: input.sort ?? "name",
 				order: input.order ?? "asc",
-				cursor: cursor || null,
+				cursor_present: cursor.length > 0,
 				limit
 			},
 			tags: ["resources-list", `project:${input.projectId}`]
@@ -318,10 +318,12 @@ export const updateResourceStatus = command(
 		}
 
 		return remoteMutationRequest<ResourceRow>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/resources/${encodePathSegment(parsed.data.resourceId)}/status`,
+			path: `/projects/${encodePathSegment(parsed.data.projectId)}/resources/${encodePathSegment(parsed.data.resourceId)}`,
 			method: "PATCH",
 			body: {
-				status: parsed.data.status
+				state: {
+					status: parsed.data.status
+				}
 			}
 		});
 	}

@@ -68,6 +68,40 @@ const projectActionSchema = z.object({
 	projectId: z.string().min(1)
 });
 
+type ProjectSearchInput = {
+	projectId: string;
+	q: string;
+	limit?: number;
+};
+
+export type ProjectSearchResultItem = {
+	id: string;
+	type: string;
+	title: string;
+	description?: string;
+	status?: string;
+	href: string;
+	updatedAt?: string;
+};
+
+const projectSearchSchema = z.object({
+	projectId: z.string().trim().min(1),
+	q: z.string().trim().min(1),
+	limit: z.number().int().positive().max(50).optional()
+});
+
+const submitGlobalFeedbackSchema = z.object({
+	subject: z.string().trim().min(1).max(160),
+	message: z.string().trim().min(1).max(5000),
+	context: z.object({
+		projectId: z.string().trim().max(64).optional(),
+		path: z.string().trim().max(512).optional(),
+		userAgent: z.string().trim().max(512).optional(),
+		mode: z.enum(["light", "dark"]).optional(),
+		submittedAt: z.string().trim().max(64).optional()
+	})
+});
+
 const roleToPathSegment = (role: ProjectRole): string => {
 	switch (role) {
 		case "Owner":
@@ -88,76 +122,124 @@ const roleToPathSegment = (role: ProjectRole): string => {
 export const getProjectDashboard = query("unchecked", async (projectId: string) => {
 	const scopedProjectId = projectId.trim();
 	const basePath = `/projects/${encodePathSegment(scopedProjectId)}`;
+	const dashboard = await remoteQueryRequest<{
+		project: ProjectInfo;
+		summary: {
+			stories: number;
+			journeys: number;
+			problems: number;
+			ideas: number;
+			tasks: number;
+			feedback: number;
+			orphanStories: number;
+			orphanJourneys: number;
+			lockedProblems: number;
+			problemsWithoutIdeas: number;
+			selectedIdeas: number;
+			selectedIdeasWithoutTasks: number;
+			openTasks: number;
+			overdueTasks: number;
+			completedTasks: number;
+			blockedOrAbandonedTasks: number;
+			completedTasksNoFeedback: number;
+			feedbackNeedsIteration: number;
+		};
+		events: ProjectEventItem[];
+		activity: ProjectActivityItem[];
+		my_work?: {
+			focus_user?: { id: string; name: string; initials: string };
+			tasks?: Array<{ id: string; title: string; status: TaskStatus; deadline: string }>;
+			feedback?: Array<{ id: string; title: string; outcome: FeedbackOutcome }>;
+			recent_edits?: Array<{ id: string; type: string; title: string; href: string; at: string }>;
+		};
+	}>({
+		path: `${basePath}/dashboard`,
+		method: "GET",
+		cachePolicy: {
+			namespace: "project-dashboard",
+			ttlMs: 20_000,
+			keyParts: { project_id: scopedProjectId },
+			tags: [`project:${scopedProjectId}`, "project-dashboard"]
+		}
+	});
 
-	const [summary, myWork] = await Promise.all([
-		remoteQueryRequest<{
-			project: ProjectInfo;
-			summary: {
-				stories: number;
-				journeys: number;
-				problems: number;
-				ideas: number;
-				tasks: number;
-				feedback: number;
-				orphanStories: number;
-				orphanJourneys: number;
-				lockedProblems: number;
-				problemsWithoutIdeas: number;
-				selectedIdeas: number;
-				selectedIdeasWithoutTasks: number;
-				openTasks: number;
-				overdueTasks: number;
-				completedTasks: number;
-				blockedOrAbandonedTasks: number;
-				completedTasksNoFeedback: number;
-				feedbackNeedsIteration: number;
-			};
-		}>({
-			path: `${basePath}/dashboard/summary`,
-			method: "GET",
-			cachePolicy: {
-				namespace: "project-dashboard-summary",
-				ttlMs: 20_000,
-				keyParts: { project_id: scopedProjectId },
-				tags: [`project:${scopedProjectId}`, "project-dashboard"]
-			}
-		}),
-		remoteQueryRequest<{
-			me: { id: string; name: string; initials: string };
-			myTasks: Array<{
-				id: string;
-				title: string;
-				status: TaskStatus;
-				deadline: string;
-			}>;
-			myFeedback: Array<{
-				id: string;
-				title: string;
-				outcome: FeedbackOutcome;
-			}>;
-			recentEdits: Array<{ id: string; type: string; title: string; href: string; at: string }>;
-		}>({
-			path: `${basePath}/dashboard/my-work`,
-			method: "GET",
-			cachePolicy: {
-				namespace: "project-dashboard-my-work",
-				ttlMs: 15_000,
-				keyParts: { project_id: scopedProjectId },
-				tags: [`project:${scopedProjectId}`, "project-dashboard"]
-			}
-		})
-	]);
+	const myWork = dashboard.my_work ?? {};
 
 	return {
-		project: summary.project,
-		me: myWork.me,
-		summary: summary.summary,
-		myTasks: myWork.myTasks,
-		myFeedback: myWork.myFeedback,
-		recentEdits: myWork.recentEdits,
+		project: dashboard.project,
+		me: myWork.focus_user ?? { id: "", name: "", initials: "" },
+		summary: dashboard.summary,
+		events: Array.isArray(dashboard.events) ? dashboard.events : [],
+		activity: Array.isArray(dashboard.activity) ? dashboard.activity : [],
+		myTasks: Array.isArray(myWork.tasks) ? myWork.tasks : [],
+		myFeedback: Array.isArray(myWork.feedback) ? myWork.feedback : [],
+		recentEdits: Array.isArray(myWork.recent_edits) ? myWork.recent_edits : [],
 		now: new Date().toISOString()
 	};
 });
+
+export const searchProject = query("unchecked", async (input: ProjectSearchInput) => {
+	const parsed = projectSearchSchema.safeParse(input);
+	if (!parsed.success) {
+		return {
+			items: [] as ProjectSearchResultItem[]
+		};
+	}
+
+	const scopedProjectId = parsed.data.projectId;
+	const queryText = parsed.data.q;
+	const limit =
+		typeof parsed.data.limit === "number" && Number.isFinite(parsed.data.limit) && parsed.data.limit > 0
+			? Math.trunc(parsed.data.limit)
+			: undefined;
+	const search = new URLSearchParams();
+	if (queryText.length > 0) {
+		search.set("q", queryText);
+	}
+	if (typeof limit === "number") {
+		search.set("limit", String(limit));
+	}
+	const queryString = search.toString();
+
+	return remoteQueryRequest<{
+		items: ProjectSearchResultItem[];
+	}>(
+		{
+			path: `/projects/${encodePathSegment(scopedProjectId)}/search${queryString ? `?${queryString}` : ""}`,
+			method: "GET",
+			cachePolicy: {
+				namespace: "project-search",
+				ttlMs: 15_000,
+				keyParts: {
+					project_id: scopedProjectId,
+					q: queryText.length > 0 ? queryText : null,
+					limit
+				},
+				tags: [`project:${scopedProjectId}`, "project-search"]
+			}
+		}
+	);
+});
+
+export const submitGlobalFeedback = command(
+	"unchecked",
+	async ({ input }: { input: unknown }): Promise<MutationResult<{ feedbackId: string; status: string; submittedAt: string }>> => {
+		const parsed = submitGlobalFeedbackSchema.safeParse(input);
+		if (!parsed.success) {
+			return { success: false, error: "Invalid feedback input" };
+		}
+
+		return remoteMutationRequest<{ feedbackId: string; status: string; submittedAt: string }>(
+			{
+				path: "/feedback",
+				method: "POST",
+				body: parsed.data
+			},
+			undefined,
+			{ tags: ["global-feedback"] }
+		);
+	}
+);
 
 export const getProjectTeamMembers = query("unchecked", async (projectId: string) => {
 	const scopedProjectId = projectId.trim();
@@ -275,12 +357,7 @@ export const createProjectInvite = command(
 			tags: [
 				`project:${parsed.data.projectId}`,
 				"project-dashboard",
-				"project-dashboard-summary",
-				"project-dashboard-my-work",
-				"project-dashboard-events",
-				"project-dashboard-activity",
-				"project-navigation",
-				`project-navigation:${parsed.data.projectId}`,
+				"project-overview",
 				"project-team",
 				"project-team-members"
 			]
@@ -303,12 +380,7 @@ export const cancelProjectInvite = command(
 			tags: [
 				`project:${parsed.data.projectId}`,
 				"project-dashboard",
-				"project-dashboard-summary",
-				"project-dashboard-my-work",
-				"project-dashboard-events",
-				"project-dashboard-activity",
-				"project-navigation",
-				`project-navigation:${parsed.data.projectId}`,
+				"project-overview",
 				"project-team",
 				"project-team-members"
 			]
@@ -343,13 +415,8 @@ export const updateProjectRolePermissions = command(
 				tags: [
 					`project:${parsed.data.projectId}`,
 					"project-access",
-					"project-navigation",
-					`project-navigation:${parsed.data.projectId}`,
 					"project-dashboard",
-					"project-dashboard-summary",
-					"project-dashboard-my-work",
-					"project-dashboard-events",
-					"project-dashboard-activity",
+					"project-overview",
 					"project-team",
 					"project-team-members"
 				]
@@ -394,13 +461,8 @@ export const updateProjectMemberPermissions = command(
 				tags: [
 					`project:${parsed.data.projectId}`,
 					"project-access",
-					"project-navigation",
-					`project-navigation:${parsed.data.projectId}`,
 					"project-dashboard",
-					"project-dashboard-summary",
-					"project-dashboard-my-work",
-					"project-dashboard-events",
-					"project-dashboard-activity",
+					"project-overview",
 					"project-team",
 					"project-team-members"
 				]
@@ -435,13 +497,8 @@ export const updateProjectSettings = command(
 				`project:${parsed.data.projectId}`,
 				"project-settings",
 				"project-dashboard",
-				"project-dashboard-summary",
-				"project-dashboard-my-work",
-				"project-dashboard-events",
-				"project-dashboard-activity",
+				"project-overview",
 				"project-access",
-				"project-navigation",
-				`project-navigation:${parsed.data.projectId}`,
 				"project-team-members"
 			]
 		});
@@ -464,13 +521,8 @@ export const archiveProject = command(
 				`project:${parsed.data.projectId}`,
 				"project-settings",
 				"project-dashboard",
-				"project-dashboard-summary",
-				"project-dashboard-my-work",
-				"project-dashboard-events",
-				"project-dashboard-activity",
+				"project-overview",
 				"project-access",
-				"project-navigation",
-				`project-navigation:${parsed.data.projectId}`,
 				"project-team-members",
 				"home-dashboard",
 				"home-projects"
@@ -495,13 +547,8 @@ export const deleteProject = command(
 				`project:${parsed.data.projectId}`,
 				"project-settings",
 				"project-dashboard",
-				"project-dashboard-summary",
-				"project-dashboard-my-work",
-				"project-dashboard-events",
-				"project-dashboard-activity",
+				"project-overview",
 				"project-access",
-				"project-navigation",
-				`project-navigation:${parsed.data.projectId}`,
 				"project-team-members",
 				"home-dashboard",
 				"home-projects"

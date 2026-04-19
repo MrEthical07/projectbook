@@ -17,7 +17,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 
 COPY . .
-RUN pnpm run build
+RUN pnpm run build:node
 
 FROM base AS prod-deps
 

@@ -10,6 +10,7 @@
 	} from "$lib/components/ui/chart/index.js";
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { resolveIconComponent } from "$lib/utils/icon-fallback";
 	import { BarChart } from "layerchart";
 	import {
 		AlertTriangle,
@@ -371,17 +372,36 @@
 		red: "border-red-300/50 bg-red-50/70 dark:border-red-500/40 dark:bg-red-950/20"
 	} as const;
 
-	const fmtDue = (v: string) =>
-		new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(v));
+	const parseDate = (value: string): Date | null => {
+		const parsed = new Date(value);
+		return Number.isNaN(parsed.getTime()) ? null : parsed;
+	};
+
+	const fmtDue = (value: string) => {
+		const parsed = parseDate(value);
+		if (!parsed) {
+			return "No due date";
+		}
+		return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(parsed);
+	};
 	const fmtAgo = (v: string) => {
-		const minutes = Math.round((+now - +new Date(v)) / 60000);
+		const parsed = parseDate(v);
+		if (!parsed) {
+			return "just now";
+		}
+		const minutes = Math.round((+now - +parsed) / 60000);
 		if (minutes < 60) return `${minutes}m ago`;
 		const hours = Math.round(minutes / 60);
 		if (hours < 24) return `${hours}h ago`;
 		return `${Math.round(hours / 24)}d ago`;
 	};
-	const overdue = (t: DashboardTask) =>
-		t.status !== "Completed" && t.status !== "Abandoned" && +new Date(t.deadline) < +now;
+	const overdue = (t: DashboardTask) => {
+		const dueDate = parseDate(t.deadline);
+		if (!dueDate) {
+			return false;
+		}
+		return t.status !== "Completed" && t.status !== "Abandoned" && +dueDate < +now;
+	};
 
 	const handlePhaseBarClick = (
 		_event: MouseEvent,
@@ -442,13 +462,14 @@
 			<h2 class="text-lg font-semibold">Global Project Stats</h2>
 			<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
 				{#each stats as stat (stat.label)}
+					{@const StatIcon = resolveIconComponent(stat.icon, FolderOpen)}
 					<a
 						href={stat.href}
 						class={`group rounded-xl border p-4 transition-colors hover:bg-accent/60 ${toneCardClass[stat.tone]}`}
 					>
 						<div class="mb-3 flex items-start justify-between gap-3">
 							<p class="text-sm font-medium text-muted-foreground">{stat.label}</p>
-							<stat.icon class="size-4 text-muted-foreground" />
+							<StatIcon class="size-4 text-muted-foreground" />
 						</div>
 						<div class={`text-3xl font-semibold tracking-tight ${toneValueClass[stat.tone]}`}>{stat.value}</div>
 						<p class="mt-1 text-xs text-muted-foreground">{stat.description}</p>

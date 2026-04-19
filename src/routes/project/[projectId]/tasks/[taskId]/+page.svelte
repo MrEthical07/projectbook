@@ -446,8 +446,8 @@
 				placeholder="Task Title"
 				disabled={isReadOnly(status)}
 			/>
-			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
-				<div class="flex flex-wrap items-center gap-3">
+			<div class="flex flex-wrap items-start justify-between gap-3 px-3">
+				<div class="flex flex-wrap items-start gap-3">
 					<div class="flex flex-col gap-2 min-w-55">
 						<Label class="text-muted-foreground" for="assigned-to">Assigned to</Label>
 						{#if assigneeOptions.length === 0}
@@ -519,13 +519,13 @@
 					</div>
 				</div>
 				<div class="flex flex-wrap items-center gap-3">
-					<Button variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open task metadata">
+					<Button class="mt-4" variant="outline" size="icon" onclick={() => (metadataOpen = true)} aria-label="Open task metadata">
 						<Info class="h-4 w-4" />
 					</Button>
-					<div class="bg-accent px-2 py-1 w-fit rounded-lg text-sm font-medium">
+					<div class="mt-4 bg-accent px-2 py-1 w-fit rounded-lg text-sm font-medium">
 						{status.toUpperCase()}
 					</div>
-					<div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
+					<div class="mt-4 flex flex-col items-center justify-center text-xs text-muted-foreground leading-tight min-h-6">
 						{#if saveIndicator === "edited"}
 							<span class="text-amber-600">Edited</span>
 						{:else if saveIndicator === "saving"}
@@ -535,6 +535,7 @@
 						{/if}
 					</div>
 					<Button
+						class="mt-4"
 						variant="outline"
 						size="sm"
 						onclick={triggerSave}

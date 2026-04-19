@@ -73,8 +73,8 @@ const checks = [
 	{
 		filePath: "src/lib/remote/project.remote.ts",
 		mustContain: [
-			"/dashboard/summary",
-			"/dashboard/my-work"
+			"`${basePath}/dashboard`",
+			"my_work"
 		],
 		mustNotContain: [
 			"path: `${basePath}/dashboard/events`",

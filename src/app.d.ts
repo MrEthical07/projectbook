@@ -261,6 +261,16 @@ declare global {
 		initials: string;
 	}
 
+	interface ProjectSearchResultItem {
+		id: string;
+		type: string;
+		title: string;
+		description?: string;
+		status?: string;
+		href: string;
+		updatedAt?: string;
+	}
+
 	interface TeamMember {
 		id: string;
 		projectId?: string;
@@ -421,6 +431,7 @@ declare global {
 				name?: string;
 				email?: string;
 				role?: ProjectRole;
+				emailVerified?: boolean;
 				authenticated?: boolean;
 			};
 			project?: {

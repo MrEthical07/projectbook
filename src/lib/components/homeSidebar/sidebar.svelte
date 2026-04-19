@@ -3,10 +3,12 @@
 	import NavUser from "$lib/components/sidebar/nav-user.svelte";
 	import * as Badge from "$lib/components/ui/badge";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { resolveIconComponent } from "$lib/utils/icon-fallback";
 	import type { ComponentProps } from "svelte";
 	import {
 		Bell,
 		BookOpen,
+		CircleHelp,
 		FolderKanban,
 		LayoutDashboard,
 		Mail,
@@ -141,8 +143,9 @@
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton class={item.isActive ? activeClass : ""} tooltipContent={item.tooltip}>
 							{#snippet child({ props })}
+								{@const HomeIcon = resolveIconComponent(item.icon, CircleHelp)}
 								<a href={item.url} {...props}>
-									<item.icon />
+									<HomeIcon />
 									<span>{item.name}</span>
 									{#if item.badge}
 										<Badge.Badge variant="outline" class="ms-auto px-1.5 py-0 text-[10px]">
@@ -164,8 +167,9 @@
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton class={item.isActive ? activeClass : ""} tooltipContent={item.tooltip}>
 							{#snippet child({ props })}
+								{@const ProjectIcon = resolveIconComponent(item.icon, CircleHelp)}
 								<a href={item.url} {...props}>
-									<item.icon />
+									<ProjectIcon />
 									<span>{item.name}</span>
 								</a>
 							{/snippet}
@@ -182,8 +186,9 @@
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton class={item.isActive ? activeClass : ""} tooltipContent={item.tooltip}>
 							{#snippet child({ props })}
+								{@const AccountIcon = resolveIconComponent(item.icon, CircleHelp)}
 								<a href={item.url} {...props}>
-									<item.icon />
+									<AccountIcon />
 									<span>{item.name}</span>
 								</a>
 							{/snippet}
