@@ -62,7 +62,7 @@ jobs:
       - name: Secret lint
         run: pnpm run lint:secrets
 
-      - name: Contract + type checks
+      - name: Route budget + type checks
         run: pnpm run check
 
       - name: Run tests when present
