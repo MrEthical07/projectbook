@@ -358,7 +358,7 @@
 					{:else if searchResults.length === 0 && searchQuery.length >= 2}
 						<div class="px-2 py-3 text-sm text-muted-foreground">No results found.</div>
 					{:else if searchResults.length === 0}
-						<div class="px-2 py-3 text-sm text-muted-foreground">Type at least 2 characters to search.</div>
+						<div class="px-2 py-3 text-sm text-muted-foreground">Type at least 3 characters to search.</div>
 					{:else}
 						<div class="space-y-1">
 							{#each searchResults as result, index (result.type + ":" + result.id)}

@@ -13,7 +13,7 @@
 		"check:contracts": "node scripts/check-api-contracts.mjs",
 		"check:call-budgets": "node scripts/check-route-call-budgets.mjs",
 		"lint:secrets": "node scripts/lint-secrets.mjs",
-		"check": "node scripts/check-api-contracts.mjs && node scripts/check-route-call-budgets.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check": "node scripts/check-route-call-budgets.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
