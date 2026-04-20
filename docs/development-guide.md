@@ -14,6 +14,12 @@ Set these server-side env vars for local auth + API integration:
 - `PROJECTBOOK_API_BASE_URL` (for example `http://localhost:8080/api/v1`)
 - `API_URL` (optional fallback alias when `PROJECTBOOK_API_BASE_URL` is unset)
 
+Backend CORS alignment for local development:
+
+- Set backend `allowedOrigins` to include your web app origin (for example `http://localhost:5173`).
+- Optionally use backend `denyOrigins` to block specific origins.
+- Backend allows localhost origins by default, but explicit `denyOrigins` entries still take precedence.
+
 Frontend server auth relies on backend-issued session context responses and no longer requires frontend-side permission-context secret verification.
 
 ## Folder Structure (Working View)

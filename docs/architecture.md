@@ -28,6 +28,7 @@ UI (`page.svelte`)
 - `src/lib/server/api/**`
   - Auth-aware API transport, token refresh handling, and error normalization.
   - Owns request envelopes and backend communication concerns.
+  - Requires backend CORS to allow the active web origin via backend `allowedOrigins` (with optional `denyOrigins` precedence).
 
 - `src/lib/server/auth/**`
   - Cookie management for access, refresh, and auth notice state.

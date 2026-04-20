@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file.
 - Project shell navigation reads now target `GET /api/v1/projects/{projectId}/navigation` through the project navigation data flow.
 - Sidebar interaction expectations are aligned with current backend behavior: create delegates to artifact module create endpoints; rename/delete are no longer treated as sidebar-specific route contracts.
 - Updated architecture, security, and legal documentation to match the new home/project model.
+- Updated web environment and architecture/development docs to align with backend CORS origin controls (`allowedOrigins`, optional `denyOrigins`, localhost default allow behavior).
 - Migrated all frontend remote modules in `src/lib/remote` from datastore-backed logic to backend API-backed requests via `src/lib/server/api/remote.ts`.
 - Updated artifact remotes (`problem`, `idea`, `task`, `feedback`, `page`, `resource`, `calendar`) to preserve page payload contracts while mapping backend response shapes.
 - Switched frontend auth actions and request lifecycle to backend auth API integration with access/refresh token cookie handling (`projectbook_access`, `projectbook_refresh`).
