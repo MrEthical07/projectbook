@@ -349,6 +349,7 @@ const buildRequestHeaders = (
 	accessToken?: string | null
 ): Headers => {
 	const headers = new Headers(options.headers ?? {});
+	headers.set("User-Agent", "projectbook-server");
 	headers.set("Accept", "application/json");
 	if ((options.body !== undefined || options.rawBody !== undefined) && !headers.has("Content-Type")) {
 		headers.set("Content-Type", "application/json");
