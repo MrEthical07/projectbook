@@ -1,10 +1,25 @@
 # ProjectBook
 
-A Design Thinking-first platform for building people-centric projects without context fragmentation.
+ProjectBook is a Design Thinking–first workspace that transforms fragmented project work into a structured, traceable flow from user insight to validated outcomes.
 
 ## What It Is
 
-ProjectBook is a SvelteKit application for structuring product work from research to validation. It keeps artifacts connected so teams can follow decisions across the full workflow.
+ProjectBook is a next-generation project workspace designed around Design Thinking as a first-class system, not just a methodology.
+
+Unlike traditional tools that isolate documents, tasks, and feedback, ProjectBook models product development as a connected chain of artifacts — from user stories and problem statements to ideas, prototype tasks, and real-world feedback. Every decision is traceable, every artifact is linked, and context is never lost.
+
+At its core, ProjectBook enforces a structured thinking model:
+
+Insights lead to problems
+Problems lead to ideas
+Ideas lead to experiments
+Experiments lead to learning
+
+This ensures teams don’t just execute — they understand why they’re building what they build.
+
+Built using SvelteKit with Svelte 5 runes, the platform delivers a highly reactive, modular UI with strict data boundaries, permission-aware rendering, and efficient server communication via remote functions. Combined with a hybrid backend architecture (Go + PostgreSQL + MongoDB), ProjectBook provides both flexibility and rigor.
+
+The result is a system that doesn’t just manage work — it preserves thinking.
 
 ## Problem It Solves
 
@@ -66,6 +81,9 @@ Container notes:
 - Runtime configuration is provided through environment variables.
 - The backend API is an external dependency and is not bundled into the web image.
 
+### Note
+The projectbook requires fully configured and running backend api to work properly. Please refer to the [ProjectBook Backend](https://github.com/MrEthical07/projectbook-backend) repository for setup instructions. Make sure all env variables are properly set and the backend is running before starting the web application.
+
 ## Documentation
 
 - Full docs: [docs](docs)
@@ -86,6 +104,11 @@ No service layer and no command-pattern abstraction are used.
 Auth and permission hydration:
 - Access/refresh tokens are stored in HttpOnly cookies.
 - Frontend server hooks hydrate locals from backend-issued `/api/v1/system/session-context` token snapshots (`projectbook_permission_ctx`) instead of per-request `whoami` calls.
+
+## Important Links
+- ProjectBook website: [projectbook.design](https://projectbook.dev)
+- ProjectBook Backend: [github.com/MrEthical07/projectbook-backend](https://github.com/MrEthical07/projectbook-backend)
+- ProjectBook Demo: [demo.projectbook.dev](https://demo.projectbook.dev)
 
 ## Contribution
 
