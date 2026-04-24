@@ -324,7 +324,7 @@
 	<AppSidebar navigationData={layoutData.navigationData} access={layoutData.access} />
 	<Sidebar.Inset>
 		<div class="w-full p-2 bg-sidebar flex flex-row justify-between gap-2">
-			<div class="w-full"></div>
+			<div class="md:w-full"></div>
 			<Popover.Root bind:open={searchPopoverOpen}>
 				<div bind:this={searchPopoverAnchor} class="w-full max-w-sm">
 					<div
@@ -335,7 +335,7 @@
 						</div>
 						<Input
 							type="text"
-							class="bg-background block h-8.5 w-full rounded-lg border-0 py-1.5 pr-2 pl-0.5 shadow-none focus-visible:ring-0"
+							class="block h-8.5 w-full rounded-lg border-0 py-1.5 pr-2 pl-0.5 shadow-none focus-visible:ring-0 dark:bg-transparent"
 							placeholder="Search for artifacts, pages, and more..."
 							bind:value={searchQuery}
 							bind:ref={searchInput}
@@ -403,7 +403,7 @@
 					{/if}
 				</Popover.Content>
 			</Popover.Root>
-			<div class="flex flex-row gap-2 w-full justify-end">
+			<div class="flex flex-row gap-2 w-fit md:w-full justify-end">
 				<Button
 					variant="outline"
 					class="hidden md:flex text-muted-foreground"

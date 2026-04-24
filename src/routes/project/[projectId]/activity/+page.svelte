@@ -184,7 +184,7 @@
 	</header>
 
 	<div class="flex flex-col gap-4 md:px-20">
-		<section class="rounded-lg bg-white p-4">
+		<section class="rounded-lg bg-background p-4">
 			<div class="text-xs uppercase tracking-wide text-muted-foreground">Project Activity</div>
 			<div class="mt-2 flex flex-wrap items-center justify-between gap-3">
 				<h1 class="text-3xl font-semibold">Activity Log</h1>
@@ -192,7 +192,7 @@
 			</div>
 		</section>
 
-		<section class="rounded-lg bg-white p-4">
+		<section class="rounded-lg bg-background p-4">
 			<div class="mb-3 text-sm font-medium">Filters</div>
 			<div class="grid gap-3 md:grid-cols-3">
 				<div class="grid gap-2">
@@ -235,7 +235,7 @@
 			</div>
 		</section>
 
-		<section class="rounded-lg bg-white p-4">
+		<section class="rounded-lg bg-background p-4">
 			<div class="mb-3 text-sm font-medium">Recent Activity</div>
 			<div class="space-y-3">
 				{#each filteredItems as item (item.id)}

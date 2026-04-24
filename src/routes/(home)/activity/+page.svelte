@@ -110,7 +110,7 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 rounded-lg border bg-white p-2">
+<div class="flex flex-col gap-2 rounded-lg border bg-background p-2">
 	<header
 		class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -128,7 +128,7 @@
 	</header>
 
 	<div class="flex flex-col gap-5 py-2 md:px-20">
-		<section class="rounded-lg bg-white p-2">
+		<section class="rounded-lg bg-background p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Home activity</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="grid gap-1">
@@ -138,7 +138,7 @@
 			</div>
 		</section>
 
-		<section class="rounded-lg bg-white p-4">
+		<section class="rounded-lg bg-background p-4">
 			<div class="mb-4 flex items-center gap-2 text-sm font-medium">
 				<ListFilter class="h-4 w-4 text-muted-foreground" />
 				<span>Filters</span>
@@ -185,7 +185,7 @@
 			</div>
 		</section>
 
-		<section class="rounded-lg bg-white p-4">
+		<section class="rounded-lg bg-background p-4">
 			<div class="mb-4 text-sm font-medium">Activity Feed</div>
 			{#if pageActivities.length === 0}
 				<div class="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
@@ -222,7 +222,7 @@
 			{/if}
 		</section>
 
-		<section class="flex items-center justify-between rounded-lg bg-white p-4">
+		<section class="flex items-center justify-between rounded-lg bg-background p-4">
 			<div class="text-xs text-muted-foreground">
 				Page {safeCurrentPage} of {totalPages}
 			</div>

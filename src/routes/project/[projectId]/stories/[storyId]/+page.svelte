@@ -383,7 +383,7 @@
 </svelte:head>
 
 {#key storyId}
-<div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
+<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg">
     <header
 			class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 		>
@@ -404,7 +404,7 @@
 			</div>
 		</header>
     <div class="flex flex-col md:px-20 gap-4 py-2">
-        <div class="flex mt-2 flex-col  bg-white rounded-lg gap-2 p-2">
+        <div class="flex mt-2 flex-col  bg-background rounded-lg gap-2 p-2">
             <Input type="text" bind:value={story.title} disabled={isReadOnly} class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3" placeholder="Title Goes Here"></Input>
             <Input type="text" bind:value={story.description} disabled={isReadOnly} class="bg-transparent outline-0 shadow-none border-0 text-lg! h-fit py-2 px-3" placeholder="Story description"></Input>
             <div class="flex w-full flex-row justify-between items-center mt-2 px-2">
@@ -433,7 +433,7 @@
         </div>
         <Separator class="mt-2 px-2"></Separator>
         <div class="py-2 w-full flex flex-col gap-4">
-            <div class="personaDetails flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+            <div class="personaDetails flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
                 <div class="flex flex-row gap-2 items-center w-full">
                     <span class="font-medium text-nowrap">Persona Profile</span>
                     <Separator></Separator>
@@ -473,7 +473,7 @@
                 </div>
             </div>
 
-            <div class="context flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+            <div class="context flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
                 <div class="flex flex-row gap-2 items-center w-full">
                     <span class="font-medium text-nowrap">Context / Environment</span>
                     <Separator></Separator>
@@ -486,7 +486,7 @@
                 </div>
             </div>
 
-            <div class="stdf flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+            <div class="stdf flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
                 <div class="flex flex-row gap-2 items-center w-full">
                     <span class="font-medium text-nowrap">Says / Thinks / Does / Feels</span>
                     <Separator></Separator>
@@ -510,7 +510,7 @@
                     </div>
                 </div>
             </div>
-            <div class="painPoints flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+            <div class="painPoints flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
                 <div class="flex flex-row gap-2 items-center w-full">
                     <span class="font-medium text-nowrap">Pain Points</span>
                     <Separator></Separator>
@@ -538,7 +538,7 @@
                     {/if}
                 </div>
             </div>
-            <div class="problemHypothesis flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+            <div class="problemHypothesis flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
                 <div class="flex flex-row gap-2 items-center w-full">
                     <span class="font-medium text-nowrap">Problem Hypothesis</span>
                     <Separator></Separator>
@@ -569,7 +569,7 @@
             {#if addOnSections.length > 0}
                 <div class="flex flex-col gap-4">
                     {#each addOnSections as section (section.section_id)}
-                        <div class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+                        <div class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
                             <div class="flex flex-row gap-2 items-center w-full">
                                 <Button
                                     variant="ghost"
@@ -1121,7 +1121,7 @@
                     <Separator></Separator>
                 </div>
             {/if}
-            <div class="notes flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+            <div class="notes flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
                 <div class="flex flex-row gap-2 items-center w-full">
                     <span class="font-medium text-nowrap">Additional Notes</span>
                     <Separator></Separator>
