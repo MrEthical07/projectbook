@@ -305,18 +305,18 @@
 
 	const statusBadgeClass = (currentStatus: PageStatus) => {
 		if (currentStatus === "Selected") {
-			return "bg-emerald-100 text-emerald-700 border-emerald-200";
+			return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
 		}
 
 		if (currentStatus === "Rejected") {
-			return "bg-rose-100 text-rose-700 border-rose-200";
+			return "bg-rose-500/10 text-rose-500 border-rose-500/20";
 		}
 
 		if (currentStatus === "Archived") {
-			return "bg-slate-100 text-slate-600 border-slate-200";
+			return "bg-slate-500/10 text-slate-500 border-slate-500/20";
 		}
 
-		return "bg-amber-100 text-amber-700 border-amber-200";
+		return "bg-amber-500/10 text-amber-500 border-amber-500/20";
 	};
 
 	const isStatusImmutable = (currentStatus: IdeaStatus): boolean =>
@@ -451,7 +451,7 @@
 </svelte:head>
 
 {#key ideaId}
-<div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
+<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -473,7 +473,7 @@
 	</header>
 
 	<div class="flex flex-col md:px-20 gap-4 py-2">
-		<div class="flex mt-2 flex-col bg-white rounded-lg gap-2 p-2">
+		<div class="flex mt-2 flex-col bg-background rounded-lg gap-2 p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
 				Idea - Ideate
 			</div>
@@ -615,7 +615,7 @@
 		<Separator class="mt-2 px-2"></Separator>
 
 		<div class="py-2 w-full flex flex-col gap-4">
-			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Linked Problem Statement</span>
 					<Separator></Separator>
@@ -723,7 +723,7 @@
 			</section>
 
 			{#if linkedProblem}
-				<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 					<div class="flex flex-row gap-2 items-center w-full">
 						<span class="font-medium text-nowrap">Derived Context</span>
 						<Separator></Separator>
@@ -792,7 +792,7 @@
 				</section>
 			{/if}
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Idea Description</span>
 					<Separator></Separator>
@@ -806,7 +806,7 @@
 				/>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Idea Status</span>
 					<Separator></Separator>
@@ -849,7 +849,7 @@
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Final Idea Summary</span>
 					<Separator></Separator>
@@ -870,7 +870,7 @@
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Add Section</span>
 					<Separator></Separator>
@@ -908,7 +908,7 @@
 			</section>
 
 			{#if activeModules.length > 0}
-				<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+				<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 					<div class="flex flex-row gap-2 items-center w-full">
 						<span class="font-medium text-nowrap">Optional Modules</span>
 						<Separator></Separator>
@@ -956,7 +956,7 @@
 				</section>
 			{/if}
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Notes</span>
 					<Separator></Separator>

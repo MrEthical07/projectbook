@@ -109,7 +109,7 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
+<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -127,7 +127,7 @@
 	</header>
 
 	<div class="flex flex-col gap-5 py-2 md:px-20">
-		<div class="flex flex-col gap-2 rounded-lg bg-white p-2">
+		<div class="flex flex-col gap-2 rounded-lg bg-background p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
 				Notifications · Inbox
 			</div>
@@ -146,7 +146,7 @@
 			</div>
 		</div>
 
-		<section class="flex flex-col gap-4 rounded-lg bg-white p-4">
+		<section class="flex flex-col gap-4 rounded-lg bg-background p-4">
 			<div class="text-sm font-medium">Filters</div>
 			<div class="grid gap-4 md:grid-cols-4">
 				<div class="grid gap-2">
@@ -202,7 +202,7 @@
 			</div>
 		</section>
 
-		<section class="flex flex-col gap-4 rounded-lg bg-white p-4">
+		<section class="flex flex-col gap-4 rounded-lg bg-background p-4">
 			<div class="text-sm font-medium">Notifications</div>
 			{#if visibleNotifications.length === 0}
 				<div class="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border p-10 text-center">

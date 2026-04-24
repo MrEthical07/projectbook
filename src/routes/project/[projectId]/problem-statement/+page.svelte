@@ -75,9 +75,9 @@
 	});
 
 	const statusClass = (status: ProblemStatus) => {
-		if (status === "Draft") return "bg-blue-50 text-blue-700 border-blue-200";
-		if (status === "Locked") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-		return "bg-slate-100 text-slate-700 border-slate-300";
+		if (status === "Draft") return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+		if (status === "Locked") return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+		return "bg-slate-500/10 text-slate-500 border-slate-500/20";
 	};
 
 	const mergeRows = (current: ProblemRow[], incoming: ProblemRow[]): ProblemRow[] => {
@@ -174,7 +174,7 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 rounded-lg border bg-white p-2">
+<div class="flex flex-col gap-2 rounded-lg border bg-background p-2">
 	<header
 		class="flex h-12 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -192,7 +192,7 @@
 	</header>
 
 	<div class="flex flex-col gap-4 py-2 md:px-20">
-		<section class="rounded-lg bg-white p-2">
+		<section class="rounded-lg bg-background p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Define - Problem Statements Index</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<h1 class="text-3xl font-semibold">Problem Statements</h1>
@@ -227,7 +227,7 @@
 			</div>
 		</section>
 
-		<section class="grid gap-3 rounded-lg bg-white p-4 md:grid-cols-4">
+		<section class="grid gap-3 rounded-lg bg-background p-4 md:grid-cols-4">
 			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
 				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Problems</span><CircleDot class="size-4" /></div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
@@ -246,7 +246,7 @@
 			</button>
 		</section>
 
-		<section class="rounded-lg bg-white p-4">
+		<section class="rounded-lg bg-background p-4">
 			<div class="mb-3 text-sm font-medium">Filters</div>
 			<div class="grid gap-3 md:grid-cols-5">
 				<div class="grid gap-2">
@@ -287,7 +287,7 @@
 			</div>
 		</section>
 
-		<section class="rounded-lg bg-white p-4">
+		<section class="rounded-lg bg-background p-4">
 			<div class="mb-3 text-sm font-medium">Problem Statements</div>
 			{#if filteredRows.length === 0}
 				<div class="rounded-md border border-dashed p-10 text-center">
@@ -324,10 +324,10 @@
 											{truncate(row.statement)}
 										</a>
 										{#if row.isOrphan}
-											<Badge.Badge class="border-red-300 bg-red-50 text-red-700">Warning: Orphan</Badge.Badge>
+											<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500">Warning: Orphan</Badge.Badge>
 										{/if}
 										{#if row.status === "Draft"}
-											<Badge.Badge class="border-amber-300 bg-amber-50 text-amber-700">Warning: Draft</Badge.Badge>
+											<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500">Warning: Draft</Badge.Badge>
 										{/if}
 									</div>
 								</Table.Cell>

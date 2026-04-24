@@ -34,4 +34,6 @@
 	<a class={linkClass} href="/privacy-policy">Privacy Policy</a>
 	<span aria-hidden="true" class={separatorClass}>/</span>
 	<a class={linkClass} href="/terms-and-conditions">Terms and Conditions</a>
+	<span aria-hidden="true" class={separatorClass}>/</span>
+	<a class={linkClass} href="/docs">Docs</a>
 </nav>

@@ -24,7 +24,8 @@
 	type LinkedSource = {
 		id: string;
 		title: string;
-		type: "User Story" | "User Journey";
+		type: "story" | "journey";
+		label?: "User Story" | "User Journey";
 		phase: "Empathize";
 		href: string;
 	};
@@ -201,6 +202,9 @@ let saveIndicator = $derived.by(() => {
 
 		return "default";
 	};
+
+	const sourceTypeLabel = (source: LinkedSource): "User Story" | "User Journey" =>
+		source.type === "journey" ? "User Journey" : "User Story";
 
 	const togglePainPoint = (id: string) => {
 		if (selectedPainPoints.includes(id)) {
@@ -442,7 +446,7 @@ let availableJourneyOptions = $derived.by(() =>
 
 		const updated = await persistLinkedSources([
 			...linkedSources,
-			{ ...selected, type: "User Story" }
+			{ ...selected, type: "story", label: "User Story" }
 		]);
 		if (!updated) {
 			return;
@@ -466,7 +470,7 @@ let availableJourneyOptions = $derived.by(() =>
 
 		const updated = await persistLinkedSources([
 			...linkedSources,
-			{ ...selected, type: "User Journey" }
+			{ ...selected, type: "journey", label: "User Journey" }
 		]);
 		if (!updated) {
 			return;
@@ -605,7 +609,7 @@ $effect(() => {
 </svelte:head>
 
 {#key problemId}
-<div class="flex flex-col gap-2 p-2 bg-white border rounded-lg">
+<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg">
 	<header
 		class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -627,7 +631,7 @@ $effect(() => {
 	</header>
 
 	<div class="flex flex-col md:px-20 gap-4 py-2">
-		<div class="flex mt-2 flex-col bg-white rounded-lg gap-2 p-2">
+		<div class="flex mt-2 flex-col bg-background rounded-lg gap-2 p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
 				Problem Statement - Define
 			</div>
@@ -729,7 +733,7 @@ $effect(() => {
 		<Separator class="mt-2 px-2"></Separator>
 
 		<div class="py-2 w-full flex flex-col gap-4">
-			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Linked Sources</span>
 					<Separator></Separator>
@@ -838,7 +842,7 @@ $effect(() => {
 							<div class="flex items-start justify-between gap-3">
 								<div class="flex flex-col gap-1">
 									<span class="text-sm font-medium text-foreground">{source.title}</span>
-									<span class="text-xs text-muted-foreground">{source.type}</span>
+									<span class="text-xs text-muted-foreground">{source.label ?? sourceTypeLabel(source)}</span>
 								</div>
 								<div class="flex items-center gap-2">
 									<Button
@@ -846,7 +850,7 @@ $effect(() => {
 										size="sm"
 										class="h-8 w-8 p-0"
 										href={source.href}
-										aria-label={`Open ${source.type.toLowerCase()}`}
+										aria-label={`Open ${(source.label ?? sourceTypeLabel(source)).toLowerCase()}`}
 									>
 										<ExternalLink class="h-4 w-4" />
 									</Button>
@@ -863,14 +867,14 @@ $effect(() => {
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 								<Badge variant="secondary">{source.phase}</Badge>
-								<span>{source.type}</span>
+								<span>{source.label ?? sourceTypeLabel(source)}</span>
 							</div>
 						</div>
 					{/each}
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Source Insights</span>
 					<Separator></Separator>
@@ -920,7 +924,7 @@ $effect(() => {
 				{/if}
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Source Pain Points</span>
 					<Separator></Separator>
@@ -997,7 +1001,7 @@ $effect(() => {
 				{/if}
 			</section>
 
-			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Final Problem Statement</span>
 					<Separator></Separator>
@@ -1011,7 +1015,7 @@ $effect(() => {
 				/>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Status &amp; Locking</span>
 					<Separator></Separator>
@@ -1106,7 +1110,7 @@ $effect(() => {
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Add Section</span>
 					<Separator></Separator>
@@ -1147,7 +1151,7 @@ $effect(() => {
 			</section>
 
 			{#if activeModules.length > 0}
-				<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 					<div class="flex flex-row gap-2 items-center w-full">
 						<span class="font-medium text-nowrap">Optional Modules</span>
 						<Separator></Separator>
@@ -1185,7 +1189,7 @@ $effect(() => {
 				</section>
 			{/if}
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Additional Notes</span>
 					<Separator></Separator>

@@ -418,7 +418,7 @@
 </svelte:head>
 
 {#key taskId}
-<div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
+<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -444,7 +444,7 @@
 	</header>
 
 	<div class="flex flex-col md:px-20 gap-4 py-2">
-		<div class="flex mt-2 flex-col bg-white rounded-lg gap-2 p-2">
+		<div class="flex mt-2 flex-col bg-background rounded-lg gap-2 p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
 				Task - Prototype
 			</div>
@@ -559,7 +559,7 @@
 		<Separator class="mt-2 px-2"></Separator>
 
 		<div class="py-2 w-full flex flex-col gap-4">
-			<div class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+			<div class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Linked Idea &amp; Context</span>
 					<Separator></Separator>
@@ -591,7 +591,7 @@
 				</div>
 				{#if selectedIdea}
 					{#if selectedIdea.status === "Rejected"}
-						<Alert.Root class="border border-orange-200 bg-orange-50 text-orange-700">
+						<Alert.Root class="border border-orange-500/20 bg-orange-500/10 text-orange-500">
 							<Alert.Title>Linked idea rejected</Alert.Title>
 							<Alert.Description>
 								This task remains valid for historical learning.
@@ -599,7 +599,7 @@
 						</Alert.Root>
 					{/if}
 					{#if selectedIdea.problem.status === "Archived"}
-						<Alert.Root class="border border-orange-200 bg-orange-50 text-orange-700">
+						<Alert.Root class="border border-orange-500/20 bg-orange-500/10 text-orange-500">
 							<Alert.Title>Problem statement archived</Alert.Title>
 							<Alert.Description>
 								Upstream context is archived.
@@ -701,7 +701,7 @@
 				{/if}
 			</div>
 
-			<div class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<div class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Task Hypothesis</span>
 					<Separator></Separator>
@@ -716,7 +716,7 @@
 			</div>
 
 			{#if activeModules.includes("plan")}
-				<div class="group flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="group flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 					<div class="flex flex-row gap-2 items-center w-full">
 						<span class="font-medium text-nowrap">{moduleDetails.plan.title}</span>
 						<Separator></Separator>
@@ -790,7 +790,7 @@
 			{/if}
 
 			{#if activeModules.includes("execution")}
-				<div class="group flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+				<div class="group flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 					<div class="flex flex-row gap-2 items-center w-full">
 						<span class="font-medium text-nowrap">{moduleDetails.execution.title}</span>
 						<Separator></Separator>
@@ -857,7 +857,7 @@
 				</div>
 			{/if}
 
-			<div class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<div class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Status</span>
 					<Separator></Separator>
@@ -913,7 +913,7 @@
 				{/if}
 			</div>
 
-			<div class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<div class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Add Section</span>
 					<Separator></Separator>
@@ -950,7 +950,7 @@
 				</Dialog.Root>
 			</div>
 
-			<div class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<div class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Additional Notes</span>
 					<Separator></Separator>

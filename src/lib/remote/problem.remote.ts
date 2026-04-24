@@ -34,7 +34,8 @@ type ProblemSourceOption = {
 type LinkedSource = {
 	id: string;
 	title: string;
-	type: "User Story" | "User Journey";
+	type: "story" | "journey";
+	label: "User Story" | "User Journey";
 	phase: "Empathize";
 	href: string;
 };
@@ -115,14 +116,16 @@ const mapLinkedSource = (value: unknown): LinkedSource | null => {
 		return null;
 	}
 
-	const typeRaw = asString(row.type).toLowerCase();
-	const type: LinkedSource["type"] =
-		typeRaw.includes("journey") ? "User Journey" : "User Story";
+	const typeRaw = (asString(row.artifactType) || asString(row.type)).toLowerCase();
+	const isJourney = typeRaw.includes("journey") || href.includes("/journeys/");
+	const type: LinkedSource["type"] = isJourney ? "journey" : "story";
+	const label: LinkedSource["label"] = isJourney ? "User Journey" : "User Story";
 
 	return {
 		id,
 		title,
 		type,
+		label,
 		phase: "Empathize",
 		href
 	};

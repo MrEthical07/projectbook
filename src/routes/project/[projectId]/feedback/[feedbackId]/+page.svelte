@@ -366,7 +366,7 @@
 </svelte:head>
 
 {#key feedbackId}
-<div class="flex flex-col gap-2 p-2 bg-white border rounded-lg w-full">
+<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg w-full">
 	<header
 		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -388,7 +388,7 @@
 	</header>
 
 	<div class="flex flex-col md:px-20 gap-4 py-2">
-		<div class="flex mt-2 flex-col bg-white rounded-lg gap-2 p-2">
+		<div class="flex mt-2 flex-col bg-background rounded-lg gap-2 p-2">
 			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
 				Feedback - Test
 			</div>
@@ -485,7 +485,7 @@
 		<Separator class="mt-2 px-2"></Separator>
 
 		<div class="py-2 w-full flex flex-col gap-4">
-			<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Linked Artifacts</span>
 					<Separator></Separator>
@@ -638,7 +638,7 @@
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Observation</span>
 					<Separator></Separator>
@@ -652,7 +652,7 @@
 				/>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Interpretation</span>
 					<Separator></Separator>
@@ -666,7 +666,7 @@
 				/>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Outcome</span>
 					<Separator></Separator>
@@ -701,7 +701,7 @@
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Add Section</span>
 					<Separator></Separator>
@@ -736,7 +736,7 @@
 			</section>
 
 			{#if activeModules.length > 0}
-				<section class="flex flex-col gap-3 p-4 w-full bg-white rounded-lg">
+				<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
 					<div class="flex flex-row gap-2 items-center w-full">
 						<span class="font-medium text-nowrap">Optional Modules</span>
 						<Separator></Separator>
@@ -832,7 +832,7 @@
 				</section>
 			{/if}
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-white rounded-lg">
+			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Notes</span>
 					<Separator></Separator>

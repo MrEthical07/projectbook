@@ -4,18 +4,24 @@
 	import * as Badge from "$lib/components/ui/badge";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { resolveIconComponent } from "$lib/utils/icon-fallback";
+	import * as Tooltip from "$lib/components/ui/tooltip";
 	import type { ComponentProps } from "svelte";
+	import { onMount } from "svelte";
+	import { mode, setMode } from "mode-watcher";
 	import {
 		Bell,
 		BookOpen,
 		CircleHelp,
 		FolderKanban,
 		LayoutDashboard,
+		Sun,
+		Moon,
 		Mail,
 		Plus,
 		Settings,
 		type Icon
 	} from "@lucide/svelte";
+  import { Button } from "../ui/button";
 
 	type NavItem = {
 		name: string;
@@ -112,6 +118,31 @@
 			}
 		] satisfies NavItem[]
 	});
+
+	
+	let modeValue = $state<"light" | "dark">("light");
+	
+	onMount(() => {
+		modeValue =
+			localStorage.modeValue ||
+			(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'light');
+		document.documentElement.classList.toggle('dark', modeValue === 'dark');
+
+	});
+
+	
+	const toggleMode = () => {
+		const nextMode = modeValue === "dark" ? "light" : "dark";
+		document.documentElement.classList.toggle('dark', nextMode === 'dark');
+		setMode(nextMode);
+		localStorage.setItem('modeValue', nextMode);
+		modeValue = nextMode;
+	};
+
+	$effect(() => {
+		modeValue = mode.current === "dark" ? "dark" : "light";
+	});
+
 </script>
 
 <Sidebar.Root {collapsible} {...restProps} class="">
@@ -197,6 +228,34 @@
 				{/each}
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
+
+		<Sidebar.Group>
+			<Sidebar.GroupContent>
+				<Sidebar.MenuItem>
+					<Sidebar.MenuButton
+						tooltipContent={`Switch to ${modeValue === "dark" ? "light" : "dark"} mode`}
+						onclick={toggleMode}
+						class="border"
+					>
+						{#snippet child({ props })}
+							<button 
+								class="hover:bg-accent"
+								{...props}
+							>
+								{#if modeValue === "dark"}
+									<Sun class="size-4" />
+									<span> Light Mode </span>
+								{:else}
+									<Moon class="size-4" />
+									<span> Dark Mode </span>
+								{/if}
+							</button>
+						{/snippet}
+					</Sidebar.MenuButton>
+				</Sidebar.MenuItem>	
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
 	</Sidebar.Content>
 	<Sidebar.Footer>
 		{#if user}

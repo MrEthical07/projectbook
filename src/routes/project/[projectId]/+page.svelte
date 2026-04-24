@@ -359,8 +359,8 @@
 
 	const toneCardClass = {
 		normal: "border-border bg-card",
-		warning: "border-amber-300/50 bg-amber-50/70 dark:border-amber-500/40 dark:bg-amber-950/30",
-		critical: "border-red-300/50 bg-red-50/70 dark:border-red-500/40 dark:bg-red-950/20"
+		warning: "border-amber-500/20 bg-amber-500/10 dark:border-amber-500/20 dark:bg-amber-500/10",
+		critical: "border-red-500/20 bg-red-500/10 dark:border-red-500/20 dark:bg-red-500/10"
 	} as const;
 	const toneValueClass = {
 		normal: "text-foreground",
@@ -368,8 +368,8 @@
 		critical: "text-red-700 dark:text-red-300"
 	} as const;
 	const alertClass = {
-		amber: "border-amber-300/50 bg-amber-50/70 dark:border-amber-500/40 dark:bg-amber-950/30",
-		red: "border-red-300/50 bg-red-50/70 dark:border-red-500/40 dark:bg-red-950/20"
+		amber: "border-amber-500/20 bg-amber-500/10 dark:border-amber-500/20 dark:bg-amber-500/10",
+		red: "border-red-500/20 bg-red-500/10 dark:border-red-500/20 dark:bg-red-500/10"
 	} as const;
 
 	const parseDate = (value: string): Date | null => {
