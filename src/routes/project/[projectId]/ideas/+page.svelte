@@ -196,7 +196,7 @@
 				{#if canCreateIdea}
 					<Dialog.Root bind:open={createOpen}>
 						<Dialog.Trigger>
-							<Button>Add Idea</Button>
+							Add Idea
 						</Dialog.Trigger>
 					<Dialog.Content>
 						<Dialog.Header>

@@ -33,7 +33,7 @@
 	import { toast } from "svelte-sonner";
 	import type { LayoutProps } from "./$types";
 	import type { ProjectNavigationData } from "$lib/remote/project-navigation.remote";
-	import { Button } from "$lib/components/ui/button";
+	import { Button, buttonVariants } from "$lib/components/ui/button";
 
 	type ProjectLayoutData = LayoutProps["data"] & {
 		access: ProjectAccess;
@@ -412,20 +412,16 @@
 					Feedback
 				</Button>
 				<Tooltip.Root>
-					<Tooltip.Trigger>
-						<Button
-							variant="outline"
-							size="icon"
-							class="text-muted-foreground"
+					<Tooltip.Trigger 
+							class="text-muted-foreground {buttonVariants({ variant: 'outline', size: 'icon' })}"
 							onclick={toggleMode}
 							aria-label="Toggle dark mode"
 						>
-							{#if modeValue === "dark"}
-								<Sun class="size-4" />
-							{:else}
-								<Moon class="size-4" />
-							{/if}
-						</Button>
+						{#if modeValue === "dark"}
+							<Sun class="size-4" />
+						{:else}
+							<Moon class="size-4" />
+						{/if}
 					</Tooltip.Trigger>
 					<Tooltip.Content>
 						Switch to {modeValue === "dark" ? "light" : "dark"} mode
@@ -454,6 +450,8 @@
 	</Sidebar.Inset>
 </Sidebar.Provider>
 
+
+				
 <Dialog.Root bind:open={feedbackDialogOpen}>
 	<Dialog.Content class="sm:max-w-xl">
 		<Dialog.Header>
