@@ -16,7 +16,7 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
-	import { ChevronDown, ExternalLink, Info, X } from "@lucide/svelte";
+	import { ChevronDown, ExternalLink, Info, X, Check, CircleX } from "@lucide/svelte";
 
 	type IdeaStatus = "Considered" | "Selected" | "Rejected";
 	type PageStatus = IdeaStatus | "Archived";
@@ -92,8 +92,6 @@
 	const canChangeIdeaStatus = can(permissions, "idea", "statusChange");
 	const canArchiveIdea = can(permissions, "idea", "archive");
 	let problemOptions = $state<LinkedProblemStatement[]>([]);
-	let linkedStories = $state<LinkedStory[]>([]);
-	let derivedPersonas = $state<string[]>([]);
 	let title = $state("");
 	let description = $state("");
 	let ideaStatus = $state<IdeaStatus>("Considered");
@@ -101,11 +99,10 @@
 	let summaryTitle = $state("");
 	let summaryDescription = $state("");
 	let notesText = $state("");
-	let selectedProblemId = $state("");
-	let pendingProblemId = $state("");
+	let selectedProblemId = $derived(data.selectedProblemId ?? "");
+	let pendingProblemId = $derived(data.selectedProblemId ?? "");
 	let addSectionOpen = $state(false);
 	let statusDialogOpen = $state(false);
-	let statusConfirmOpen = $state(false);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
 	let linkProblemOpen = $state(false);
@@ -133,11 +130,17 @@
 	let linkedProblem = $derived(
 		problemOptions.find((problem) => problem.id === selectedProblemId) ?? null
 	);
-	let pendingProblem = $derived(
-		problemOptions.find((problem) => problem.id === pendingProblemId) ?? null
-	);
+	
+	let isProblemLinkValid = $derived.by(() => {
+		if (!selectedProblemId) return false;
 
-	let isReadOnly = $derived(isArchived || ideaStatus === "Rejected" || !canEditIdea);
+		const problem = problemOptions.find(p => p.id === selectedProblemId);
+		return !!problem && problem.status === "Locked";
+	});
+
+	let isReadOnly = $derived(
+		isArchived || ideaStatus === "Rejected" || !canEditIdea || ideaStatus === "Selected"
+	);
 	let isSummaryReadOnly = $derived(isArchived || ideaStatus !== "Considered");
 	type SavePhase = "idle" | "saving" | "saved";
 	let savePhase = $state<SavePhase>("idle");
@@ -193,24 +196,35 @@
 		moduleOpen = { ...moduleOpen };
 	};
 
+	let linkMutationPending = $state(false);
 	const confirmLinkProblem = () => {
-		if (!pendingProblemId) {
+		linkMutationPending = true;
+		if (!pendingProblemId) return;
+		console.log("Confirming problem link", pendingProblemId);
+		const problem = problemOptions.find(p => p.id === pendingProblemId);
+
+		// HARD VALIDATION
+		if (!problem) {
+			toast.error("Invalid problem selected.");
 			return;
 		}
 
-		selectedProblemId = pendingProblemId;
-		pendingProblemId = "";
-		linkProblemOpen = false;
-	};
+		if (problem.status !== "Locked") {
+			toast.error("Only locked problem statements can be linked.");
+			return;
+		}
 
-	const requestStatusChange = (nextStatus: IdeaStatus) => {
-		if (nextStatus === ideaStatus) return;
-		pendingStatus = nextStatus;
-		statusDialogOpen = false;
-		statusConfirmOpen = true;
+		selectedProblemId = problem.id;
+		pendingProblemId = problem.id;
+		linkMutationPending = false;
+		linkProblemOpen = false;
+		linkedProblem = problem;
+		console.log("Problem linked:", linkedProblem, "selectedProblemId:", selectedProblemId, "pendingProblemId:", pendingProblemId);
 	};
 
 	const changeArchiveState = async (nextArchived: boolean) => {
+
+
 		if (!canArchiveIdea) {
 			return;
 		}
@@ -243,11 +257,66 @@
 		}
 	};
 
+
+	const statusVariant = (currentStatus: PageStatus) => {
+		if (currentStatus === "Archived") {
+			return "destructive";
+		}
+
+		if (currentStatus === "Selected") {
+			return "default";
+		}
+
+		if (currentStatus === "Rejected") {
+			return "secondary";
+		}
+
+		return "outline";
+	};
+
 	const confirmStatusChange = async () => {
 		if (!canChangeIdeaStatus) return;
 		if (!permissions) return;
 		if (statusMutationPending) return;
 		if (!pendingStatus) {
+			return;
+		}
+		
+		if (!selectedProblemId) {
+			toast.error("Cannot change status without linking a problem.");
+			statusDialogOpen = false;
+			return;
+		}
+
+		const problem = problemOptions.find(p => p.id === selectedProblemId);
+
+		if (!problem || problem.status !== "Locked") {
+			toast.error("Idea must be linked to a valid locked problem.");
+			statusDialogOpen = false;
+			return;
+		}
+
+		if(!description || description.trim() === "") {
+			toast.error("Idea description cannot be empty.");
+			statusDialogOpen = false;
+			return;
+		}
+
+		if(!summaryTitle || summaryTitle.trim() === "") {
+			toast.error("Summary title cannot be empty.");
+			statusDialogOpen = false;
+			return;
+		}
+
+		if(!summaryDescription || summaryDescription.trim() === "") {
+			toast.error("Summary description cannot be empty.");
+			statusDialogOpen = false;
+			return;
+		}
+
+		if(isDirty) {
+			toast.error("Please save changes before changing status.");
+			statusDialogOpen = false;
 			return;
 		}
 
@@ -273,34 +342,16 @@
 				toast.error("error" in result ? result.error : "Status change failed.");
 				return;
 			}
-			await invalidate((url) => url.pathname === page.url.pathname);
 
 			ideaStatus = targetStatus;
 			pendingStatus = null;
 			statusDialogOpen = false;
-			statusConfirmOpen = false;
 		} catch (error) {
 			console.error("Failed to update idea status", error);
 			toast.error("Status change failed.");
 		} finally {
 			statusMutationPending = false;
 		}
-	};
-
-	const statusVariant = (currentStatus: PageStatus) => {
-		if (currentStatus === "Archived") {
-			return "destructive";
-		}
-
-		if (currentStatus === "Selected") {
-			return "default";
-		}
-
-		if (currentStatus === "Rejected") {
-			return "secondary";
-		}
-
-		return "outline";
 	};
 
 	const statusBadgeClass = (currentStatus: PageStatus) => {
@@ -319,9 +370,6 @@
 		return "bg-amber-500/10 text-amber-500 border-amber-500/20";
 	};
 
-	const isStatusImmutable = (currentStatus: IdeaStatus): boolean =>
-		currentStatus === "Selected" || currentStatus === "Rejected";
-
 	const triggerSave = async () => {
 		if (!canEditIdea) return;
 		if (!permissions) return;
@@ -338,6 +386,28 @@
 		}
 
 		savePhase = "saving";
+
+		// VALIDATE BEFORE CALL
+		if (!selectedProblemId) {
+			toast.error("Idea must be linked to a problem statement.");
+			savePhase = "idle";
+			return;
+		}
+
+		const problem = problemOptions.find(p => p.id === selectedProblemId);
+
+		if (!problem) {
+			toast.error("Linked problem is invalid.");
+			savePhase = "idle";
+			return;
+		}
+
+		if (problem.status !== "Locked") {
+			toast.error("Linked problem must be locked.");
+			savePhase = "idle";
+			return;
+		}
+
 		const result = await updateIdea({
 			input: {
 				projectId,
@@ -382,9 +452,8 @@
 	$effect(() => {
 		const d = data;
 		untrack(() => {
-			problemOptions = structuredClone(d.problemOptions) as LinkedProblemStatement[];
-			linkedStories = structuredClone(d.linkedStories) as LinkedStory[];
-			derivedPersonas = structuredClone(d.derivedPersonas) as string[];
+			const all = structuredClone(d.problemOptions);
+			problemOptions = all.filter(p => p.status === "Locked" || p.id === d.selectedProblemId);
 
 			title = required(d.idea.title, "idea.title");
 			description = required(d.idea.description, "idea.description");
@@ -393,7 +462,16 @@
 			summaryTitle = required(d.summaryTitle, "summaryTitle");
 			summaryDescription = required(d.summaryDescription, "summaryDescription");
 			notesText = required(d.notesText, "notesText");
-			selectedProblemId = required(d.selectedProblemId, "selectedProblemId");
+			selectedProblemId = d.selectedProblemId ?? "";
+			if (selectedProblemId) {
+				const exists = problemOptions.some(p => p.id === selectedProblemId);
+
+				if (!exists) {
+					console.warn("Broken problem link detected");
+					selectedProblemId = "";
+					toast.error("Linked problem no longer exists or is inaccessible.");
+				}
+			}
 			pendingProblemId = "";
 
 			activeModules = (Array.isArray(d.activeModules)
@@ -419,7 +497,6 @@
 			};
 
 			pendingStatus = null;
-			statusConfirmOpen = false;
 			statusMutationPending = false;
 			savePhase = "idle";
 
@@ -431,7 +508,7 @@
 				summaryTitle,
 				summaryDescription,
 				notesText,
-				selectedProblemId,
+				selectedProblemId: isProblemLinkValid ? selectedProblemId : null,
 				activeModules,
 				moduleContent,
 			});
@@ -492,6 +569,9 @@
 					<Badge class={statusBadgeClass(pageStatus)} variant="outline">
 						{pageStatus}
 					</Badge>
+					{#if selectedProblemId === ""}
+						<Badge variant="destructive">Orphan</Badge>
+					{/if}
 					{#if isArchived}
 						<Dialog.Root bind:open={unarchiveDialogOpen}>
 							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
@@ -565,53 +645,23 @@
 					</Button>
 				</div>
 			</div>
-</div>
-
-
-<Dialog.Root bind:open={metadataOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Artifact Metadata</Dialog.Title>
-			<Dialog.Description>Read-only metadata for this idea.</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-2 text-sm">
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Owner</span><span>{data.metadata?.owner ?? "Unknown"}</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last updated</span><span>{data.metadata?.lastUpdated ?? "Unknown"}</span></div>
-			<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{pageStatus}</span></div>
 		</div>
-		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-<Dialog.Root bind:open={statusConfirmOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Confirm status change</Dialog.Title>
-			<Dialog.Description>
-				{#if pendingStatus === "Selected"}
-					Selecting this idea enables task creation downstream.
-				{:else if pendingStatus === "Rejected"}
-					Rejected ideas become read-only except Notes.
-				{:else}
-					This will move the idea back to Considered.
-				{/if}
-			</Dialog.Description>
-		</Dialog.Header>
-		<div class="rounded-lg border border-border px-3 py-2 text-sm">
-			New status: {pendingStatus ?? "None"}
-		</div>
-		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })} disabled={statusMutationPending}>
-				Cancel
-			</Dialog.Close>
-			<Button onclick={confirmStatusChange} disabled={statusMutationPending || !canChangeIdeaStatus}>
-				{statusMutationPending ? "Saving..." : "Confirm status"}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		<Dialog.Root bind:open={metadataOpen}>
+			<Dialog.Content>
+				<Dialog.Header>
+					<Dialog.Title>Artifact Metadata</Dialog.Title>
+					<Dialog.Description>Read-only metadata for this idea.</Dialog.Description>
+				</Dialog.Header>
+				<div class="grid gap-2 text-sm">
+					<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Owner</span><span>{data.metadata?.owner ?? "Unknown"}</span></div>
+					<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Last updated</span><span>{data.metadata?.lastUpdated ?? "Unknown"}</span></div>
+					<div class="flex items-center justify-between rounded-md border px-3 py-2"><span class="text-muted-foreground">Status</span><span>{pageStatus}</span></div>
+				</div>
+				<Dialog.Footer>
+					<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+				</Dialog.Footer>
+			</Dialog.Content>
+		</Dialog.Root>
 		<Separator class="mt-2 px-2"></Separator>
 
 		<div class="py-2 w-full flex flex-col gap-4">
@@ -619,69 +669,63 @@
 				<div class="flex flex-row gap-2 items-center w-full">
 					<span class="font-medium text-nowrap">Linked Problem Statement</span>
 					<Separator></Separator>
+					<Dialog.Root bind:open={linkProblemOpen}>
+							<Dialog.Trigger class={buttonVariants({ size: "sm" })} disabled={isReadOnly || linkMutationPending}>
+								+ Link Problem Statement
+							</Dialog.Trigger>
+							<Dialog.Content>
+								<Dialog.Header>
+									<Dialog.Title>Link a problem statement</Dialog.Title>
+									<Dialog.Description>
+										Choose a problem statement to connect to this idea.
+										{#if selectedProblemId}
+											<span class="text-orange-600"><br>Note: Current selection will be replaced.</span>
+										{/if}
+									</Dialog.Description>
+								</Dialog.Header>
+								<div class="grid gap-2">
+									<Label for="link-problem">Problem Statement</Label>
+									{#if problemOptions.length === 0}
+										<div class="text-sm text-muted-foreground border border-dashed border-border rounded-lg p-4 text-center">
+											No problem statements available to link.
+										</div>
+									{:else}
+									<Select.Root type="single" bind:value={pendingProblemId}>
+										<Select.Trigger id="link-problem" class="w-full">
+											{pendingProblemId
+												? problemOptions.find((problem) => problem.id === pendingProblemId)?.title ?? problemOptions.find((problem) => problem.id === pendingProblemId)?.title
+												: "Select a problem statement"}
+										</Select.Trigger>
+										<Select.Content>
+											{#each problemOptions as problem (problem.id)}
+												<Select.Item value={problem.id} label={problem.title}>
+													{problem.title}
+												</Select.Item>
+											{/each}
+										</Select.Content>
+									</Select.Root>
+									{/if}
+								</div>
+								<Dialog.Footer>
+									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+										Cancel
+									</Dialog.Close>
+									<Button class={buttonVariants()} onclick={confirmLinkProblem} disabled={!pendingProblemId || linkMutationPending}>
+										{linkMutationPending ? "Linking..." : "Link problem"}
+									</Button>
+								</Dialog.Footer>
+							</Dialog.Content>
+						</Dialog.Root>
 				</div>
 				{#if !linkedProblem}
-					<div class="flex flex-col gap-3 max-w-xl">
-						<Label class="text-muted-foreground" for="linked-problem">
-							Linked problem statement
-						</Label>
-						{#if problemOptions.length === 0}
-							<div class="text-sm text-muted-foreground border border-dashed border-border rounded-lg p-4 text-center">
-								No locked problem statements available. Lock a problem statement first.
-							</div>
-						{:else}
-						<Select.Root type="single" bind:value={pendingProblemId}>
-							<Select.Trigger id="linked-problem">
-								{pendingProblemId
-									? problemOptions.find((problem) => problem.id === pendingProblemId)?.title
-									: "Select a problem statement"}
-							</Select.Trigger>
-							<Select.Content>
-								{#each problemOptions as problem (problem.id)}
-									<Select.Item value={problem.id} label={problem.title}>
-										{problem.title}
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-						{/if}
-						<div class="flex items-center gap-3">
-							<Dialog.Root bind:open={linkProblemOpen}>
-								<Dialog.Trigger
-									class={buttonVariants({ variant: "outline", size: "sm" })}
-									disabled={!pendingProblemId}
-								>
-									Link problem statement
-								</Dialog.Trigger>
-								<Dialog.Content>
-									<Dialog.Header>
-										<Dialog.Title>Link this problem statement?</Dialog.Title>
-										<Dialog.Description>
-											This cannot be changed later. Make sure this is the right problem.
-										</Dialog.Description>
-									</Dialog.Header>
-									<div class="rounded-lg border border-border px-3 py-2 text-sm">
-										{pendingProblem?.title ?? "No problem selected"}
-									</div>
-									<Dialog.Footer>
-										<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-											Cancel
-										</Dialog.Close>
-										<Dialog.Close
-											class={buttonVariants()}
-											onclick={confirmLinkProblem}
-										>
-											Confirm link
-										</Dialog.Close>
-									</Dialog.Footer>
-								</Dialog.Content>
-							</Dialog.Root>
-							<span class="text-xs text-muted-foreground">
-								Once linked, this problem statement cannot be changed.
-							</span>
-						</div>
-					</div>
-				{:else}
+					<Alert.Root variant="destructive">
+						<Alert.Title>Orphan idea</Alert.Title>
+						<Alert.Description>
+							This idea is not connected to any define artifact.
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
+				{#if linkedProblem}
 					{#if linkedProblem.status === "Archived"}
 						<Alert.Root class="border border-orange-200 bg-orange-50 text-orange-700">
 							<Alert.Title>Problem statement archived</Alert.Title>
@@ -700,15 +744,31 @@
 					<div class="border border-border rounded-lg p-4 flex flex-col gap-3">
 						<div class="flex items-start justify-between gap-3">
 							<div class="text-sm font-medium">{linkedProblem.title}</div>
-							<Button
-								variant="ghost"
-								size="sm"
-								class="h-8 w-8 p-0"
-								href={linkedProblem.href}
-								aria-label="Open problem statement"
-							>
-								<ExternalLink class="h-4 w-4" />
-							</Button>
+							<div class="flex gap-2">
+								<Button
+									variant="ghost"
+									size="sm"
+									class="h-8 w-8 p-0"
+									href={linkedProblem.href}
+									aria-label="Open problem statement"
+								>
+									<ExternalLink class="h-4 w-4" />
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									class="h-7 px-2 text-destructive hover:text-destructive"
+									onclick={() => {
+										selectedProblemId = "";
+										pendingProblemId = "";
+										linkedProblem = null;
+										linkedProblem = null;
+									}}
+									disabled={isReadOnly || linkMutationPending}
+								>
+									Remove
+								</Button>
+							</div>
 						</div>
 						<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 							<div class="bg-accent px-2 py-1 rounded-lg text-xs font-medium">
@@ -752,7 +812,7 @@
 									{linkedProblem.title}
 								</div>
 							</div>
-							<div>
+							<!-- <div>
 								<div class="text-xs font-semibold uppercase text-muted-foreground">Persona</div>
 								<div class="mt-2 text-sm text-foreground">
 									{#if derivedPersonas.length === 0}
@@ -786,7 +846,7 @@
 									{/each}
 									{/if}
 								</div>
-							</div>
+							</div> -->
 						</div>
 					{/if}
 				</section>
@@ -811,38 +871,139 @@
 					<span class="font-medium text-nowrap">Idea Status</span>
 					<Separator></Separator>
 				</div>
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<Badge class={statusBadgeClass(ideaStatus)} variant="outline">
-						{ideaStatus}
-					</Badge>
+				<div class="flex items-center gap-2 text-sm text-muted-foreground">
+					Current status
+					<Badge variant={statusVariant(pageStatus)}>{pageStatus}</Badge>
+				</div>
+				<div class="flex gap-2 w-full">
 					<Dialog.Root bind:open={statusDialogOpen}>
 						<Dialog.Trigger
-							class={buttonVariants({ variant: "outline" })}
-							disabled={isArchived || isStatusImmutable(ideaStatus) || statusMutationPending}
+							class={buttonVariants()}
+							disabled={statusMutationPending || !canChangeIdeaStatus || isReadOnly}
 						>
-							Change Status
+							Select Idea
 						</Dialog.Trigger>
 						<Dialog.Content>
 							<Dialog.Header>
-								<Dialog.Title>Change idea status</Dialog.Title>
+								<Dialog.Title>Lock this idea summary?</Dialog.Title>
+								<Dialog.Description>
+									Locking will freeze the definition. This cannot be undone.
+								</Dialog.Description>
 							</Dialog.Header>
-							<div class="grid gap-2">
-								{#each ["Considered", "Selected", "Rejected"] as option (option)}
-									<Button
-										variant={(pendingStatus ?? ideaStatus) === option ? "default" : "outline"}
-										disabled={statusMutationPending}
-										onclick={() => (pendingStatus = option as IdeaStatus)}
-									>
-										{option}
-									</Button>
-								{/each}
-							</div>
-							<div class="mt-3 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
-								Status changes are manual and require confirmation.
+							<div class="grid gap-3 text-sm">
+								<p class="text-xs font-semibold uppercase text-muted-foreground">Requirements to select</p>
+								<div class="flex items-center gap-2">
+									<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+									<span class="text-foreground">Link a problem to select this idea</span>
+								</div>
+								
+								<div class="flex items-center gap-2">
+									{#if description.trim()}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Final idea description written</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Write a final idea description before selecting this idea</span>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2">
+									{#if summaryDescription.trim()}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Final idea summary description written</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Write a final idea summary description before selecting this idea</span>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2">
+									{#if summaryTitle.trim()}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Final idea summary title written</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Write a final idea summary title before selecting this idea</span>
+									{/if}
+								</div>
 							</div>
 							<Dialog.Footer>
-								<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-								<Button onclick={() => requestStatusChange((pendingStatus ?? ideaStatus) as IdeaStatus)} disabled={(pendingStatus ?? ideaStatus) === ideaStatus || statusMutationPending || !canChangeIdeaStatus}>Continue</Button>
+								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+									Cancel
+								</Dialog.Close>
+								<Button
+									disabled={statusMutationPending || !canChangeIdeaStatus}
+									onclick={() => {
+										pendingStatus = "Selected";
+										confirmStatusChange();
+									}}
+								>
+									{statusMutationPending ? "Locking..." : "Confirm Lock"}
+								</Button>
+							</Dialog.Footer>
+						</Dialog.Content>
+					</Dialog.Root>
+					<Dialog.Root bind:open={statusDialogOpen}>
+						<Dialog.Trigger
+							class={buttonVariants({variant: "destructive" })}
+							disabled={statusMutationPending || !canChangeIdeaStatus || isReadOnly}
+						>
+							Reject Idea
+						</Dialog.Trigger>
+						<Dialog.Content>
+							<Dialog.Header>
+								<Dialog.Title>Reject this idea?</Dialog.Title>
+								<Dialog.Description>
+									Rejecting will remove the idea from consideration. This cannot be undone.
+								</Dialog.Description>
+							</Dialog.Header>
+							<div class="grid gap-3 text-sm">
+								<p class="text-xs font-semibold uppercase text-muted-foreground">Requirements to reject</p>
+								<div class="flex items-center gap-2">
+									<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+									<span class="text-foreground">Link a problem to select this idea</span>
+								</div>
+								
+								<div class="flex items-center gap-2">
+									{#if description.trim()}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Final idea description written</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Write a final idea description before selecting this idea</span>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2">
+									{#if summaryDescription.trim()}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Final idea summary description written</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Write a final idea summary description before selecting this idea</span>
+									{/if}
+								</div>
+								<div class="flex items-center gap-2">
+									{#if summaryTitle.trim()}
+										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
+										<span class="text-foreground">Final idea summary title written</span>
+									{:else}
+										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
+										<span class="text-muted-foreground">Write a final idea summary title before selecting this idea</span>
+									{/if}
+								</div>
+							</div>
+							<Dialog.Footer>
+								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+									Cancel
+								</Dialog.Close>
+								<Button
+									disabled={statusMutationPending || !canChangeIdeaStatus}
+									onclick={() => {
+										pendingStatus = "Rejected";
+										confirmStatusChange();
+									}}
+									variant="destructive"
+								>
+									{statusMutationPending ? "Rejecting..." : "Confirm Reject"}
+								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>

@@ -14,7 +14,6 @@ export const calendarEventsData: CalendarEvent[] = [
 		description: "Review sample artifact progress.",
 		location: "Remote",
 		eventKind: "Review",
-		linkedArtifacts: ["Task - Prototype onboarding checklist flow"],
 		createdAt: "2026-02-14"
 	}
 ];

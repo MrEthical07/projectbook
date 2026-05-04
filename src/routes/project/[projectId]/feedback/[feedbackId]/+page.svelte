@@ -19,7 +19,7 @@
 
 	type OutcomeStatus = "Validated" | "Invalidated" | "Needs Iteration";
 	type PageStatus = OutcomeStatus | "Archived";
-	type ArtifactType = "Task" | "Idea" | "Problem Statement";
+	type ArtifactType = "task" | "idea" | "problem";
 
 	type LinkedArtifact = {
 		id: string;
@@ -249,6 +249,19 @@
 		}
 
 		savePhase = "saving";
+		console.log("Saving feedback with data", {
+			title,
+			outcome,
+			isArchived,
+			observation,
+			interpretation,
+			notesText,
+			linkedArtifacts,
+			activeModules,
+			evidenceText,
+			evidenceLocked,
+			nextStepsText,
+		});
 		try {
 			const result = await updateFeedback({
 				input: {
