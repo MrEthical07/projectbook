@@ -164,7 +164,6 @@ const persistPermissionContext = (
 
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.requestId = randomUUID();
-
 	const accessToken = getAccessTokenCookie(event.cookies);
 	const refreshToken = getRefreshTokenCookie(event.cookies);
 	const hasAuthEvidence = Boolean(accessToken || refreshToken);

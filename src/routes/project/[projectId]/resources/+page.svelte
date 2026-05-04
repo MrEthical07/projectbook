@@ -656,39 +656,31 @@
 						<TableCell>
 							<div class="flex w-full justify-evenly items-center gap-2">
 								<Tooltip.Root>
-									<Tooltip.Trigger>
-										<Button variant="ghost" size="sm" class="h-8 w-8 p-0">
-											<Download class="h-4 w-4" />
-										</Button>
+									<Tooltip.Trigger class={buttonVariants({ variant: 'ghost', size: 'sm', class: 'h-8 w-8 p-0' })} >
+										<Download class="h-4 w-4" />
 									</Tooltip.Trigger>
 									<Tooltip.Content>Download</Tooltip.Content>
 								</Tooltip.Root>
 								<Tooltip.Root>
-									<Tooltip.Trigger>
-										<Button
-											variant="ghost"
-											size="sm"
-											class="h-8 w-8 p-0"
-											onclick={() => requestArchive(row.id)}
-											disabled={!canEditResource || row.status === "Archived"}
+									<Tooltip.Trigger 
+										class={buttonVariants({ variant: 'ghost', size: 'sm', class: 'h-8 w-8 p-0' })}
+										onclick={() => requestArchive(row.id)}
+										disabled={!canEditResource || row.status === "Archived"}
 										>
 											<Archive class="h-4 w-4" />
-										</Button>
 									</Tooltip.Trigger>
 									<Tooltip.Content>Archive</Tooltip.Content>
 								</Tooltip.Root>
 								
 								<Tooltip.Root>
-									<Tooltip.Trigger>
-										<Button
-											variant="ghost"
-											size="sm"
-											class="h-8 w-8 p-0"
+									<Tooltip.Trigger class={buttonVariants({ variant: 'ghost', size: 'sm', class: 'h-8 w-8 p-0' })}>
+										<a
+											class="h-8 w-8 p-0 {buttonVariants({ variant: 'ghost', size: 'sm', class: '' })}"
 												href={`./resources/${row.id}`}
 												aria-label="Open resource"
 											>
 												<ExternalLink class="h-4 w-4" />
-										</Button>
+										</a>
 									</Tooltip.Trigger>
 									<Tooltip.Content>View</Tooltip.Content>
 								</Tooltip.Root>

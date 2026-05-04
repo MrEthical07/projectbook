@@ -123,27 +123,28 @@
 		}
 	};
 </script>
-
-<Sidebar.MenuItem>
-	<Sidebar.MenuButton
-		class={item.isActive ? activeClass : ""}
-		tooltipContent={item.title}
-	>
-		{#snippet child({ props })}
-			{@const ItemIcon = resolveIconComponent(item.Icon, Folder)}
-			<a href={itemUrl} {...props}>
-				<ItemIcon />
-				<span class="whitespace-nowrap truncate">{item.title}</span>
-			</a>
-		{/snippet}
-	</Sidebar.MenuButton>
-	{#if canCreateItem}
-		<Sidebar.MenuAction aria-label={`Create ${item.title}`} onclick={openCreateDialog}>
-			<PlusIcon color="var(--muted-foreground)" />
-			<span class="sr-only">Create {item.title}</span>
-		</Sidebar.MenuAction>
-	{/if}
-</Sidebar.MenuItem>
+<Sidebar.Menu>
+	<Sidebar.MenuItem>
+		<Sidebar.MenuButton
+			class={item.isActive ? activeClass : ""}
+			tooltipContent={item.title}
+		>
+			{#snippet child({ props })}
+				{@const ItemIcon = resolveIconComponent(item.Icon, Folder)}
+				<a href={itemUrl} {...props}>
+					<ItemIcon />
+					<span class="whitespace-nowrap truncate">{item.title}</span>
+				</a>
+			{/snippet}
+		</Sidebar.MenuButton>
+		{#if canCreateItem}
+			<Sidebar.MenuAction aria-label={`Create ${item.title}`} onclick={openCreateDialog}>
+				<PlusIcon color="var(--muted-foreground)" />
+				<span class="sr-only">Create {item.title}</span>
+			</Sidebar.MenuAction>
+		{/if}
+	</Sidebar.MenuItem>
+</Sidebar.Menu>
 
 <Dialog.Root bind:open={addOpen}>
 	<Dialog.Content>
