@@ -40,6 +40,16 @@
 	type PhaseOption = Phase | "None";
 	type ManualEventKind = "Workshop" | "Review" | "Testing Session" | "Meeting" | "Other";
 
+	
+	type LinkedArtifact = {
+		id: string;
+		title: string;
+		type: "task" | "idea" | "problem";
+		phase: "Prototype" | "Ideate" | "Define";
+		href: string;
+		status: "Active" | "Archived";
+	};
+
 	type CalendarEvent = {
 		id: string;
 		title: string;
@@ -56,7 +66,7 @@
 		description?: string;
 		location?: string;
 		eventKind?: string;
-		linkedArtifacts?: string[];
+		linkedArtifacts?: LinkedArtifact[];
 		tags?: string[];
 		createdAt: string;
 	};
@@ -68,7 +78,7 @@
 		() => structuredClone(data.reference.manualKinds) as ManualEventKind[]
 	);
 	let linkedArtifactOptions = $derived.by(
-		() => structuredClone(data.reference.linkedArtifactOptions) as string[]
+		() => structuredClone(data.reference.linkedArtifactOptions) as LinkedArtifact[]
 	);
 
 	const today = new Date().toISOString().split("T")[0];
@@ -115,11 +125,12 @@
 	let newCustomKind = $state("");
 	let newDescription = $state("");
 	let newLocation = $state("");
-	let newLinked = $state<string[]>([]);
 	let newTags = $state("");
 	let createError = $state("");
 	let isCreatingEvent = $state(false);
+	let selectedArtifactIds: string[] = $state([]);
 
+	let newLinked = $derived<LinkedArtifact[]>(linkedArtifactOptions.filter((option) => selectedArtifactIds.includes(option.id)));
 	let filteredEvents = $derived(
 		events.filter((event) => {
 			if (filterArtifact !== "All" && event.artifactType !== filterArtifact) {
@@ -255,16 +266,6 @@
 	const openEventDetails = (event: CalendarEvent) => {
 		selectedEventId = event.id;
 		eventDetailsOpen = true;
-	};
-
-	const addLinkedArtifact = (value: string) => {
-		if (!newLinked.includes(value)) {
-			newLinked = [...newLinked, value];
-		}
-	};
-
-	const removeLinkedArtifact = (value: string) => {
-		newLinked = newLinked.filter((item) => item !== value);
 	};
 
 	const createEvent = async () => {
@@ -703,7 +704,7 @@
 			<div class="grid gap-2">
 				<Label for="event-owner">Owner</Label>
 				<Select.Root type="single" bind:value={newOwner}>
-					<Select.Trigger id="event-owner">{newOwner}</Select.Trigger>
+					<Select.Trigger class="w-full" id="event-owner">{newOwner}</Select.Trigger>
 					<Select.Content>
 						{#each ownerOptions as option (option)}
 							<Select.Item value={option} label={option}>{option}</Select.Item>
@@ -714,7 +715,7 @@
 			<div class="grid gap-2">
 				<Label for="event-phase">Phase</Label>
 				<Select.Root type="single" bind:value={newPhase}>
-					<Select.Trigger id="event-phase">{phaseLabel(newPhase)}</Select.Trigger>
+					<Select.Trigger class="w-full" id="event-phase">{phaseLabel(newPhase)}</Select.Trigger>
 					<Select.Content>
 						{#each phaseChoices as phase (phase)}
 							<Select.Item value={phase} label={phaseLabel(phase)}>{phaseLabel(phase)}</Select.Item>
@@ -725,7 +726,7 @@
 			<div class="grid gap-2">
 				<Label for="event-kind">Event type</Label>
 				<Select.Root type="single" bind:value={newKind}>
-					<Select.Trigger id="event-kind">{newKind}</Select.Trigger>
+					<Select.Trigger class="w-full" id="event-kind">{newKind}</Select.Trigger>
 					<Select.Content>
 						{#each manualKinds as kind (kind)}
 							<Select.Item value={kind} label={kind}>{kind}</Select.Item>
@@ -751,27 +752,33 @@
 			<div class="grid gap-2">
 				<Label>Linked artifacts</Label>
 				<div class="flex flex-wrap items-center gap-2">
-					{#each newLinked as item (item)}
+					{#each newLinked as item (item.id)}
 						<Badge variant="outline">
-							{item}
+							{item.title}
 							<Button
 								variant="ghost"
 								size="sm"
 								class="h-6 px-2 text-destructive hover:text-destructive"
-								onclick={() => removeLinkedArtifact(item)}
+								onclick={() => {
+									selectedArtifactIds = selectedArtifactIds.filter((id) => id !== item.id);
+								}}
 							>
 								Remove
 							</Button>
 						</Badge>
 					{/each}
 				</div>
-				<Select.Root type="multiple" bind:value={newLinked}>
-					<Select.Trigger class="w-64">
-						{newLinked.length ? newLinked[newLinked.length - 1] : "Link artifact"}
+				<Select.Root type="multiple" bind:value={selectedArtifactIds}>
+					<Select.Trigger class="w-full">
+						{selectedArtifactIds.length ? "Selected artifacts" : "Link artifact"}
 					</Select.Trigger>
+
 					<Select.Content>
-						{#each linkedArtifactOptions as option (option)}
-							<Select.Item value={option} label={option}>{option}</Select.Item>
+						{#each linkedArtifactOptions as option (option.id)}
+							<Select.Item value={option.id} label={option.title} class="flex flex-row items-center justify-between">
+								<span>{option.title}</span>
+								<span class="text-xs text-muted-foreground">{option.type.toLocaleUpperCase()}</span>
+							</Select.Item>
 						{/each}
 					</Select.Content>
 				</Select.Root>
@@ -844,7 +851,7 @@
 					{#if selectedEvent.linkedArtifacts?.length}
 						<div class="flex flex-wrap gap-2">
 							{#each selectedEvent.linkedArtifacts as item (item)}
-								<Badge variant="outline">{item}</Badge>
+								<Badge variant="outline">{item.title}</Badge>
 							{/each}
 						</div>
 					{:else}

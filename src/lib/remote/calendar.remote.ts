@@ -18,6 +18,15 @@ type CalendarListInput = {
 	limit?: number;
 };
 
+type LinkedArtifact = {
+	id: string;
+	title: string;
+	type: "task" | "idea" | "problem";
+	phase: "Prototype" | "Ideate" | "Define";
+	href: string;
+	status: "Active" | "Archived";
+};
+
 type CalendarEventDetail = {
 	id: string;
 	title: string;
@@ -29,13 +38,22 @@ type CalendarEventDetail = {
 	tags?: string[];
 	description?: string;
 	location?: string;
-	linkedArtifacts?: string[];
+	linkedArtifacts?: LinkedArtifact[];
 	createdAt: string;
 	lastEdited: string;
 	sourceTitle?: string;
 	startTime?: string;
 	endTime?: string;
 };
+
+const linkedArtifactSchema = z.object({
+	id: z.string().min(1),
+	title: z.string().min(1),
+	type: z.enum(["task", "idea", "problem"]),
+	phase: z.enum(["Prototype", "Ideate", "Define"]),
+	href: z.string().min(1),
+	status: z.enum(["Active", "Archived"])
+});
 
 const createEventSchema = z.object({
 	projectId: z.string().min(1),
@@ -50,7 +68,7 @@ const createEventSchema = z.object({
 	description: z.string(),
 	location: z.string(),
 	eventKind: z.string().trim().min(1),
-	linkedArtifacts: z.array(z.string()),
+	linkedArtifacts: z.array(linkedArtifactSchema),
 	tags: z.array(z.string())
 });
 
@@ -123,7 +141,7 @@ const mapListEvent = (value: unknown): CalendarEvent | null => {
 		description: asString(row.description) || undefined,
 		location: asString(row.location) || undefined,
 		eventKind: asString(row.eventKind) || undefined,
-		linkedArtifacts: asStringArray(row.linkedArtifacts),
+		linkedArtifacts: mapLinkedArtifactArray(row.linkedArtifacts),
 		tags: asStringArray(row.tags)
 	};
 
@@ -156,7 +174,7 @@ const mapDetailEvent = (value: unknown): CalendarEventDetail | null => {
 		tags: asStringArray(row.tags),
 		description: asString(row.description) || undefined,
 		location: asString(row.location) || undefined,
-		linkedArtifacts: asStringArray(row.linkedArtifacts),
+		linkedArtifacts: mapLinkedArtifactArray(row.linkedArtifacts),
 		createdAt: asString(row.createdAt) || date,
 		lastEdited: asString(row.lastEdited) || asString(row.createdAt) || date,
 		sourceTitle: asString(row.sourceTitle) || undefined
@@ -184,6 +202,47 @@ const mapPhaseChoices = (value: unknown): CalendarEvent["phase"][] => {
 	return output;
 };
 
+const mapLinkedArtifactArray = (value: unknown): LinkedArtifact[] => {
+	return asArray(value)
+		.map(mapLinkedArtifact)
+		.filter((item): item is LinkedArtifact => item !== null);
+};
+
+const mapLinkedArtifact = (value: unknown): LinkedArtifact | null => {
+	const row = asRecord(value);
+
+	const id = asString(row.id);
+	const title = asString(row.title);
+	const href = asString(row.href);
+
+	if (!id || !title || !href) {
+		return null;
+	}
+
+	const typeRaw = asString(row.type).trim().toLowerCase();
+	if (!["task", "idea", "problem"].includes(typeRaw)) {
+		return null;
+	}
+
+	const phaseRaw = asString(row.phase);
+	const phase =
+		phaseRaw === "Ideate" || phaseRaw === "Define"
+			? phaseRaw
+			: "Prototype";
+
+	const statusRaw = asString(row.status);
+	const status = statusRaw === "Archived" ? "Archived" : "Active";
+
+	return {
+		id,
+		title,
+		type: typeRaw as LinkedArtifact["type"],
+		phase,
+		href,
+		status
+	};
+};
+
 const normalizeUpdateState = (value: unknown): Record<string, unknown> => {
 	const state = { ...asRecord(value) };
 	const date = asString(state.date);
@@ -209,7 +268,7 @@ const normalizeUpdateState = (value: unknown): Record<string, unknown> => {
 		state.endTime = state.endTime.trim();
 	}
 	if (Array.isArray(state.linkedArtifacts)) {
-		state.linkedArtifacts = asStringArray(state.linkedArtifacts);
+		state.linkedArtifacts = mapLinkedArtifactArray(state.linkedArtifacts);
 	}
 	if (Array.isArray(state.tags)) {
 		state.tags = asStringArray(state.tags);
@@ -237,7 +296,7 @@ export const getCalendarData = query("unchecked", async (input: CalendarListInpu
 		reference?: {
 			phaseChoices?: unknown[];
 			manualKinds?: unknown[];
-			linkedArtifactOptions?: unknown[];
+			linkedArtifactOptions?: LinkedArtifact[];
 		};
 	}>({
 		path: appendPaginationQuery(
@@ -271,7 +330,7 @@ export const getCalendarData = query("unchecked", async (input: CalendarListInpu
 		reference: {
 			phaseChoices: mapPhaseChoices(reference.phaseChoices),
 			manualKinds: asStringArray(reference.manualKinds),
-			linkedArtifactOptions: asStringArray(reference.linkedArtifactOptions)
+			linkedArtifactOptions: mapLinkedArtifactArray(reference.linkedArtifactOptions)
 		}
 	};
 });
@@ -282,7 +341,7 @@ export const getCalendarEventData = query("unchecked", async (input: CalendarEve
 		reference?: {
 			phaseChoices?: unknown[];
 			manualKinds?: unknown[];
-			linkedArtifactOptions?: unknown[];
+			linkedArtifactOptions?: LinkedArtifact[];
 		};
 	}>({
 		path: `/projects/${encodePathSegment(input.projectId)}/calendar/${encodePathSegment(input.eventId)}`,
@@ -300,7 +359,7 @@ export const getCalendarEventData = query("unchecked", async (input: CalendarEve
 		reference: {
 			phaseChoices: mapPhaseChoices(reference.phaseChoices),
 			manualKinds: asStringArray(reference.manualKinds),
-			linkedArtifactOptions: asStringArray(reference.linkedArtifactOptions)
+			linkedArtifactOptions: mapLinkedArtifactArray(reference.linkedArtifactOptions)
 		}
 	};
 });

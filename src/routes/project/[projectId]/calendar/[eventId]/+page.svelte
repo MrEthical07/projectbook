@@ -14,14 +14,27 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { parseDate, type DateValue } from "@internationalized/date";
-	import { ArrowUpRight, Calendar, Trash2 } from "@lucide/svelte";
+	import { ArrowUpRight, Calendar, Trash2, ExternalLink } from "@lucide/svelte";
+	import * as Alert from "$lib/components/ui/alert";
 	import { page } from "$app/state";
 	import { goto } from "$app/navigation";
 	import { updateCalendarEvent, deleteCalendarEvent } from "$lib/remote/calendar.remote";
 	import { can } from "$lib/utils/permission";
+  import { toast } from "svelte-sonner";
 
 	type EventSourceType = "Derived" | "Manual";
 	type ManualEventKind = "Workshop" | "Review" | "Testing Session" | "Meeting" | "Other";
+
+	
+	type LinkedArtifact = {
+		id: string;
+		title: string;
+		type: "task" | "idea" | "problem";
+		phase: "Prototype" | "Ideate" | "Define";
+		href: string;
+		status: "Active" | "Archived";
+	};
+
 
 	type CalendarEvent = {
 		id: string;
@@ -34,7 +47,7 @@
 		tags?: string[];
 		description?: string;
 		location?: string;
-		linkedArtifacts?: string[];
+		linkedArtifacts?: LinkedArtifact[];
 		createdAt: string;
 		lastEdited: string;
 		sourceTitle?: string;
@@ -54,7 +67,7 @@
 	const canEditCalendar = can(permissions, "calendar", "edit");
 	const canDeleteCalendar = can(permissions, "calendar", "delete");
 	let manualKinds = $state<ManualEventKind[]>([]);
-	let linkedArtifactOptions = $state<string[]>([]);
+	let linkedArtifactOptions = $derived<LinkedArtifact[]>(data.eventData.reference.linkedArtifactOptions);
 
 	const today = new Date().toISOString().split("T")[0];
 	let event = $state<CalendarEvent>({
@@ -114,7 +127,7 @@
 		}
 		return "idle";
 	});
-
+	let selectedArtifactIds = $derived<string[]>(event.linkedArtifacts?.map((a) => a.id) ?? []);
 	const eventTypeBadge = (value: EventSourceType) =>
 		value === "Derived"
 			? "bg-slate-100 text-slate-700 border-slate-200"
@@ -125,13 +138,7 @@
 			.map((tag) => tag.trim())
 			.filter(Boolean);
 
-	const addLinkedArtifact = (value: string) => {
-		if (!event.linkedArtifacts?.includes(value)) {
-			event = { ...event, linkedArtifacts: [...(event.linkedArtifacts ?? []), value] };
-		}
-	};
-
-	const removeLinkedArtifact = (value: string) => {
+	const removeLinkedArtifact = (value: LinkedArtifact) => {
 		event = {
 			...event,
 			linkedArtifacts: (event.linkedArtifacts ?? []).filter((item) => item !== value),
@@ -191,6 +198,7 @@
 				}
 			});
 			if (!result.success) return;
+			toast.success("Calendar event deleted");
 			await goto(`/project/${projectId}/calendar`);
 		} catch (error) {
 			console.error("Failed to delete calendar event", error);
@@ -221,7 +229,7 @@
 		const d = data;
 		untrack(() => {
 			manualKinds = structuredClone(d.eventData.reference.manualKinds) as ManualEventKind[];
-			linkedArtifactOptions = structuredClone(d.eventData.reference.linkedArtifactOptions) as string[];
+			linkedArtifactOptions = structuredClone(d.eventData.reference.linkedArtifactOptions) as LinkedArtifact[];
 			const incomingEvent = required(d.eventData.event as CalendarEvent | undefined, "eventData.event");
 			event = {
 				...structuredClone(incomingEvent),
@@ -386,37 +394,81 @@
 			</div>
 			<div class="grid gap-2">
 				<Label>Linked artifacts</Label>
+					{#if !isReadOnly}
+						<Select.Root
+								type="multiple"
+								bind:value={selectedArtifactIds}
+								onValueChange={ () => {
+									const selectedOptions = linkedArtifactOptions.filter((option) => selectedArtifactIds.includes(option.id));
+									event = { ...event, linkedArtifacts: selectedOptions };
+								}}
+							>
+							<Select.Trigger class="w-64">
+								{event.linkedArtifacts?.length
+									? event.linkedArtifacts[event.linkedArtifacts.length - 1].title
+									: "Link artifact"}
+							</Select.Trigger>
+							<Select.Content>
+								{#each linkedArtifactOptions as option (option.id)}
+									<Select.Item value={option.id} label={option.title} class="flex flex-row items-center justify-between">
+										<span>{option.title}</span>
+										<span class="text-xs text-muted-foreground">{option.type.toLocaleUpperCase()}</span>
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					{/if}
 				<div class="flex flex-wrap items-center gap-2">
-					{#each event.linkedArtifacts ?? [] as item (item)}
-						<Badge variant="outline">
-							{item}
-							{#if !isReadOnly}
-								<Button
-									variant="ghost"
-									size="sm"
-									class="h-6 px-2 text-destructive hover:text-destructive"
-									onclick={() => removeLinkedArtifact(item)}
-								>
-									Remove
-								</Button>
-							{/if}
-						</Badge>
-					{/each}
+					<div class="grid w-full gap-3">
+						{#each event.linkedArtifacts ?? [] as artifact (artifact.id)}
+							<div class="flex flex-col gap-3 rounded-lg border border-border p-4">
+								<div class="flex items-start justify-between gap-3">
+									<div class="flex flex-col gap-1">
+										<span class="text-sm font-medium text-foreground">{artifact.title}</span>
+										<span class="text-xs text-muted-foreground">{artifact.type}</span>
+									</div>
+									<div class="flex items-center gap-2">
+										<Button
+											variant="ghost"
+											size="sm"
+											class="h-8 w-8 p-0"
+											href={artifact.href}
+											aria-label={`Open ${artifact.type.toLowerCase()}`}
+										>
+											<ExternalLink class="h-4 w-4" />
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											class="h-7 px-2 text-destructive hover:text-destructive"
+											onclick={() => removeLinkedArtifact(artifact)}
+										>
+											Remove
+										</Button>
+									</div>
+								</div>
+								<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+									<div class="bg-accent px-2 py-1 rounded-lg text-xs font-medium">
+										{artifact.phase}
+									</div>
+									{#if artifact.status === "Archived"}
+										<div class="bg-muted px-2 py-1 rounded-lg text-xs">
+											Archived
+										</div>
+									{/if}
+								</div>
+								{#if artifact.status === "Archived"}
+									<Alert.Root class="border border-orange-200 bg-orange-50 text-orange-700">
+										<Alert.Title>Linked artifact archived</Alert.Title>
+										<Alert.Description>
+											This reference is archived but kept for learning context.
+										</Alert.Description>
+									</Alert.Root>
+								{/if}
+							</div>
+						{/each}
+					</div>
 				</div>
-				{#if !isReadOnly}
-					<Select.Root type="single" onValueChange={(value) => addLinkedArtifact(value)}>
-						<Select.Trigger class="w-64">
-							{event.linkedArtifacts?.length
-								? event.linkedArtifacts[event.linkedArtifacts.length - 1]
-								: "Link artifact"}
-						</Select.Trigger>
-						<Select.Content>
-							{#each linkedArtifactOptions as option (option)}
-								<Select.Item value={option} label={option}>{option}</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				{/if}
 			</div>
 			<Separator />
 			<div class="flex items-center gap-2 text-xs text-muted-foreground">

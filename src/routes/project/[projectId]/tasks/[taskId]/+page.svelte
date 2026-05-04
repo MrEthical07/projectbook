@@ -95,7 +95,8 @@
 
 	const optionalModules: OptionalModuleKey[] = ["plan", "execution"];
 
-	let status = $state<TaskStatus>("Planned");
+	let status = $derived<TaskStatus>(data.task ? String((data.task as Record<string, unknown>).status) as TaskStatus : "Planned");
+	let tempStatus: TaskStatus | null = $derived(data.task ? String((data.task as Record<string, unknown>).status) as TaskStatus : "Planned");
 	let title = $state("");
 	let assignedToIds = $state<string[]>([]);
 	let deadlineDate = $state<CalendarDate | undefined>(undefined);
@@ -136,7 +137,7 @@
 
 	let activeModules = $state<OptionalModuleKey[]>(["plan", "execution"]);
 	let abandonReason = $state("");
-	let hasFeedback = $state(false);
+	// let hasFeedback = $state(false);
 
 	let savePhase = $state<"idle" | "saving" | "saved">("idle");
 	let saveReady = $state(false);
@@ -157,7 +158,7 @@
 			notesText,
 			activeModules,
 			abandonReason,
-			hasFeedback
+			// hasFeedback
 		})
 	);
 	let savedSignature = $state("");
@@ -178,8 +179,9 @@
 		return "idle";
 	});
 
-	const isReadOnly = (currentStatus: TaskStatus) =>
-		!canEditTask || currentStatus === "Completed" || currentStatus === "Abandoned";
+	let isReadOnly = $derived(
+		!canEditTask || status === "Completed" || status === "Abandoned"
+	);
 
 	const isNotesReadOnly = (currentStatus: TaskStatus) =>
 		!canEditTask || currentStatus === "Abandoned";
@@ -248,11 +250,30 @@
 		executionLinks = executionLinks.length ? executionLinks : [""];
 	};
 
-	const changeStatus = async (nextStatus: TaskStatus) => {
+	const changeStatus = async (nextStatus: TaskStatus | null) => {
+		if (nextStatus === null) return;
 		if (!permissions || !canChangeTaskStatus) return;
 		if (statusMutationPending) return;
 		if (nextStatus === status) return;
+		
+		
+		if(nextStatus === "In Progress" && status === "Planned" && selectedIdeaId === "") {
+			toast.error("Cannot start task without linking an idea.");
+			return;
+		}
+
+		if(nextStatus === "Completed" && selectedIdeaId === "") {
+			toast.error("Can only complete tasks that are in progress.");
+			return;
+		}
+
+		if (nextStatus === "Completed" && hypothesis === "") {
+			toast.error("Cannot complete task without hypothesis.");
+			return;
+		}
+
 		statusMutationPending = true;
+
 		try {
 			const result = await updateTaskStatusRemote({
 				input: {
@@ -287,6 +308,27 @@
 			clearTimeout(savedBadgeTimer);
 		}
 
+		if (!selectedIdeaId) {
+			toast.error("Task must be linked to an idea.");
+			savePhase = "idle";
+			return;
+		}
+
+		const idea = ideaOptions.find(i => i.id === selectedIdeaId);
+
+		if (!idea) {
+			toast.error("Selected idea is invalid.");
+			savePhase = "idle";
+			return;
+		}
+
+		if (idea.status !== "Active") {
+			toast.error("Task must be linked to an active idea.");
+			savePhase = "idle";
+			return;
+		}
+
+
 		savePhase = "saving";
 		try {
 			const result = await updateTaskRemote({
@@ -301,12 +343,12 @@
 						selectedIdeaId,
 						deadline: normalizedDeadline(deadlineDate),
 						hypothesis,
-						planItems,
-						executionLinks,
+						planItems: planItems.map(i => i.trim()).filter(Boolean),
+						executionLinks: executionLinks.map(i => i.trim()).filter(Boolean),
 						notesText,
 						activeModules,
 						abandonReason,
-						hasFeedback
+						// hasFeedback
 					}
 				}
 			});
@@ -337,7 +379,6 @@
 			const task = required(d.task as Record<string, unknown> | undefined, "task");
 			assigneeOptions = structuredClone(d.assigneeOptions) as AssigneeOption[];
 			ideaOptions = structuredClone(d.ideaOptions) as LinkedIdea[];
-
 			status = required(task.status as TaskStatus | undefined, "task.status");
 			title = required(task.title as string | undefined, "task.title");
 			if (Array.isArray(task.assignedToIds)) {
@@ -349,7 +390,7 @@
 				assignedToIds = legacyAssignedToId ? [legacyAssignedToId] : [];
 			}
 			deadlineDate = (() => {
-				const raw = String(required(task.deadline as string | undefined, "task.deadline")).trim();
+				const raw = task.deadline ? String(task.deadline).trim() : "";
 				if (!raw) return undefined;
 				try {
 					return parseDate(raw);
@@ -370,7 +411,6 @@
 				? (structuredClone(task.activeModules) as OptionalModuleKey[])
 				: ["plan", "execution"];
 			abandonReason = "abandonReason" in task ? String(task.abandonReason) : "";
-			hasFeedback = Boolean(required(task.hasFeedback as boolean | undefined, "task.hasFeedback"));
 
 			addSectionOpen = false;
 			statusDialogOpen = false;
@@ -391,7 +431,6 @@
 				notesText,
 				activeModules,
 				abandonReason,
-				hasFeedback
 			});
 			saveReady = true;
 		});
@@ -453,7 +492,7 @@
 				bind:value={title}
 				class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3"
 				placeholder="Task Title"
-				disabled={isReadOnly(status)}
+				disabled={isReadOnly}
 			/>
 			<div class="flex flex-wrap items-start justify-between gap-3 px-3">
 				<div class="flex flex-wrap items-start gap-3">
@@ -467,7 +506,7 @@
 						<Select.Root
 							type="multiple"
 							bind:value={assignedToIds}
-							disabled={isReadOnly(status)}
+							disabled={isReadOnly}
 						>
 							<Select.Trigger class="w-full" id="assigned-to">
 								{assigneeLabel}
@@ -480,27 +519,6 @@
 								{/each}
 							</Select.Content>
 						</Select.Root>
-							{#if selectedAssignees.length > 0}
-								<div class="flex flex-wrap items-center gap-2">
-									{#each selectedAssignees as assignee (assignee.id)}
-										<div class="inline-flex items-center gap-2 rounded-md border border-border px-2 py-1 text-xs">
-											<span>{assignee.name}</span>
-											<Button
-												variant="ghost"
-												size="sm"
-												class="h-5 w-5 p-0"
-												onclick={() => {
-													assignedToIds = assignedToIds.filter((id) => id !== assignee.id);
-												}}
-												disabled={isReadOnly(status)}
-												aria-label={`Remove ${assignee.name}`}
-											>
-												<X class="h-3.5 w-3.5" />
-											</Button>
-										</div>
-									{/each}
-								</div>
-							{/if}
 						{/if}
 					</div>
 					<div class="flex flex-col gap-2 min-w-55">
@@ -509,7 +527,7 @@
 							<Popover.Trigger
 								id="task-deadline"
 								class={buttonVariants({ variant: "outline" })}
-								disabled={isReadOnly(status)}
+								disabled={isReadOnly}
 							>
 								<CalendarIcon class="h-4 w-4" />
 								<span class={!deadlineDate ? "text-muted-foreground" : ""}>
@@ -710,7 +728,7 @@
 					id="task-hypothesis"
 					placeholder="We believe that [doing X] for [user] will result in [expected outcome] because [reasoning]."
 					bind:value={hypothesis}
-					disabled={isReadOnly(status)}
+					disabled={isReadOnly}
 					class="min-h-28 text-base md:text-lg font-medium"
 				/>
 			</div>
@@ -725,7 +743,7 @@
 							size="icon"
 							class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 							onclick={() => removeModule("plan")}
-							disabled={isReadOnly(status)}
+							disabled={isReadOnly}
 						>
 							<X class="h-4 w-4" />
 						</Button>
@@ -741,12 +759,12 @@
 										type="button"
 										class="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/70 transition hover:text-foreground"
 										aria-label={`Reorder plan item ${index + 1}`}
-										draggable={!isReadOnly(status)}
+										draggable={!isReadOnly}
 										ondragstart={() => handlePlanDragStart(index)}
 										ondragover={handlePlanDragOver}
 										ondrop={() => handlePlanDrop(index)}
 										ondragend={handlePlanDragEnd}
-										disabled={isReadOnly(status)}
+										disabled={isReadOnly}
 									>
 										<GripVertical class="h-4 w-4" />
 									</button>
@@ -756,7 +774,7 @@
 									class="flex-1 min-w-50"
 									value={item}
 									placeholder={`Plan item ${index + 1}`}
-									disabled={isReadOnly(status)}
+									disabled={isReadOnly}
 									oninput={(event) =>
 										updatePlanItem(
 											index,
@@ -769,7 +787,7 @@
 									size="sm"
 									class="h-7 px-2 text-destructive hover:text-destructive"
 									onclick={() => removePlanItem(index)}
-									disabled={isReadOnly(status)}
+									disabled={isReadOnly}
 								>
 									Remove
 								</Button>
@@ -780,7 +798,7 @@
 							size="sm"
 							class="w-fit"
 							onclick={addPlanItem}
-							disabled={isReadOnly(status)}
+							disabled={isReadOnly}
 						>
 							<Plus class="mr-2 h-4 w-4" />
 							Add item
@@ -799,7 +817,7 @@
 							size="icon"
 							class="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 							onclick={() => removeModule("execution")}
-							disabled={isReadOnly(status)}
+							disabled={isReadOnly}
 						>
 							<X class="h-4 w-4" />
 						</Button>
@@ -814,7 +832,7 @@
 									class="flex-1 min-w-50"
 									value={link}
 									placeholder="Paste a link"
-									disabled={isReadOnly(status)}
+									disabled={isReadOnly}
 									oninput={(event) =>
 										updateExecutionLink(
 											index,
@@ -837,7 +855,7 @@
 									size="sm"
 									class="h-7 px-2 text-destructive hover:text-destructive"
 									onclick={() => removeExecutionLink(index)}
-									disabled={isReadOnly(status)}
+									disabled={isReadOnly}
 								>
 									Remove
 								</Button>
@@ -848,7 +866,7 @@
 							size="sm"
 							class="w-fit"
 							onclick={addExecutionLink}
-							disabled={isReadOnly(status)}
+							disabled={isReadOnly}
 						>
 							<Plus class="mr-2 h-4 w-4" />
 							Add link
@@ -869,7 +887,7 @@
 					<Dialog.Root bind:open={statusDialogOpen}>
 						<Dialog.Trigger
 							class={buttonVariants({ variant: "outline" })}
-							disabled={isReadOnly(status) || !canChangeTaskStatus || statusMutationPending}
+							disabled={isReadOnly || !canChangeTaskStatus || statusMutationPending}
 						>
 							Change Status
 						</Dialog.Trigger>
@@ -881,15 +899,26 @@
 								{#each statusOptions as option (option)}
 									<Button
 										class={buttonVariants({
-											variant: status === option ? "default" : "outline",
+											variant: tempStatus === option ? "default" : "secondary",
 										})}
 										disabled={!canChangeTaskStatus || statusMutationPending}
-										onclick={() => changeStatus(option)}
+										onclick={() => tempStatus = option}
 									>
-										{statusMutationPending ? "Updating..." : option}
+										{option}
 									</Button>
 								{/each}
 							</div>
+							<Dialog.Footer>
+								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
+									Cancel
+								</Dialog.Close>
+								<Button
+									disabled={statusMutationPending}
+									onclick={() => changeStatus(tempStatus)}
+								>
+									{statusMutationPending ? "Updating" : "Update Status"}
+								</Button>
+							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
 				</div>
@@ -903,14 +932,14 @@
 						/>
 					</div>
 				{/if}
-				{#if status === "Completed" && !hasFeedback}
+				<!-- {#if status === "Completed" && !hasFeedback}
 					<Alert.Root class="mt-4">
 						<Alert.Title>No feedback captured yet</Alert.Title>
 						<Alert.Description>
 							This task is complete, but no feedback exists yet.
 						</Alert.Description>
 					</Alert.Root>
-				{/if}
+				{/if} -->
 			</div>
 
 			<div class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
@@ -921,7 +950,7 @@
 				<Dialog.Root bind:open={addSectionOpen}>
 					<Dialog.Trigger
 						class={buttonVariants({ variant: "outline" })}
-						disabled={isReadOnly(status)}
+						disabled={isReadOnly}
 					>
 						+ Add Section
 					</Dialog.Trigger>
@@ -939,7 +968,7 @@
 										variant="outline"
 										size="sm"
 										onclick={() => addModule(moduleKey)}
-										disabled={activeModules.includes(moduleKey) || isReadOnly(status)}
+										disabled={activeModules.includes(moduleKey) || isReadOnly}
 									>
 										{activeModules.includes(moduleKey) ? "Added" : "Add"}
 									</Button>

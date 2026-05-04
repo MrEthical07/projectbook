@@ -96,6 +96,15 @@ declare global {
 	type ResourceStatus = "Active" | "Archived";
 	type CalendarEventType = "Derived" | "Manual";
 
+	type LinkedArtifact = {
+		id: string;
+		title: string;
+		type: "task" | "idea" | "problem";
+		phase: "Prototype" | "Ideate" | "Define";
+		href: string;
+		status: "Active" | "Archived";
+	};
+	
 	interface StoryRow {
 		id: string;
 		projectId?: string;
@@ -219,7 +228,7 @@ declare global {
 		description?: string;
 		location?: string;
 		eventKind?: string;
-		linkedArtifacts?: string[];
+		linkedArtifacts?: LinkedArtifact[];
 		tags?: string[];
 		createdAt: string;
 		lastEdited?: string;

@@ -28,7 +28,7 @@ type FeedbackListResult = {
 type LinkedArtifact = {
 	id: string;
 	title: string;
-	type: "Task" | "Idea" | "Problem Statement";
+	type: "task" | "idea" | "problem";
 	phase: "Prototype" | "Ideate" | "Define";
 	href: string;
 	status: "Active" | "Archived";
@@ -79,9 +79,9 @@ const mapLinkedArtifact = (value: unknown): LinkedArtifact | null => {
 
 	const typeRaw = asString(row.type);
 	const type: LinkedArtifact["type"] =
-		typeRaw === "Task" || typeRaw === "Idea" || typeRaw === "Problem Statement"
+		typeRaw === "task" || typeRaw === "idea" || typeRaw === "problem"
 			? typeRaw
-			: "Task";
+			: "task";
 
 	const phaseRaw = asString(row.phase);
 	const phase: LinkedArtifact["phase"] =

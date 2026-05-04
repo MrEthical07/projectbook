@@ -59,7 +59,7 @@
 		}
 		return value;
 	};
-	let projectId = $derived(page.params.projectId);
+	let projectId = $derived(page.params.projectId!);
 	const routeParams = page.params as Record<string, string | undefined>;
 	let problemId = $derived(routeParams.problemId ?? "");
 	const access = getContext<ProjectAccess | undefined>("access");
@@ -115,7 +115,6 @@
 	let title = $state("");
 	let finalStatement = $state("");
 	let orphanAcknowledged = $state(false);
-	let selectedPainPoints = $state<string[]>([]);
 	let customPainPoints = $state<string[]>([]);
 	let newCustomPainPoint = $state("");
 	let addSectionOpen = $state(false);
@@ -150,10 +149,9 @@
 	const isDraft = (currentStatus: ProblemStatus) => currentStatus === "Draft";
 	let isLocked = $derived(status === "Locked" || status === "Archived");
 	let isNotEditable = $derived(isLocked || !canEditProblem);
-	let selectedSourcePainPoints = $derived.by(() => {
-		const sourcePointIds = new Set(sourcePainPoints.map((point) => point.id));
-		return selectedPainPoints.filter((id) => sourcePointIds.has(id));
-	});
+
+	
+	let selectedPainPoints = $derived<string[]>(data.selectedPainPoints ?? []);
 
 	let suggestedTitle = $derived(
 		isDraft(status) && !title ? finalStatement : title
@@ -163,7 +161,7 @@
 			title,
 			finalStatement,
 			orphanAcknowledged,
-			selectedPainPoints: selectedSourcePainPoints,
+			selectedPainPoints,
 			customPainPoints,
 			linkedSources: linkedSources.map((source) => ({
 				id: source.id,
@@ -174,22 +172,22 @@
 			notesText,
 		})
 	);
-let isDirty = $derived(saveReady && currentSignature !== savedSignature);
-let saveIndicator = $derived.by(() => {
-	if (savePhase === "saving") {
-		return "saving";
-	}
-
-		if (isDirty) {
-			return "edited";
+	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+	let saveIndicator = $derived.by(() => {
+		if (savePhase === "saving") {
+			return "saving";
 		}
 
-		if (savePhase === "saved") {
-			return "saved";
-		}
+			if (isDirty) {
+				return "edited";
+			}
 
-	return "idle";
-});
+			if (savePhase === "saved") {
+				return "saved";
+			}
+
+		return "idle";
+	});
 
 	const statusVariant = (currentStatus: ProblemStatus) => {
 		if (currentStatus === "Locked") {
@@ -217,7 +215,7 @@ let saveIndicator = $derived.by(() => {
 
 	const canLock = () => {
 		const hasSources = linkedSources.length > 0;
-		const hasPainPoints = selectedSourcePainPoints.length > 0 || customPainPoints.length > 0;
+		const hasPainPoints = selectedPainPoints.length > 0 || customPainPoints.length > 0;
 		const hasStatement = Boolean(finalStatement.trim());
 		const hasOrphanApproval = hasSources || orphanAcknowledged;
 
@@ -241,7 +239,7 @@ let saveIndicator = $derived.by(() => {
 		title,
 		finalStatement,
 		orphanAcknowledged,
-		selectedPainPoints: selectedSourcePainPoints,
+		selectedPainPoints,
 		customPainPoints,
 		linkedSources: nextLinkedSources,
 		activeModules,
@@ -272,6 +270,7 @@ let saveIndicator = $derived.by(() => {
 
 		linkMutationPending = true;
 		savePhase = "saving";
+		let oldLinkedSources = linkedSources;
 		try {
 			const result = await updateProblem({
 				input: {
@@ -286,11 +285,17 @@ let saveIndicator = $derived.by(() => {
 				toast.error("error" in result ? result.error : "Unable to update linked sources.");
 				return false;
 			}
-
 			linkedSources = nextLinkedSources;
 			savedSignature = currentSignature;
-			await invalidate((url) => url.pathname === page.url.pathname);
+
+			// let newSourceInsights = (await getProblemPageData({ projectId, problemId })).sourceInsights;
+			// console.log("Fetched updated source insights:", newSourceInsights);
+			// if (newSourceInsights) {
+				// sourceInsights = newSourceInsights;
+			// }
+			await invalidate('problem:data');
 			setSavedBadge();
+
 			return true;
 		} finally {
 			linkMutationPending = false;
@@ -309,6 +314,10 @@ let saveIndicator = $derived.by(() => {
 
 	const confirmLock = async (): Promise<boolean> => {
 		if (!permissions || !canChangeProblemStatus || statusMutationPending) return false;
+		if (isDirty) {
+			const saved = await triggerSave();
+			if (!saved) return false;
+		}
 
 		statusMutationPending = true;
 		try {
@@ -327,7 +336,7 @@ let saveIndicator = $derived.by(() => {
 			pendingStatus = null;
 			statusConfirmOpen = false;
 			toast.success("Problem statement locked");
-			await invalidate((url) => url.pathname === page.url.pathname);
+			await invalidate('problem:data');
 			return true;
 		} catch (error) {
 			console.error("Failed to lock problem statement", error);
@@ -338,12 +347,12 @@ let saveIndicator = $derived.by(() => {
 		}
 	};
 
-let availableStoryOptions = $derived.by(() =>
-	storyOptions.filter((story) => !linkedSources.some((source) => source.id === story.id))
-);
-let availableJourneyOptions = $derived.by(() =>
-	journeyOptions.filter((journey) => !linkedSources.some((source) => source.id === journey.id))
-);
+	let availableStoryOptions = $derived.by(() =>
+		storyOptions.filter((story) => !linkedSources.some((source) => source.id === story.id))
+	);
+	let availableJourneyOptions = $derived.by(() =>
+		journeyOptions.filter((journey) => !linkedSources.some((source) => source.id === journey.id))
+	);
 
 	const requestStatusChange = (nextStatus: ProblemStatus) => {
 		if (!canSelectStatusOption(nextStatus)) return;
@@ -358,6 +367,11 @@ let availableJourneyOptions = $derived.by(() =>
 		}
 		if (!permissions || !canChangeProblemStatus) {
 			return;
+		}
+
+		if (isDirty) {
+			const saved = await triggerSave();
+			if (!saved) return;
 		}
 
 		const targetStatus = pendingStatus;
@@ -388,7 +402,7 @@ let availableJourneyOptions = $derived.by(() =>
 				return;
 			}
 			status = targetStatus;
-			await invalidate((url) => url.pathname === page.url.pathname);
+			await invalidate('problem:data');
 
 			pendingStatus = null;
 			statusConfirmOpen = false;
@@ -434,23 +448,22 @@ let availableJourneyOptions = $derived.by(() =>
 
 	const linkStory = async () => {
 		const selected = storyOptions.find((story) => story.id === selectedStoryId);
-		if (!selected) {
-			return;
-		}
+		if (!selected) return;
 
+		// prevent duplicate
 		if (linkedSources.some((source) => source.id === selected.id)) {
 			selectedStoryId = "";
 			linkStoryOpen = false;
 			return;
 		}
 
-		const updated = await persistLinkedSources([
+		const nextLinkedSources = [
 			...linkedSources,
-			{ ...selected, type: "story", label: "User Story" }
-		]);
-		if (!updated) {
-			return;
-		}
+			{ ...selected, type: "story" as const, label: "User Story" as const }
+		];
+
+		const updated = await persistLinkedSources(nextLinkedSources);
+		if (!updated) return;
 
 		selectedStoryId = "";
 		linkStoryOpen = false;
@@ -458,9 +471,7 @@ let availableJourneyOptions = $derived.by(() =>
 
 	const linkJourney = async () => {
 		const selected = journeyOptions.find((journey) => journey.id === selectedJourneyId);
-		if (!selected) {
-			return;
-		}
+		if (!selected) return;
 
 		if (linkedSources.some((source) => source.id === selected.id)) {
 			selectedJourneyId = "";
@@ -468,13 +479,13 @@ let availableJourneyOptions = $derived.by(() =>
 			return;
 		}
 
-		const updated = await persistLinkedSources([
+		const nextLinkedSources = [
 			...linkedSources,
-			{ ...selected, type: "journey", label: "User Journey" }
-		]);
-		if (!updated) {
-			return;
-		}
+			{ ...selected, type: "journey" as const, label: "User Journey" as const }
+		];
+
+		const updated = await persistLinkedSources(nextLinkedSources);
+		if (!updated) return;
 
 		selectedJourneyId = "";
 		linkJourneyOpen = false;
@@ -483,7 +494,7 @@ let availableJourneyOptions = $derived.by(() =>
 	const triggerSave = async () => {
 		if (!permissions || !canEditProblem) return;
 		if (savePhase === "saving" || !isDirty) {
-			return;
+			return false;
 		}
 
 		if (saveTimer) {
@@ -510,12 +521,13 @@ let availableJourneyOptions = $derived.by(() =>
 			}
 			savedSignature = currentSignature;
 			toast.success("Changes saved");
-			await invalidate((url) => url.pathname === page.url.pathname);
 			setSavedBadge();
+			return true;
 		} catch (error) {
 			console.error("Failed to save problem statement", error);
 			savePhase = "idle";
 			toast.error("Save failed. Please try again.");
+			return false;
 		}
 	};
 
@@ -583,7 +595,7 @@ $effect(() => {
 			title,
 			finalStatement,
 			orphanAcknowledged,
-			selectedPainPoints: selectedSourcePainPoints,
+			selectedPainPoints: selectedPainPoints,
 			customPainPoints,
 			linkedSources: linkedSources.map((source) => ({
 				id: source.id,
@@ -757,7 +769,7 @@ $effect(() => {
 										</div>
 									{:else}
 									<Select.Root type="single" bind:value={selectedStoryId}>
-										<Select.Trigger id="link-story">
+										<Select.Trigger id="link-story" class="w-full">
 											{selectedStoryId
 												? availableStoryOptions.find((story) => story.id === selectedStoryId)?.title ?? storyOptions.find((story) => story.id === selectedStoryId)?.title
 												: "Select a story"}
@@ -801,7 +813,7 @@ $effect(() => {
 										</div>
 									{:else}
 									<Select.Root type="single" bind:value={selectedJourneyId}>
-										<Select.Trigger id="link-journey">
+										<Select.Trigger id="link-journey" class="w-full">
 											{selectedJourneyId
 												? availableJourneyOptions.find((journey) => journey.id === selectedJourneyId)?.title ?? journeyOptions.find((journey) => journey.id === selectedJourneyId)?.title
 												: "Select a journey"}
@@ -936,16 +948,26 @@ $effect(() => {
 						</div>
 					{:else}
 						{#each sourcePainPoints as painPoint (painPoint.id)}
-							<div class="flex items-start gap-3 rounded-lg border border-border px-4 py-3">
-								<Checkbox
+							<div
+								class="flex items-center gap-3 rounded-lg border border-border px-4 py-3 {isNotEditable ? 'cursor-not-allowed' : 'cursor-pointer'}"
+							>
+								<input 
+									type="checkbox"
+									class="border-input dark:bg-input/30 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:data-[state=checked]:bg-primary data-[state=checked]:border-primary focus-visible:border-ring accent-primary focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive peer flex size-4 shrink-0 items-center justify-center rounded-lg border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
 									checked={selectedPainPoints.includes(painPoint.id)}
 									onclick={() => togglePainPoint(painPoint.id)}
 									disabled={isNotEditable}
+									id={"source-pain-point-" + painPoint.id}
 								/>
-								<div class="flex flex-col gap-1">
-									<div class="text-sm font-medium text-foreground">{painPoint.text}</div>
-									<div class="text-xs text-muted-foreground">{painPoint.sourceLabel}</div>
-								</div>
+
+								<label class="flex flex-col gap-1 {isNotEditable ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'} w-full" for={"source-pain-point-" + painPoint.id}>
+									<span class="text-sm font-medium">
+										{painPoint.text}
+									</span>
+									<span class="text-xs text-muted-foreground">
+										{painPoint.sourceLabel}
+									</span>
+								</label>
 							</div>
 						{/each}
 					{/if}
@@ -1025,19 +1047,7 @@ $effect(() => {
 						Current status
 						<Badge variant={statusVariant(status)}>{status}</Badge>
 					</div>
-					<div class="flex items-center gap-2">
-						{#each statusOptions as option (option)}
-							<Button
-								variant={status === option ? "default" : "outline"}
-								onclick={() => requestStatusChange(option)}
-								disabled={!canChangeProblemStatus || !canSelectStatusOption(option) || statusMutationPending}
-							>
-								{statusMutationPending && pendingStatus === option ? "Changing..." : option}
-							</Button>
-						{/each}
-					</div>
 				</div>
-				<Separator />
 				<div class="flex flex-col gap-2 text-sm text-muted-foreground">
 					<span>Locking freezes the statement and references. Unlocking is not supported.</span>
 					{#if linkedSources.length === 0}
@@ -1074,10 +1084,10 @@ $effect(() => {
 									{/if}
 								</div>
 								<div class="flex items-center gap-2">
-									{#if selectedSourcePainPoints.length > 0 || customPainPoints.length > 0}
+									{#if selectedPainPoints.length > 0 || customPainPoints.length > 0}
 										<Check class="h-4 w-4 text-emerald-600 shrink-0" />
 										<span class="text-foreground">
-											Pain points captured ({selectedSourcePainPoints.length + customPainPoints.length})
+											Pain points captured ({selectedPainPoints.length + customPainPoints.length})
 										</span>
 									{:else}
 										<CircleX class="h-4 w-4 text-red-500 shrink-0" />
