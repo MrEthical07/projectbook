@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { page } from "$app/state";
-	import NavUser from "$lib/components/sidebar/nav-user.svelte";
-	import * as Badge from "$lib/components/ui/badge";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { resolveIconComponent } from "$lib/utils/icon-fallback";
-	import * as Tooltip from "$lib/components/ui/tooltip";
-	import type { ComponentProps } from "svelte";
-	import { onMount } from "svelte";
-	import { mode, setMode } from "mode-watcher";
+	import { page } from '$app/state';
+	import NavUser from '$lib/components/sidebar/nav-user.svelte';
+	import * as Badge from '$lib/components/ui/badge';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { resolveIconComponent } from '$lib/utils/icon-fallback';
+	import * as Tooltip from '$lib/components/ui/tooltip';
+	import type { ComponentProps } from 'svelte';
+	import { onMount } from 'svelte';
+	import { mode, setMode } from 'mode-watcher';
 	import {
 		Bell,
 		BookOpen,
@@ -20,8 +20,8 @@
 		Plus,
 		Settings,
 		type Icon
-	} from "@lucide/svelte";
-  import { Button } from "../ui/button";
+	} from '@lucide/svelte';
+	import { Button } from '../ui/button';
 
 	type NavItem = {
 		name: string;
@@ -42,97 +42,94 @@
 
 	let pathname = $derived(page.url.pathname);
 	const activeClass =
-		"bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary";
+		'bg-primary/10 hover:bg-primary/20 border-primary text-primary hover:text-primary';
 
 	let {
 		homeSidebarData,
 		ref = $bindable(null),
-		collapsible = "icon",
+		collapsible = 'icon',
 		...restProps
 	}: ComponentProps<typeof Sidebar.Root> & {
 		homeSidebarData?: HomeSidebarData | null;
 	} = $props();
 
 	let sidebarError = $derived.by(() => {
-		if (!homeSidebarData) return "Home sidebar data unavailable.";
-		if (!homeSidebarData.user) return "Home sidebar user is missing.";
-		return "";
+		if (!homeSidebarData) return 'Home sidebar data unavailable.';
+		if (!homeSidebarData.user) return 'Home sidebar user is missing.';
+		return '';
 	});
 	let user = $derived.by(() => homeSidebarData?.user ?? null);
 
 	let data = $derived({
 		branding: {
-			name: "ProjectBook",
-			plan: "Free"
+			name: 'ProjectBook',
+			plan: 'Free'
 		},
 		home: [
 			{
-				name: "Dashboard",
-				url: "/",
+				name: 'Dashboard',
+				url: '/',
 				icon: LayoutDashboard,
-				tooltip: "Home Overview",
-				isActive: pathname === "/"
+				tooltip: 'Home Overview',
+				isActive: pathname === '/'
 			},
 			{
-				name: "Notifications",
-				url: "/notifications",
+				name: 'Notifications',
+				url: '/notifications',
 				icon: Bell,
-				tooltip: "Notifications",
-				isActive: pathname.includes("/notifications"),
-				badge: ""
+				tooltip: 'Notifications',
+				isActive: pathname.includes('/notifications'),
+				badge: ''
 			},
 			{
-				name: "Invites",
-				url: "/invites",
+				name: 'Invites',
+				url: '/invites',
 				icon: Mail,
-				tooltip: "Invites",
-				isActive: pathname.includes("/invites"),
-				badge: ""
+				tooltip: 'Invites',
+				isActive: pathname.includes('/invites'),
+				badge: ''
 			}
 		] satisfies NavItem[],
 		projects: [
 			{
-				name: "All Projects",
-				url: "/projects",
+				name: 'All Projects',
+				url: '/projects',
 				icon: FolderKanban,
-				tooltip: "All Projects",
+				tooltip: 'All Projects',
 				isActive:
-					pathname === "/projects" ||
-					(pathname.startsWith("/projects/") && !pathname.startsWith("/projects/new"))
+					pathname === '/projects' ||
+					(pathname.startsWith('/projects/') && !pathname.startsWith('/projects/new'))
 			},
 			{
-				name: "Create Project",
-				url: "/projects/new",
+				name: 'Create Project',
+				url: '/projects/new',
 				icon: Plus,
-				tooltip: "Create Project",
-				isActive: pathname.startsWith("/projects/new")
+				tooltip: 'Create Project',
+				isActive: pathname.startsWith('/projects/new')
 			}
 		] satisfies NavItem[],
 		account: [
 			{
-				name: "Account Settings",
-				url: "/account",
+				name: 'Account Settings',
+				url: '/account',
 				icon: Settings,
-				tooltip: "Account Settings",
-				isActive: pathname.includes("/account")
+				tooltip: 'Account Settings',
+				isActive: pathname.includes('/account')
 			}
 		] satisfies NavItem[]
 	});
 
-	
-	let modeValue = $state<"light" | "dark">("light");
-	
+	let modeValue = $state<'light' | 'dark'>('light');
+
 	onMount(() => {
 		modeValue =
 			localStorage.modeValue ||
 			(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'light');
 		document.documentElement.classList.toggle('dark', modeValue === 'dark');
-
 	});
 
-	
 	const toggleMode = () => {
-		const nextMode = modeValue === "dark" ? "light" : "dark";
+		const nextMode = modeValue === 'dark' ? 'light' : 'dark';
 		document.documentElement.classList.toggle('dark', nextMode === 'dark');
 		setMode(nextMode);
 		localStorage.setItem('modeValue', nextMode);
@@ -140,9 +137,8 @@
 	};
 
 	$effect(() => {
-		modeValue = mode.current === "dark" ? "dark" : "light";
+		modeValue = mode.current === 'dark' ? 'dark' : 'light';
 	});
-
 </script>
 
 <Sidebar.Root {collapsible} {...restProps} class="">
@@ -152,7 +148,9 @@
 				<Sidebar.MenuButton size="lg" tooltipContent="ProjectBook">
 					{#snippet child({ props })}
 						<a href="/" {...props}>
-							<div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+							<div
+								class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"
+							>
 								<BookOpen class="size-4" />
 							</div>
 							<div class="grid flex-1 text-start text-sm leading-tight">
@@ -172,7 +170,10 @@
 			<Sidebar.GroupContent>
 				{#each data.home as item (item.name)}
 					<Sidebar.MenuItem>
-						<Sidebar.MenuButton class={item.isActive ? activeClass : ""} tooltipContent={item.tooltip}>
+						<Sidebar.MenuButton
+							class={item.isActive ? activeClass : ''}
+							tooltipContent={item.tooltip}
+						>
 							{#snippet child({ props })}
 								{@const HomeIcon = resolveIconComponent(item.icon, CircleHelp)}
 								<a href={item.url} {...props}>
@@ -196,7 +197,10 @@
 			<Sidebar.GroupContent>
 				{#each data.projects as item (item.name)}
 					<Sidebar.MenuItem>
-						<Sidebar.MenuButton class={item.isActive ? activeClass : ""} tooltipContent={item.tooltip}>
+						<Sidebar.MenuButton
+							class={item.isActive ? activeClass : ''}
+							tooltipContent={item.tooltip}
+						>
 							{#snippet child({ props })}
 								{@const ProjectIcon = resolveIconComponent(item.icon, CircleHelp)}
 								<a href={item.url} {...props}>
@@ -215,7 +219,10 @@
 			<Sidebar.GroupContent>
 				{#each data.account as item (item.name)}
 					<Sidebar.MenuItem>
-						<Sidebar.MenuButton class={item.isActive ? activeClass : ""} tooltipContent={item.tooltip}>
+						<Sidebar.MenuButton
+							class={item.isActive ? activeClass : ''}
+							tooltipContent={item.tooltip}
+						>
 							{#snippet child({ props })}
 								{@const AccountIcon = resolveIconComponent(item.icon, CircleHelp)}
 								<a href={item.url} {...props}>
@@ -233,16 +240,13 @@
 			<Sidebar.GroupContent>
 				<Sidebar.MenuItem>
 					<Sidebar.MenuButton
-						tooltipContent={`Switch to ${modeValue === "dark" ? "light" : "dark"} mode`}
+						tooltipContent={`Switch to ${modeValue === 'dark' ? 'light' : 'dark'} mode`}
 						onclick={toggleMode}
 						class="border"
 					>
 						{#snippet child({ props })}
-							<button 
-								class="hover:bg-accent"
-								{...props}
-							>
-								{#if modeValue === "dark"}
+							<button class="hover:bg-accent" {...props}>
+								{#if modeValue === 'dark'}
 									<Sun class="size-4" />
 									<span> Light Mode </span>
 								{:else}
@@ -252,14 +256,13 @@
 							</button>
 						{/snippet}
 					</Sidebar.MenuButton>
-				</Sidebar.MenuItem>	
+				</Sidebar.MenuItem>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
-
 	</Sidebar.Content>
 	<Sidebar.Footer>
 		{#if user}
-			<NavUser user={user} />
+			<NavUser {user} />
 		{:else}
 			<div class="px-3 py-2">
 				<p class="text-xs text-destructive">{sidebarError}</p>

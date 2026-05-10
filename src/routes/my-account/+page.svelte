@@ -1,23 +1,23 @@
 <script lang="ts">
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { Switch } from "$lib/components/ui/switch";
-	import { Textarea } from "$lib/components/ui/textarea";
-	import { onMount } from "svelte";
-	import { LogOut, Shield, Trash2, UserCircle2 } from "@lucide/svelte";
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { Switch } from '$lib/components/ui/switch';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { onMount } from 'svelte';
+	import { LogOut, Shield, Trash2, UserCircle2 } from '@lucide/svelte';
 
-	type ThemeMode = "Light" | "Dark" | "System";
-	type Density = "Comfortable" | "Compact";
-	type Landing = "Last Project" | "Project Selector";
-	type TimeFormat = "12-hour" | "24-hour";
+	type ThemeMode = 'Light' | 'Dark' | 'System';
+	type Density = 'Comfortable' | 'Compact';
+	type Landing = 'Last Project' | 'Project Selector';
+	type TimeFormat = '12-hour' | '24-hour';
 
 	type Session = {
 		id: string;
@@ -27,46 +27,46 @@
 		current: boolean;
 	};
 
-	let displayName = $state("Avery Patel");
-	let handle = $state("avery");
-	let email = $state("avery@league.dev");
-	let accountStatus = $state("Active");
-	let bio = $state("Product design lead exploring new workflow systems.");
+	let displayName = $state('Avery Patel');
+	let handle = $state('avery');
+	let email = $state('avery@league.dev');
+	let accountStatus = $state('Active');
+	let bio = $state('Product design lead exploring new workflow systems.');
 
-	let theme = $state<ThemeMode>("System");
-	let density = $state<Density>("Comfortable");
-	let landing = $state<Landing>("Last Project");
-	let timeFormat = $state<TimeFormat>("24-hour");
+	let theme = $state<ThemeMode>('System');
+	let density = $state<Density>('Comfortable');
+	let landing = $state<Landing>('Last Project');
+	let timeFormat = $state<TimeFormat>('24-hour');
 
 	let inAppNotifications = $state(true);
 	let emailNotifications = $state(true);
 
 	let sessions = $state<Session[]>([
 		{
-			id: "sess-1",
-			device: "MacBook Pro · Chrome",
-			location: "San Francisco, CA",
-			lastActive: "Active now",
-			current: true,
+			id: 'sess-1',
+			device: 'MacBook Pro · Chrome',
+			location: 'San Francisco, CA',
+			lastActive: 'Active now',
+			current: true
 		},
 		{
-			id: "sess-2",
-			device: "iPhone 15 · Safari",
-			location: "San Francisco, CA",
-			lastActive: "2 hours ago",
-			current: false,
+			id: 'sess-2',
+			device: 'iPhone 15 · Safari',
+			location: 'San Francisco, CA',
+			lastActive: '2 hours ago',
+			current: false
 		},
 		{
-			id: "sess-3",
-			device: "Windows PC · Edge",
-			location: "Austin, TX",
-			lastActive: "2 days ago",
-			current: false,
-		},
+			id: 'sess-3',
+			device: 'Windows PC · Edge',
+			location: 'Austin, TX',
+			lastActive: '2 days ago',
+			current: false
+		}
 	]);
 
-	let savePhase = $state<"idle" | "saving" | "saved">("idle");
-	let savedSignature = $state("");
+	let savePhase = $state<'idle' | 'saving' | 'saved'>('idle');
+	let savedSignature = $state('');
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -74,17 +74,17 @@
 	let deleteOpen = $state(false);
 	let photoDialogOpen = $state(false);
 
-	let currentPassword = $state("");
-	let newPassword = $state("");
-	let confirmPassword = $state("");
-	let deleteConfirm = $state("");
+	let currentPassword = $state('');
+	let newPassword = $state('');
+	let confirmPassword = $state('');
+	let deleteConfirm = $state('');
 
-	const themeOptions: ThemeMode[] = ["Light", "Dark", "System"];
-	const densityOptions: Density[] = ["Comfortable", "Compact"];
-	const landingOptions: Landing[] = ["Last Project", "Project Selector"];
-	const timeFormatOptions: TimeFormat[] = ["12-hour", "24-hour"];
+	const themeOptions: ThemeMode[] = ['Light', 'Dark', 'System'];
+	const densityOptions: Density[] = ['Comfortable', 'Compact'];
+	const landingOptions: Landing[] = ['Last Project', 'Project Selector'];
+	const timeFormatOptions: TimeFormat[] = ['12-hour', '24-hour'];
 
-	const deletePhrase = $derived("DELETE MY ACCOUNT");
+	const deletePhrase = $derived('DELETE MY ACCOUNT');
 	const canConfirmDelete = $derived(deleteConfirm === deletePhrase);
 
 	const currentSignature = $derived(
@@ -97,27 +97,27 @@
 			landing,
 			timeFormat,
 			inAppNotifications,
-			emailNotifications,
+			emailNotifications
 		})
 	);
 	const isDirty = $derived(currentSignature !== savedSignature);
 	const saveIndicator = $derived.by(() => {
-		if (savePhase === "saving") return "saving";
-		if (isDirty) return "edited";
-		if (savePhase === "saved") return "saved";
-		return "idle";
+		if (savePhase === 'saving') return 'saving';
+		if (isDirty) return 'edited';
+		if (savePhase === 'saved') return 'saved';
+		return 'idle';
 	});
 
 	const triggerSave = () => {
-		if (savePhase === "saving" || !isDirty) return;
+		if (savePhase === 'saving' || !isDirty) return;
 		if (saveTimer) clearTimeout(saveTimer);
 		if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
-		savePhase = "saving";
+		savePhase = 'saving';
 		saveTimer = setTimeout(() => {
 			savedSignature = currentSignature;
-			savePhase = "saved";
+			savePhase = 'saved';
 			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) savePhase = "idle";
+				if (!isDirty) savePhase = 'idle';
 			}, 1400);
 		}, 900);
 	};
@@ -137,11 +137,11 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg">
+<div class="flex flex-col gap-2 rounded-lg border bg-background p-2">
 	<header
-		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+		class="flex h-12 w-full shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
-		<div class="flex items-center gap-2 px-4 w-full">
+		<div class="flex w-full items-center gap-2 px-4">
 			<Sidebar.Trigger class="-ms-1" />
 			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 			<Breadcrumb.Root>
@@ -156,7 +156,7 @@
 
 	<div class="flex flex-col gap-5 py-2 md:px-20">
 		<div class="flex flex-col gap-2 rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
 				User account · Personal settings
 			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
@@ -171,17 +171,17 @@
 					<Badge.Badge variant="outline">{accountStatus}</Badge.Badge>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
-						{#if saveIndicator === "edited"}
+					<div class="flex min-h-6 flex-col items-end text-xs leading-tight text-muted-foreground">
+						{#if saveIndicator === 'edited'}
 							<span class="text-amber-600">Edited</span>
-						{:else if saveIndicator === "saving"}
+						{:else if saveIndicator === 'saving'}
 							<span class="text-blue-600">Saving...</span>
-						{:else if saveIndicator === "saved"}
+						{:else if saveIndicator === 'saved'}
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
-					<Button size="sm" onclick={triggerSave} disabled={!isDirty || savePhase === "saving"}>
-						{savePhase === "saving" ? "Saving..." : "Save changes"}
+					<Button size="sm" onclick={triggerSave} disabled={!isDirty || savePhase === 'saving'}>
+						{savePhase === 'saving' ? 'Saving...' : 'Save changes'}
 					</Button>
 				</div>
 			</div>
@@ -327,7 +327,9 @@
 			<div class="text-sm font-medium">Security & Sessions</div>
 			<div class="grid gap-3">
 				{#each sessions as session (session.id)}
-					<div class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
+					<div
+						class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3"
+					>
 						<div class="flex items-center gap-2">
 							<Avatar.Root class="h-8 w-8">
 								<Avatar.Fallback class="text-[10px]">AP</Avatar.Fallback>
@@ -339,12 +341,7 @@
 								</div>
 							</div>
 						</div>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={session.current}
-							class="gap-2"
-						>
+						<Button size="sm" variant="outline" disabled={session.current} class="gap-2">
 							<LogOut class="h-4 w-4" />
 							Log out
 						</Button>
@@ -367,21 +364,14 @@
 					<div class="text-xs text-muted-foreground">
 						Download a read-only snapshot of your account data.
 					</div>
-					<Button class="mt-3" size="sm" variant="outline">
-						Export data
-					</Button>
+					<Button class="mt-3" size="sm" variant="outline">Export data</Button>
 				</div>
 				<div class="rounded-md border border-border p-3 md:col-span-2">
 					<div class="text-sm font-medium">Delete account</div>
 					<div class="text-xs text-muted-foreground">
 						Permanently remove your account and revoke access to all projects.
 					</div>
-					<Button
-						class="mt-3"
-						size="sm"
-						variant="destructive"
-						onclick={() => (deleteOpen = true)}
-					>
+					<Button class="mt-3" size="sm" variant="destructive" onclick={() => (deleteOpen = true)}>
 						Delete account
 					</Button>
 				</div>
@@ -405,7 +395,7 @@
 			</div>
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 			<Dialog.Close class={buttonVariants()}>Upload</Dialog.Close>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -415,9 +405,9 @@
 	bind:open={passwordDialogOpen}
 	onOpenChange={(open) => {
 		if (open) {
-			currentPassword = "";
-			newPassword = "";
-			confirmPassword = "";
+			currentPassword = '';
+			newPassword = '';
+			confirmPassword = '';
 		}
 	}}
 >
@@ -441,15 +431,13 @@
 			</div>
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Dialog.Close class={buttonVariants()}>
-				Update password
-			</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
+			<Dialog.Close class={buttonVariants()}>Update password</Dialog.Close>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
 
-<Dialog.Root bind:open={deleteOpen} onOpenChange={(open) => open && (deleteConfirm = "")}>
+<Dialog.Root bind:open={deleteOpen} onOpenChange={(open) => open && (deleteConfirm = '')}>
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Delete your account permanently?</Dialog.Title>
@@ -458,7 +446,9 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="grid gap-3 py-2">
-			<div class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+			<div
+				class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+			>
 				{deletePhrase}
 			</div>
 			<div class="grid gap-2">
@@ -467,8 +457,8 @@
 			</div>
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Dialog.Close class={buttonVariants({ variant: "destructive" })} disabled={!canConfirmDelete}>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'destructive' })} disabled={!canConfirmDelete}>
 				Delete account
 			</Dialog.Close>
 		</Dialog.Footer>

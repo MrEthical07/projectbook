@@ -1,25 +1,25 @@
 <script lang="ts">
-	import { Button } from "$lib/components/ui/button";
-	import * as Card from "$lib/components/ui/card";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import { LoaderCircle, MailCheck, ShieldCheck } from "@lucide/svelte";
-	import { superForm } from "sveltekit-superforms";
-	import { zod4Client } from "sveltekit-superforms/adapters";
-	import { resendVerificationSchema, verifyEmailSchema } from "$lib/schemas/auth.schema";
-	import type { ActionData, PageProps } from "./$types";
+	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { LoaderCircle, MailCheck, ShieldCheck } from '@lucide/svelte';
+	import { superForm } from 'sveltekit-superforms';
+	import { zod4Client } from 'sveltekit-superforms/adapters';
+	import { resendVerificationSchema, verifyEmailSchema } from '$lib/schemas/auth.schema';
+	import type { ActionData, PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	const resolveVerifyFormState = () => (form as ActionData | null)?.verifyForm ?? data.verifyForm;
 	const resolveResendFormState = () => (form as ActionData | null)?.resendForm ?? data.resendForm;
 
 	const verifyAccountForm = superForm(resolveVerifyFormState(), {
-		id: "verify-email-form",
+		id: 'verify-email-form',
 		validators: zod4Client(verifyEmailSchema)
 	});
 
 	const resendVerificationForm = superForm(resolveResendFormState(), {
-		id: "resend-verification-form",
+		id: 'resend-verification-form',
 		validators: zod4Client(resendVerificationSchema)
 	});
 
@@ -38,9 +38,7 @@
 		enhance: enhanceResendForm
 	} = resendVerificationForm;
 
-	const verificationContextAvailable = $derived(
-		$verifyForm.verificationId.trim().length > 0
-	);
+	const verificationContextAvailable = $derived($verifyForm.verificationId.trim().length > 0);
 </script>
 
 <svelte:head>
@@ -60,19 +58,11 @@
 				<MailCheck class="size-6 text-primary" />
 			</div>
 			<Card.Title>Verify your email with OTP</Card.Title>
-			<Card.Description>
-				Use this page for both verification-link and OTP flows.
-			</Card.Description>
+			<Card.Description>Use this page for both verification-link and OTP flows.</Card.Description>
 		</Card.Header>
 
 		<Card.Content class="space-y-6">
-			<form
-				method="POST"
-				action="?/verify"
-				class="space-y-3"
-				use:enhanceVerifyForm
-				novalidate
-			>
+			<form method="POST" action="?/verify" class="space-y-3" use:enhanceVerifyForm novalidate>
 				<input type="hidden" name="verificationId" bind:value={$verifyForm.verificationId} />
 
 				<div class="space-y-2">
@@ -86,7 +76,7 @@
 						maxlength={6}
 						placeholder="Enter 6-digit code"
 						bind:value={$verifyForm.code}
-						aria-invalid={$verifyErrors.code?.length ? "true" : "false"}
+						aria-invalid={$verifyErrors.code?.length ? 'true' : 'false'}
 					/>
 					{#if $verifyErrors.code?.length}
 						<p class="text-xs text-destructive">{$verifyErrors.code[0]}</p>
@@ -94,11 +84,15 @@
 				</div>
 
 				{#if verificationContextAvailable}
-					<div class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+					<div
+						class="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700"
+					>
 						Verification context is ready. Enter the 6-digit OTP from your inbox and submit.
 					</div>
 				{:else}
-					<div class="rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground">
+					<div
+						class="rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground"
+					>
 						This page supports OTP verification directly. Request a new OTP below to activate code
 						verification on this screen.
 					</div>
@@ -125,13 +119,7 @@
 
 			<div class="h-px w-full bg-border/70"></div>
 
-			<form
-				method="POST"
-				action="?/resend"
-				class="space-y-3"
-				use:enhanceResendForm
-				novalidate
-			>
+			<form method="POST" action="?/resend" class="space-y-3" use:enhanceResendForm novalidate>
 				<div class="space-y-2">
 					<Label for="verify-email">Email</Label>
 					<Input
@@ -140,7 +128,7 @@
 						type="email"
 						placeholder="name@company.com"
 						bind:value={$resendForm.email}
-						aria-invalid={$resendErrors.email?.length ? "true" : "false"}
+						aria-invalid={$resendErrors.email?.length ? 'true' : 'false'}
 					/>
 					{#if $resendErrors.email?.length}
 						<p class="text-xs text-destructive">{$resendErrors.email[0]}</p>

@@ -1,25 +1,28 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { getContext } from "svelte";
-	import { createProblem as createProblemRemote, getProblems as getProblemsRemote } from "$lib/remote/problem.remote";
-	import { can } from "$lib/utils/permission";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Button } from "$lib/components/ui/button";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import * as Table from "$lib/components/ui/table";
-	import { CircleDot, FilePenLine, LockKeyhole, Unlink } from "@lucide/svelte";
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { getContext } from 'svelte';
+	import {
+		createProblem as createProblemRemote,
+		getProblems as getProblemsRemote
+	} from '$lib/remote/problem.remote';
+	import { can } from '$lib/utils/permission';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as Table from '$lib/components/ui/table';
+	import { CircleDot, FilePenLine, LockKeyhole, Unlink } from '@lucide/svelte';
 
 	let { data } = $props();
 
-	type ProblemStatus = "Draft" | "Locked" | "Archived";
+	type ProblemStatus = 'Draft' | 'Locked' | 'Archived';
 	type ProblemRow = {
 		id: string;
 		statement: string;
@@ -38,35 +41,36 @@
 
 	$effect(() => {
 		rows = structuredClone(data.rows) as ProblemRow[];
-		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
+		nextCursor =
+			typeof data.nextCursor === 'string' && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
-	const access = getContext<ProjectAccess | undefined>("access");
+	const access = getContext<ProjectAccess | undefined>('access');
 	const permissions = access?.permissions;
-	const canCreateProblem = can(permissions, "problem", "create");
+	const canCreateProblem = can(permissions, 'problem', 'create');
 
-	let statusFilter = $state<ProblemStatus | "All">("All");
-	let ownerFilter = $state("All");
+	let statusFilter = $state<ProblemStatus | 'All'>('All');
+	let ownerFilter = $state('All');
 	let orphanOnly = $state(false);
-	let updatedFrom = $state("");
-	let updatedTo = $state("");
+	let updatedFrom = $state('');
+	let updatedTo = $state('');
 
 	let createOpen = $state(false);
-	let createTitle = $state("");
-	let createError = $state("");
+	let createTitle = $state('');
+	let createError = $state('');
 	let isCreatingProblem = $state(false);
 
-	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	let owners = $derived(['All', ...new Set(rows.map((row) => row.owner))]);
 	let stats = $derived({
 		total: rows.length,
-		draft: rows.filter((row) => row.status === "Draft").length,
-		locked: rows.filter((row) => row.status === "Locked").length,
-		orphan: rows.filter((row) => row.isOrphan).length,
+		draft: rows.filter((row) => row.status === 'Draft').length,
+		locked: rows.filter((row) => row.status === 'Locked').length,
+		orphan: rows.filter((row) => row.isOrphan).length
 	});
 
 	let filteredRows = $derived.by(() => {
 		return rows.filter((row) => {
-			if (statusFilter !== "All" && row.status !== statusFilter) return false;
-			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
+			if (statusFilter !== 'All' && row.status !== statusFilter) return false;
+			if (ownerFilter !== 'All' && row.owner !== ownerFilter) return false;
 			if (orphanOnly && !row.isOrphan) return false;
 			if (updatedFrom && row.lastUpdated < updatedFrom) return false;
 			if (updatedTo && row.lastUpdated > updatedTo) return false;
@@ -75,9 +79,9 @@
 	});
 
 	const statusClass = (status: ProblemStatus) => {
-		if (status === "Draft") return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-		if (status === "Locked") return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-		return "bg-slate-500/10 text-slate-500 border-slate-500/20";
+		if (status === 'Draft') return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+		if (status === 'Locked') return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+		return 'bg-slate-500/10 text-slate-500 border-slate-500/20';
 	};
 
 	const mergeRows = (current: ProblemRow[], incoming: ProblemRow[]): ProblemRow[] => {
@@ -99,41 +103,42 @@
 		isLoadingMore = true;
 		try {
 			const result = await getProblemsRemote({
-				projectId: page.params.projectId ?? "",
+				projectId: page.params.projectId ?? '',
 				cursor: nextCursor,
 				limit: 20,
-				...(statusFilter !== "All" ? { status: statusFilter } : {})
+				...(statusFilter !== 'All' ? { status: statusFilter } : {})
 			});
 			rows = mergeRows(rows, result.items as ProblemRow[]);
 			nextCursor = result.nextCursor;
 		} catch (error) {
-			console.error("Failed to load more problems", error);
+			console.error('Failed to load more problems', error);
 		} finally {
 			isLoadingMore = false;
 		}
 	};
 
-	const applyStatFilter = (target: "Total" | "Draft" | "Locked" | "Orphan") => {
-		statusFilter = "All";
+	const applyStatFilter = (target: 'Total' | 'Draft' | 'Locked' | 'Orphan') => {
+		statusFilter = 'All';
 		orphanOnly = false;
-		if (target === "Draft") statusFilter = "Draft";
-		if (target === "Locked") statusFilter = "Locked";
-		if (target === "Orphan") orphanOnly = true;
+		if (target === 'Draft') statusFilter = 'Draft';
+		if (target === 'Locked') statusFilter = 'Locked';
+		if (target === 'Orphan') orphanOnly = true;
 	};
 
-	const truncate = (text: string, max = 94) => (text.length > max ? `${text.slice(0, max)}...` : text);
+	const truncate = (text: string, max = 94) =>
+		text.length > max ? `${text.slice(0, max)}...` : text;
 
 	const createProblem = async () => {
 		if (isCreatingProblem) return;
-		createError = "";
+		createError = '';
 		if (!canCreateProblem) return;
 		if (!permissions) {
-			createError = "Permissions data is unavailable.";
+			createError = 'Permissions data is unavailable.';
 			return;
 		}
 		const actorId = access?.user.id;
 		if (!actorId) {
-			createError = "Active user id is missing.";
+			createError = 'Active user id is missing.';
 			return;
 		}
 		const title = createTitle.trim();
@@ -152,12 +157,12 @@
 				return;
 			}
 			const created = result.data as { id: string };
-			createTitle = "";
+			createTitle = '';
 			createOpen = false;
 			await goto(`/project/${page.params.projectId}/problem-statement/${created.id}`);
 		} catch (error) {
-			console.error("Failed to create problem statement", error);
-			createError = "Unable to create problem statement right now.";
+			console.error('Failed to create problem statement', error);
+			createError = 'Unable to create problem statement right now.';
 		} finally {
 			isCreatingProblem = false;
 		}
@@ -165,7 +170,11 @@
 </script>
 
 <svelte:head>
-	<title>Problem Statements • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
+	<title
+		>Problem Statements • {(
+			(data as Record<string, unknown>).project as { name?: string } | undefined
+		)?.name ?? 'Project'} • ProjectBook</title
+	>
 	<meta
 		name="description"
 		content="Define and manage problem statements derived from research insights."
@@ -193,55 +202,67 @@
 
 	<div class="flex flex-col gap-4 py-2 md:px-20">
 		<section class="rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Define - Problem Statements Index</div>
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
+				Define - Problem Statements Index
+			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<h1 class="text-3xl font-semibold">Problem Statements</h1>
 				{#if canCreateProblem}
 					<Dialog.Root bind:open={createOpen}>
 						<Dialog.Trigger>
-							<Button >Add Problem Statement</Button>
+							<Button>Add Problem Statement</Button>
 						</Dialog.Trigger>
-					<Dialog.Content>
-						<Dialog.Header>
-							<Dialog.Title>Create Problem Statement</Dialog.Title>
-							<Dialog.Description>Creates a draft and redirects to the statement page.</Dialog.Description>
-						</Dialog.Header>
-						<div class="grid gap-3">
-							<div class="grid gap-2">
-								<Label for="problem-title">Title</Label>
-								<Input id="problem-title" bind:value={createTitle} />
+						<Dialog.Content>
+							<Dialog.Header>
+								<Dialog.Title>Create Problem Statement</Dialog.Title>
+								<Dialog.Description
+									>Creates a draft and redirects to the statement page.</Dialog.Description
+								>
+							</Dialog.Header>
+							<div class="grid gap-3">
+								<div class="grid gap-2">
+									<Label for="problem-title">Title</Label>
+									<Input id="problem-title" bind:value={createTitle} />
+								</div>
+								{#if createError}
+									<p class="text-xs text-destructive">{createError}</p>
+								{/if}
 							</div>
-							{#if createError}
-								<p class="text-xs text-destructive">{createError}</p>
-							{/if}
-						</div>
-						<Dialog.Footer>
-							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createProblem} disabled={!createTitle.trim() || isCreatingProblem}>
-								{isCreatingProblem ? "Creating..." : "Create Problem"}
-							</Button>
-						</Dialog.Footer>
-					</Dialog.Content>
+							<Dialog.Footer>
+								<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
+								<Button onclick={createProblem} disabled={!createTitle.trim() || isCreatingProblem}>
+									{isCreatingProblem ? 'Creating...' : 'Create Problem'}
+								</Button>
+							</Dialog.Footer>
+						</Dialog.Content>
 					</Dialog.Root>
 				{/if}
 			</div>
 		</section>
 
 		<section class="grid gap-3 rounded-lg bg-background p-4 md:grid-cols-4">
-			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Total")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Problems</span><CircleDot class="size-4" /></div>
+			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter('Total')}>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Total Problems</span><CircleDot class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Draft")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Draft Problems</span><FilePenLine class="size-4" /></div>
+			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter('Draft')}>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Draft Problems</span><FilePenLine class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-blue-700">{stats.draft}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Locked")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Locked Problems</span><LockKeyhole class="size-4" /></div>
+			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter('Locked')}>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Locked Problems</span><LockKeyhole class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-emerald-700">{stats.locked}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter("Orphan")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Orphan Problems</span><Unlink class="size-4" /></div>
+			<button class="rounded-md border p-3 text-left" onclick={() => applyStatFilter('Orphan')}>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Orphan Problems</span><Unlink class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-red-700">{stats.orphan}</div>
 			</button>
 		</section>
@@ -302,70 +323,79 @@
 					{/if}
 				</div>
 			{:else}
-				<div class="border rounded-md">
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>Problem Statement</Table.Head>
-							<Table.Head class="text-center">Linked Story / Journey</Table.Head>
-							<Table.Head class="text-center">Pain Points Count</Table.Head>
-							<Table.Head class="text-center">Ideas Count</Table.Head>
-							<Table.Head class="text-center">Status</Table.Head>
-							<Table.Head class="text-center">Owner</Table.Head>
-							<Table.Head class="text-center">Last Updated</Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each filteredRows as row (row.id)}
+				<div class="rounded-md border">
+					<Table.Root>
+						<Table.Header>
 							<Table.Row>
-								<Table.Cell class="max-w-75 truncate text-center">
-									<div class="flex flex-wrap items-center gap-2">
-										<a class="font-medium hover:underline" href={`./problem-statement/${row.id}`}>
-											{truncate(row.statement)}
-										</a>
-										{#if row.isOrphan}
-											<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500">Warning: Orphan</Badge.Badge>
-										{/if}
-										{#if row.status === "Draft"}
-											<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500">Warning: Draft</Badge.Badge>
-										{/if}
-									</div>
-								</Table.Cell>
-								<Table.Cell class="max-w-75 truncate text-center">{row.linkedSources.length > 0 ? row.linkedSources.join(", ") : "None"}</Table.Cell>
-								<Table.Cell class="max-w-75 truncate text-center">{row.painPointsCount}</Table.Cell>
-								<Table.Cell class="max-w-75 truncate text-center">{row.ideasCount}</Table.Cell>
-								<Table.Cell class="max-w-75 truncate text-center">
-									<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
-								</Table.Cell>
-								<Table.Cell>
-									<div class="flex items-center gap-2">
-										<Avatar.Root class="h-7 w-7">
-											<Avatar.Fallback>
-												{row.owner
-													.split(" ")
-													.map((part) => part[0])
-													.join("")
-													.slice(0, 2)}
-											</Avatar.Fallback>
-										</Avatar.Root>
-										<span>{row.owner}</span>
-									</div>
-								</Table.Cell>
-								<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
+								<Table.Head>Problem Statement</Table.Head>
+								<Table.Head class="text-center">Linked Story / Journey</Table.Head>
+								<Table.Head class="text-center">Pain Points Count</Table.Head>
+								<Table.Head class="text-center">Ideas Count</Table.Head>
+								<Table.Head class="text-center">Status</Table.Head>
+								<Table.Head class="text-center">Owner</Table.Head>
+								<Table.Head class="text-center">Last Updated</Table.Head>
 							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
+						</Table.Header>
+						<Table.Body>
+							{#each filteredRows as row (row.id)}
+								<Table.Row>
+									<Table.Cell class="max-w-75 truncate text-center">
+										<div class="flex flex-wrap items-center gap-2">
+											<a class="font-medium hover:underline" href={`./problem-statement/${row.id}`}>
+												{truncate(row.statement)}
+											</a>
+											{#if row.isOrphan}
+												<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500"
+													>Warning: Orphan</Badge.Badge
+												>
+											{/if}
+											{#if row.status === 'Draft'}
+												<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500"
+													>Warning: Draft</Badge.Badge
+												>
+											{/if}
+										</div>
+									</Table.Cell>
+									<Table.Cell class="max-w-75 truncate text-center"
+										>{row.linkedSources.length > 0
+											? row.linkedSources.join(', ')
+											: 'None'}</Table.Cell
+									>
+									<Table.Cell class="max-w-75 truncate text-center"
+										>{row.painPointsCount}</Table.Cell
+									>
+									<Table.Cell class="max-w-75 truncate text-center">{row.ideasCount}</Table.Cell>
+									<Table.Cell class="max-w-75 truncate text-center">
+										<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
+									</Table.Cell>
+									<Table.Cell>
+										<div class="flex items-center gap-2">
+											<Avatar.Root class="h-7 w-7">
+												<Avatar.Fallback>
+													{row.owner
+														.split(' ')
+														.map((part) => part[0])
+														.join('')
+														.slice(0, 2)}
+												</Avatar.Fallback>
+											</Avatar.Root>
+											<span>{row.owner}</span>
+										</div>
+									</Table.Cell>
+									<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
+								</Table.Row>
+							{/each}
+						</Table.Body>
+					</Table.Root>
 				</div>
 			{/if}
 			{#if nextCursor}
 				<div class="mt-3 flex justify-center">
 					<Button variant="outline" onclick={loadMoreProblems} disabled={isLoadingMore}>
-						{isLoadingMore ? "Loading..." : "Load More"}
+						{isLoadingMore ? 'Loading...' : 'Load More'}
 					</Button>
 				</div>
 			{/if}
 		</section>
 	</div>
 </div>
-

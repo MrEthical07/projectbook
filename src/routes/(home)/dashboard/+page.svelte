@@ -1,18 +1,15 @@
 <script lang="ts">
-	import { invalidate } from "$app/navigation";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { resolveIconComponent } from "$lib/utils/icon-fallback";
-	import { resolveProjectIcon } from "$lib/utils/project-icons";
-	import {
-		acceptProjectInvite,
-		declineProjectInvite
-	} from "$lib/remote/user-home.remote";
+	import { invalidate } from '$app/navigation';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { resolveIconComponent } from '$lib/utils/icon-fallback';
+	import { resolveProjectIcon } from '$lib/utils/project-icons';
+	import { acceptProjectInvite, declineProjectInvite } from '$lib/remote/user-home.remote';
 	import {
 		Activity,
 		Bell,
@@ -24,8 +21,8 @@
 		Plus,
 		Trash2,
 		UserPlus
-	} from "@lucide/svelte";
-	import { onMount, type Component } from "svelte";
+	} from '@lucide/svelte';
+	import { onMount, type Component } from 'svelte';
 
 	let { data } = $props();
 
@@ -35,7 +32,7 @@
 		organization: string;
 		icon: ProjectIconKey;
 		description?: string;
-		role: "Owner" | "Admin" | "Member" | "Viewer" | "Limited Access";
+		role: 'Owner' | 'Admin' | 'Member' | 'Viewer' | 'Limited Access';
 		openTasks?: number;
 		lastVisitedAt?: string;
 		lastUpdatedAt: string;
@@ -46,7 +43,7 @@
 		projectName: string;
 		organizationName: string;
 		inviterName: string;
-		assignedRole: "Member" | "Viewer" | "Limited Access";
+		assignedRole: 'Member' | 'Viewer' | 'Limited Access';
 		expiresSoon?: boolean;
 	};
 
@@ -81,8 +78,8 @@
 	let user = $derived(structuredClone(data.user));
 	let projects = $derived<Project[]>(structuredClone(data.projects) as Project[]);
 	let invites = $derived<Invite[]>(structuredClone(data.invites) as Invite[]);
-	let inviteActionError = $state("");
-	let inviteActionInFlight = $state<"accept" | "decline" | null>(null);
+	let inviteActionError = $state('');
+	let inviteActionInFlight = $state<'accept' | 'decline' | null>(null);
 
 	let acceptOpen = $state(false);
 	let acceptTarget = $state<Invite | null>(null);
@@ -101,10 +98,10 @@
 
 	const acceptInvite = async () => {
 		if (inviteActionInFlight) return;
-		inviteActionError = "";
+		inviteActionError = '';
 		const target = acceptTarget;
 		if (!target) return;
-		inviteActionInFlight = "accept";
+		inviteActionInFlight = 'accept';
 		try {
 			const result = await acceptProjectInvite({ inviteId: target.id });
 			if (!result.success) {
@@ -113,10 +110,10 @@
 			}
 			acceptOpen = false;
 			acceptTarget = null;
-			await invalidate((url) => url.pathname === "/" || url.pathname === "/invites");
+			await invalidate((url) => url.pathname === '/' || url.pathname === '/invites');
 		} catch (error) {
-			console.error("Failed to accept invite", error);
-			inviteActionError = "Unable to accept invitation right now.";
+			console.error('Failed to accept invite', error);
+			inviteActionError = 'Unable to accept invitation right now.';
 		} finally {
 			inviteActionInFlight = null;
 		}
@@ -124,10 +121,10 @@
 
 	const declineInvite = async () => {
 		if (inviteActionInFlight) return;
-		inviteActionError = "";
+		inviteActionError = '';
 		const target = declineTarget;
 		if (!target) return;
-		inviteActionInFlight = "decline";
+		inviteActionInFlight = 'decline';
 		try {
 			const result = await declineProjectInvite({ inviteId: target.id });
 			if (!result.success) {
@@ -136,10 +133,10 @@
 			}
 			declineOpen = false;
 			declineTarget = null;
-			await invalidate((url) => url.pathname === "/" || url.pathname === "/invites");
+			await invalidate((url) => url.pathname === '/' || url.pathname === '/invites');
 		} catch (error) {
-			console.error("Failed to decline invite", error);
-			inviteActionError = "Unable to decline invitation right now.";
+			console.error('Failed to decline invite', error);
+			inviteActionError = 'Unable to decline invitation right now.';
 		} finally {
 			inviteActionInFlight = null;
 		}
@@ -148,10 +145,10 @@
 	const toNotifications = (items: NotificationSource[]): Notification[] =>
 		items.map((item) => ({
 			...item,
-				icon: resolveIconComponent(
-					item.url === "/invites" ? Mail : item.unread ? MessageSquare : Bell,
-					Bell
-				)
+			icon: resolveIconComponent(
+				item.url === '/invites' ? Mail : item.unread ? MessageSquare : Bell,
+				Bell
+			)
 		}));
 
 	let notifications = $derived<Notification[]>(
@@ -172,11 +169,11 @@
 	};
 
 	let todayLabel = $derived(
-		new Date().toLocaleDateString("en-US", {
-			weekday: "long",
-			month: "short",
-			day: "numeric",
-			year: "numeric"
+		new Date().toLocaleDateString('en-US', {
+			weekday: 'long',
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
 		})
 	);
 
@@ -197,10 +194,7 @@
 	let recentProjects = $derived.by(() => {
 		return sortedProjects.slice(0, 6).map((project) => ({
 			...project,
-				iconComponent: resolveIconComponent(
-					resolveProjectIcon(project.icon),
-					FolderKanban
-				)
+			iconComponent: resolveIconComponent(resolveProjectIcon(project.icon), FolderKanban)
 		}));
 	});
 	let hasMoreProjects = $derived(sortedProjects.length > 6);
@@ -253,12 +247,14 @@
 	</header>
 
 	{#if isEmptyState}
-		<section class="mx-auto flex min-h-[72vh] w-full max-w-2xl flex-col items-center justify-center gap-6 rounded-2xl bg-card p-10 text-center shadow-sm">
+		<section
+			class="mx-auto flex min-h-[72vh] w-full max-w-2xl flex-col items-center justify-center gap-6 rounded-2xl bg-card p-10 text-center shadow-sm"
+		>
 			<div class="grid gap-2">
 				<h1 class="text-3xl font-semibold tracking-tight">Welcome to ProjectBook</h1>
 				<p class="text-sm text-muted-foreground">
-					Start your first project to plan research, align ideas, and move from
-					problem framing to validated outcomes.
+					Start your first project to plan research, align ideas, and move from problem framing to
+					validated outcomes.
 				</p>
 			</div>
 			<Button href="/projects/new" size="lg">
@@ -326,7 +322,7 @@
 					<div class="mb-4 flex items-center justify-between gap-3">
 						<div class="text-sm font-medium">Recent Projects</div>
 						{#if hasMoreProjects}
-							<a class={buttonVariants({ variant: "link", size: "sm" })} href="/projects">
+							<a class={buttonVariants({ variant: 'link', size: 'sm' })} href="/projects">
 								View All Projects
 							</a>
 						{/if}
@@ -338,7 +334,9 @@
 								class="rounded-xl bg-muted/40 p-4 transition hover:bg-muted/70"
 							>
 								<div class="mb-3 flex items-start justify-between gap-2">
-									<div class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-background text-xs font-semibold">
+									<div
+										class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-background text-xs font-semibold"
+									>
 										<project.iconComponent class="h-4 w-4" />
 									</div>
 									{#if project.openTasks}
@@ -354,7 +352,7 @@
 										</div>
 									{/if}
 									<div class="pt-1 text-[11px] text-muted-foreground">
-										Updated {new Date(project.lastUpdatedAt).toLocaleDateString("en-US")}
+										Updated {new Date(project.lastUpdatedAt).toLocaleDateString('en-US')}
 									</div>
 								</div>
 							</a>
@@ -366,7 +364,7 @@
 					<div class="mb-4 text-sm font-medium">All Projects</div>
 					<div class="overflow-hidden rounded-lg bg-muted/30">
 						<table class="w-full text-left text-sm">
-							<thead class="text-xs uppercase tracking-wide text-muted-foreground">
+							<thead class="text-xs tracking-wide text-muted-foreground uppercase">
 								<tr>
 									<th class="px-4 py-3">Project Name</th>
 									<th class="px-4 py-3">Role</th>
@@ -383,7 +381,7 @@
 										</td>
 										<td class="px-4 py-3 text-muted-foreground">{project.role}</td>
 										<td class="px-4 py-3 text-muted-foreground">
-											{new Date(project.lastUpdatedAt).toLocaleDateString("en-US")}
+											{new Date(project.lastUpdatedAt).toLocaleDateString('en-US')}
 										</td>
 									</tr>
 								{/each}
@@ -398,7 +396,8 @@
 					<section class="rounded-2xl bg-card p-5 shadow-sm">
 						<div class="mb-4 flex items-center justify-between gap-3">
 							<div class="text-sm font-medium">Invites</div>
-							<a class={buttonVariants({ variant: "link", size: "sm" })} href="/invites">View all</a>
+							<a class={buttonVariants({ variant: 'link', size: 'sm' })} href="/invites">View all</a
+							>
 						</div>
 						<div class="space-y-3">
 							{#each pendingInvites as invite (invite.id)}
@@ -413,11 +412,7 @@
 											<Check class="h-4 w-4" />
 											Accept
 										</Button>
-										<Button
-											size="sm"
-											variant="outline"
-											onclick={() => openDeclineDialog(invite)}
-										>
+										<Button size="sm" variant="outline" onclick={() => openDeclineDialog(invite)}>
 											Decline
 										</Button>
 										{#if invite.expiresSoon}
@@ -465,7 +460,7 @@
 				<section class="rounded-2xl bg-card p-5 shadow-sm">
 					<div class="mb-4 flex items-center justify-between gap-3">
 						<div class="text-sm font-medium">Activity Feed</div>
-						<a class={buttonVariants({ variant: "link", size: "sm" })} href="/activity">View all</a>
+						<a class={buttonVariants({ variant: 'link', size: 'sm' })} href="/activity">View all</a>
 					</div>
 					{#if !activityFeedReady}
 						<div class="grid gap-2">
@@ -504,9 +499,7 @@
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Accept this invitation?</Dialog.Title>
-			<Dialog.Description>
-				You'll join this project immediately.
-			</Dialog.Description>
+			<Dialog.Description>You'll join this project immediately.</Dialog.Description>
 		</Dialog.Header>
 		<div class="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
 			This will remove the invite from your pending list.
@@ -515,10 +508,10 @@
 			<p class="text-xs text-destructive">{inviteActionError}</p>
 		{/if}
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 			<Button onclick={acceptInvite} disabled={inviteActionInFlight !== null}>
 				<Check class="h-4 w-4" />
-				{inviteActionInFlight === "accept" ? "Accepting..." : "Accept invitation"}
+				{inviteActionInFlight === 'accept' ? 'Accepting...' : 'Accept invitation'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -528,21 +521,25 @@
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Decline this invitation?</Dialog.Title>
-			<Dialog.Description>
-				Declining removes this invite from your pending list.
-			</Dialog.Description>
+			<Dialog.Description>Declining removes this invite from your pending list.</Dialog.Description>
 		</Dialog.Header>
-		<div class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+		<div
+			class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+		>
 			This action cannot be undone.
 		</div>
 		{#if inviteActionError}
 			<p class="text-xs text-destructive">{inviteActionError}</p>
 		{/if}
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button variant="destructive" onclick={declineInvite} disabled={inviteActionInFlight !== null}>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
+			<Button
+				variant="destructive"
+				onclick={declineInvite}
+				disabled={inviteActionInFlight !== null}
+			>
 				<Trash2 class="mr-2 h-4 w-4" />
-				{inviteActionInFlight === "decline" ? "Declining..." : "Decline invitation"}
+				{inviteActionInFlight === 'decline' ? 'Declining...' : 'Decline invitation'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

@@ -1,25 +1,28 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { getContext } from "svelte";
-	import { createJourney as createJourneyRemote, getJourneys as getJourneysRemote } from "$lib/remote/journey.remote";
-	import { can } from "$lib/utils/permission";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Button } from "$lib/components/ui/button";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import * as Table from "$lib/components/ui/table";
-	import { Route, TriangleAlert, UserRound, Archive } from "@lucide/svelte";
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { getContext } from 'svelte';
+	import {
+		createJourney as createJourneyRemote,
+		getJourneys as getJourneysRemote
+	} from '$lib/remote/journey.remote';
+	import { can } from '$lib/utils/permission';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as Table from '$lib/components/ui/table';
+	import { Route, TriangleAlert, UserRound, Archive } from '@lucide/svelte';
 
 	let { data } = $props();
 
-	type JourneyStatus = "Draft" | "Archived";
+	type JourneyStatus = 'Draft' | 'Archived';
 	type JourneyRow = {
 		id: string;
 		title: string;
@@ -38,39 +41,40 @@
 
 	$effect(() => {
 		rows = structuredClone(data.rows) as JourneyRow[];
-		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
+		nextCursor =
+			typeof data.nextCursor === 'string' && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
-	const access = getContext<ProjectAccess | undefined>("access");
+	const access = getContext<ProjectAccess | undefined>('access');
 	const permissions = access?.permissions;
-	const canCreateJourney = can(permissions, "story", "create");
+	const canCreateJourney = can(permissions, 'story', 'create');
 
-	let statusFilter = $state<JourneyStatus | "All">("All");
-	let ownerFilter = $state("All");
+	let statusFilter = $state<JourneyStatus | 'All'>('All');
+	let ownerFilter = $state('All');
 	let orphanOnly = $state(false);
-	let updatedFrom = $state("");
-	let updatedTo = $state("");
-	let qualityFilter = $state<"All" | "WithPainPoints" | "WithLinkedPersona">("All");
+	let updatedFrom = $state('');
+	let updatedTo = $state('');
+	let qualityFilter = $state<'All' | 'WithPainPoints' | 'WithLinkedPersona'>('All');
 
 	let createOpen = $state(false);
-	let createTitle = $state("");
-	let createError = $state("");
+	let createTitle = $state('');
+	let createError = $state('');
 	let isCreatingJourney = $state(false);
 
-	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	let owners = $derived(['All', ...new Set(rows.map((row) => row.owner))]);
 	let stats = $derived({
 		total: rows.length,
 		withPainPoints: rows.filter((row) => row.painPointsCount > 0).length,
 		linkedPersonas: rows.filter((row) => row.linkedPersonas.length > 0).length,
-		archived: rows.filter((row) => row.status === "Archived").length,
+		archived: rows.filter((row) => row.status === 'Archived').length
 	});
 
 	let filteredRows = $derived.by(() => {
 		return rows.filter((row) => {
-			if (statusFilter !== "All" && row.status !== statusFilter) return false;
-			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
+			if (statusFilter !== 'All' && row.status !== statusFilter) return false;
+			if (ownerFilter !== 'All' && row.owner !== ownerFilter) return false;
 			if (orphanOnly && !row.isOrphan) return false;
-			if (qualityFilter === "WithPainPoints" && row.painPointsCount === 0) return false;
-			if (qualityFilter === "WithLinkedPersona" && row.linkedPersonas.length === 0) return false;
+			if (qualityFilter === 'WithPainPoints' && row.painPointsCount === 0) return false;
+			if (qualityFilter === 'WithLinkedPersona' && row.linkedPersonas.length === 0) return false;
 			if (updatedFrom && row.lastUpdated < updatedFrom) return false;
 			if (updatedTo && row.lastUpdated > updatedTo) return false;
 			return true;
@@ -78,9 +82,9 @@
 	});
 
 	const statusClass = (status: JourneyStatus) =>
-		status === "Draft"
-			? "bg-blue-500/10 text-blue-500 border-blue-500/20"
-			: "bg-slate-500/10 text-slate-500 border-slate-500/20";
+		status === 'Draft'
+			? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+			: 'bg-slate-500/10 text-slate-500 border-slate-500/20';
 
 	const mergeRows = (current: JourneyRow[], incoming: JourneyRow[]): JourneyRow[] => {
 		const seen = new Set(current.map((row) => row.id));
@@ -101,39 +105,41 @@
 		isLoadingMore = true;
 		try {
 			const result = await getJourneysRemote({
-				projectId: page.params.projectId ?? "",
+				projectId: page.params.projectId ?? '',
 				cursor: nextCursor,
 				limit: 20,
-				...(statusFilter !== "All" ? { status: statusFilter } : {})
+				...(statusFilter !== 'All' ? { status: statusFilter } : {})
 			});
 			rows = mergeRows(rows, result.items as JourneyRow[]);
 			nextCursor = result.nextCursor;
 		} catch (error) {
-			console.error("Failed to load more journeys", error);
+			console.error('Failed to load more journeys', error);
 		} finally {
 			isLoadingMore = false;
 		}
 	};
 
-	const applyStatFilter = (target: "Total" | "WithPainPoints" | "WithLinkedPersona" | "Archived") => {
-		statusFilter = "All";
-		qualityFilter = "All";
-		if (target === "WithPainPoints") qualityFilter = "WithPainPoints";
-		if (target === "WithLinkedPersona") qualityFilter = "WithLinkedPersona";
-		if (target === "Archived") statusFilter = "Archived";
+	const applyStatFilter = (
+		target: 'Total' | 'WithPainPoints' | 'WithLinkedPersona' | 'Archived'
+	) => {
+		statusFilter = 'All';
+		qualityFilter = 'All';
+		if (target === 'WithPainPoints') qualityFilter = 'WithPainPoints';
+		if (target === 'WithLinkedPersona') qualityFilter = 'WithLinkedPersona';
+		if (target === 'Archived') statusFilter = 'Archived';
 	};
 
 	const createJourney = async () => {
 		if (isCreatingJourney) return;
-		createError = "";
+		createError = '';
 		if (!canCreateJourney) return;
 		if (!permissions) {
-			createError = "Permissions data is unavailable.";
+			createError = 'Permissions data is unavailable.';
 			return;
 		}
 		const actorId = access?.user.id;
 		if (!actorId) {
-			createError = "Active user id is missing.";
+			createError = 'Active user id is missing.';
 			return;
 		}
 		const title = createTitle.trim();
@@ -153,12 +159,12 @@
 				return;
 			}
 			const created = result.data as { id: string };
-			createTitle = "";
+			createTitle = '';
 			createOpen = false;
 			await goto(`/project/${projectId}/journeys/${created.id}`);
 		} catch (error) {
-			console.error("Failed to create journey", error);
-			createError = "Unable to create journey right now.";
+			console.error('Failed to create journey', error);
+			createError = 'Unable to create journey right now.';
 		} finally {
 			isCreatingJourney = false;
 		}
@@ -166,7 +172,10 @@
 </script>
 
 <svelte:head>
-	<title>Journeys • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
+	<title
+		>Journeys • {((data as Record<string, unknown>).project as { name?: string } | undefined)
+			?.name ?? 'Project'} • ProjectBook</title
+	>
 	<meta
 		name="description"
 		content="Map and manage user journeys to capture behavior and pain points."
@@ -194,7 +203,9 @@
 
 	<div class="flex flex-col gap-4 py-2 md:px-20">
 		<section class="rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Empathize - Journeys Index</div>
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
+				Empathize - Journeys Index
+			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<h1 class="text-3xl font-semibold">User Journeys</h1>
 				{#if canCreateJourney}
@@ -205,7 +216,9 @@
 						<Dialog.Content>
 							<Dialog.Header>
 								<Dialog.Title>Create Journey</Dialog.Title>
-								<Dialog.Description>Creates a draft journey and redirects to its page.</Dialog.Description>
+								<Dialog.Description
+									>Creates a draft journey and redirects to its page.</Dialog.Description
+								>
 							</Dialog.Header>
 							<div class="grid gap-3">
 								<div class="grid gap-2">
@@ -219,7 +232,7 @@
 							<Dialog.Footer>
 								<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
 								<Button onclick={createJourney} disabled={!createTitle.trim() || isCreatingJourney}>
-									{isCreatingJourney ? "Creating..." : "Create Journey"}
+									{isCreatingJourney ? 'Creating...' : 'Create Journey'}
 								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
@@ -229,20 +242,40 @@
 		</section>
 
 		<section class="grid gap-3 rounded-lg bg-background p-4 md:grid-cols-4">
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("Total")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Journeys</span><Route class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('Total')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Total Journeys</span><Route class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("WithPainPoints")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Journeys with Pain Points</span><TriangleAlert class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('WithPainPoints')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Journeys with Pain Points</span><TriangleAlert class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-blue-700">{stats.withPainPoints}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("WithLinkedPersona")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Linked Personas</span><UserRound class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('WithLinkedPersona')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Linked Personas</span><UserRound class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-emerald-700">{stats.linkedPersonas}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("Archived")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Archived Journeys</span><Archive class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('Archived')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Archived Journeys</span><Archive class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-slate-700">{stats.archived}</div>
 			</button>
 		</section>
@@ -302,71 +335,82 @@
 					{/if}
 				</div>
 			{:else}
-				<div class="border rounded-md">
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>Journey Title</Table.Head>
-							<Table.Head class="text-center">Linked Persona(s)</Table.Head>
-							<Table.Head class="text-center">Stages Count</Table.Head>
-							<Table.Head class="text-center">Pain Points Count</Table.Head>
-							<Table.Head class="text-center">Owner</Table.Head>
-							<Table.Head class="text-center">Last Updated</Table.Head>
-							<Table.Head class="text-center">Status</Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each filteredRows as row (row.id)}
+				<div class="rounded-md border">
+					<Table.Root>
+						<Table.Header>
 							<Table.Row>
-								<Table.Cell>
-									<div class="flex flex-wrap items-center gap-2">
-										<a class="font-medium hover:underline" href={`./journeys/${row.id}`}>{row.title}</a>
-										{#if row.painPointsCount === 0}
-											<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500">Warning: No Pain Points</Badge.Badge>
-										{/if}
-										{#if row.linkedPersonas.length === 0}
-											<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500">Warning: No Linked Persona</Badge.Badge>
-										{/if}
-										{#if row.isOrphan}
-											<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500">Warning: Orphan</Badge.Badge>
-										{/if}
-									</div>
-								</Table.Cell>
-								<Table.Cell class="text-center">{row.linkedPersonas.length > 0 ? row.linkedPersonas.join(", ") : "None"}</Table.Cell>
-								<Table.Cell class="text-center">{row.stagesCount}</Table.Cell>
-								<Table.Cell class="text-center">{row.painPointsCount}</Table.Cell>
-								<Table.Cell>
-									<div class="flex items-center gap-2">
-										<Avatar.Root class="h-7 w-7">
-											<Avatar.Fallback>
-												{row.owner
-													.split(" ")
-													.map((part) => part[0])
-													.join("")
-													.slice(0, 2)}
-											</Avatar.Fallback>
-										</Avatar.Root>
-										<span>{row.owner}</span>
-									</div>
-								</Table.Cell>
-								<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
-								<Table.Cell>
-									<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
-								</Table.Cell>
+								<Table.Head>Journey Title</Table.Head>
+								<Table.Head class="text-center">Linked Persona(s)</Table.Head>
+								<Table.Head class="text-center">Stages Count</Table.Head>
+								<Table.Head class="text-center">Pain Points Count</Table.Head>
+								<Table.Head class="text-center">Owner</Table.Head>
+								<Table.Head class="text-center">Last Updated</Table.Head>
+								<Table.Head class="text-center">Status</Table.Head>
 							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
+						</Table.Header>
+						<Table.Body>
+							{#each filteredRows as row (row.id)}
+								<Table.Row>
+									<Table.Cell>
+										<div class="flex flex-wrap items-center gap-2">
+											<a class="font-medium hover:underline" href={`./journeys/${row.id}`}
+												>{row.title}</a
+											>
+											{#if row.painPointsCount === 0}
+												<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500"
+													>Warning: No Pain Points</Badge.Badge
+												>
+											{/if}
+											{#if row.linkedPersonas.length === 0}
+												<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500"
+													>Warning: No Linked Persona</Badge.Badge
+												>
+											{/if}
+											{#if row.isOrphan}
+												<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500"
+													>Warning: Orphan</Badge.Badge
+												>
+											{/if}
+										</div>
+									</Table.Cell>
+									<Table.Cell class="text-center"
+										>{row.linkedPersonas.length > 0
+											? row.linkedPersonas.join(', ')
+											: 'None'}</Table.Cell
+									>
+									<Table.Cell class="text-center">{row.stagesCount}</Table.Cell>
+									<Table.Cell class="text-center">{row.painPointsCount}</Table.Cell>
+									<Table.Cell>
+										<div class="flex items-center gap-2">
+											<Avatar.Root class="h-7 w-7">
+												<Avatar.Fallback>
+													{row.owner
+														.split(' ')
+														.map((part) => part[0])
+														.join('')
+														.slice(0, 2)}
+												</Avatar.Fallback>
+											</Avatar.Root>
+											<span>{row.owner}</span>
+										</div>
+									</Table.Cell>
+									<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
+									<Table.Cell>
+										<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
+									</Table.Cell>
+								</Table.Row>
+							{/each}
+						</Table.Body>
+					</Table.Root>
 				</div>
 			{/if}
 			{#if nextCursor}
 				<div class="mt-3 flex justify-center">
 					<Button variant="outline" onclick={loadMoreJourneys} disabled={isLoadingMore}>
-						{isLoadingMore ? "Loading..." : "Load More"}
+						{isLoadingMore ? 'Loading...' : 'Load More'}
 					</Button>
 				</div>
 			{/if}
 		</section>
 	</div>
 </div>
-

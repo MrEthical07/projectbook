@@ -1,7 +1,7 @@
-import { getRequestEvent } from "$app/server";
-import { error } from "@sveltejs/kit";
-import { apiRequest, type ApiRequestOptions } from "./client";
-import { isApiRequestError } from "./error-mapping";
+import { getRequestEvent } from '$app/server';
+import { error } from '@sveltejs/kit';
+import { apiRequest, type ApiRequestOptions } from './client';
+import { isApiRequestError } from './error-mapping';
 import {
 	handleProjectScopeChange,
 	invalidateQueryCache,
@@ -9,7 +9,7 @@ import {
 	type QueryCacheInvalidation,
 	type QueryCachePolicy,
 	writeQueryCache
-} from "./query-cache";
+} from './query-cache';
 
 export type MutationResult<T> =
 	| {
@@ -21,8 +21,7 @@ export type MutationResult<T> =
 			error: string;
 	  };
 
-export const encodePathSegment = (value: string): string =>
-	encodeURIComponent(value.trim());
+export const encodePathSegment = (value: string): string => encodeURIComponent(value.trim());
 
 export type RemoteQueryOptions<TBody = unknown> = ApiRequestOptions<TBody> & {
 	cachePolicy?: QueryCachePolicy;
@@ -54,7 +53,7 @@ export const remoteQueryRequest = async <TData, TBody = unknown>(
 
 export const runMutation = async <TData>(
 	runner: () => Promise<TData>,
-	fallbackMessage = "Request failed."
+	fallbackMessage = 'Request failed.'
 ): Promise<MutationResult<TData>> => {
 	try {
 		return {
@@ -80,23 +79,20 @@ export const remoteMutationRequest = async <TData, TBody = unknown>(
 	fallbackMessage?: string,
 	invalidation?: QueryCacheInvalidation
 ): Promise<MutationResult<TData>> => {
-	return runMutation(
-		() => {
-			const event = getRequestEvent();
-			return apiRequest<TData, TBody>(event, options).then((data) => {
-				invalidateQueryCache(invalidation);
-				return data;
-			});
-		},
-		fallbackMessage
-	);
+	return runMutation(() => {
+		const event = getRequestEvent();
+		return apiRequest<TData, TBody>(event, options).then((data) => {
+			invalidateQueryCache(invalidation);
+			return data;
+		});
+	}, fallbackMessage);
 };
 
 export const unwrapItems = <T>(payload: unknown): T[] => {
 	if (Array.isArray(payload)) {
 		return payload as T[];
 	}
-	if (!payload || typeof payload !== "object") {
+	if (!payload || typeof payload !== 'object') {
 		return [];
 	}
 	const candidate = payload as Record<string, unknown>;

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { Button } from "$lib/components/ui/button";
-	import * as Card from "$lib/components/ui/card";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import { LoaderCircle, Mail } from "@lucide/svelte";
-	import { superForm } from "sveltekit-superforms";
-	import { zod4Client } from "sveltekit-superforms/adapters";
-	import { forgotPasswordSchema } from "$lib/schemas/auth.schema";
-	import type { ActionData, PageProps } from "./$types";
+	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { LoaderCircle, Mail } from '@lucide/svelte';
+	import { superForm } from 'sveltekit-superforms';
+	import { zod4Client } from 'sveltekit-superforms/adapters';
+	import { forgotPasswordSchema } from '$lib/schemas/auth.schema';
+	import type { ActionData, PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	const resolveFormState = () => (form as ActionData | null)?.form ?? data.form;
@@ -26,10 +26,7 @@
 
 <svelte:head>
 	<title>Forgot Password • ProjectBook</title>
-	<meta
-		name="description"
-		content="Request a password reset OTP for your ProjectBook account."
-	/>
+	<meta name="description" content="Request a password reset OTP for your ProjectBook account." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
@@ -60,7 +57,7 @@
 						type="email"
 						placeholder="name@company.com"
 						bind:value={$forgotForm.email}
-						aria-invalid={$forgotErrors.email?.length ? "true" : "false"}
+						aria-invalid={$forgotErrors.email?.length ? 'true' : 'false'}
 					/>
 					{#if $forgotErrors.email?.length}
 						<p class="text-xs text-destructive">{$forgotErrors.email[0]}</p>

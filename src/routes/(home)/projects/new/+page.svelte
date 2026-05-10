@@ -1,48 +1,45 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { Textarea } from "$lib/components/ui/textarea";
-	import {
-		createProject,
-		sendProjectInvites
-	} from "$lib/remote/user-home.remote";
-	import { defaultProjectIconKey } from "$lib/constants/project-icons";
-	import { resolveIconComponent } from "$lib/utils/icon-fallback";
-	import { projectIconOptions } from "$lib/utils/project-icons";
-	import { Check, FolderKanban, MailPlus, Plus, Trash2 } from "@lucide/svelte";
+	import { goto } from '$app/navigation';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { createProject, sendProjectInvites } from '$lib/remote/user-home.remote';
+	import { defaultProjectIconKey } from '$lib/constants/project-icons';
+	import { resolveIconComponent } from '$lib/utils/icon-fallback';
+	import { projectIconOptions } from '$lib/utils/project-icons';
+	import { Check, FolderKanban, MailPlus, Plus, Trash2 } from '@lucide/svelte';
 
-	type Step = "details" | "invite";
-	type SavePhase = "idle" | "saving" | "saved";
+	type Step = 'details' | 'invite';
+	type SavePhase = 'idle' | 'saving' | 'saved';
 
 	let { data } = $props();
 	const reference = () => data.reference;
 	const existingProjects = structuredClone(reference().existingProjects) as string[];
 	const existingUsers = structuredClone(reference().existingUsers) as string[];
 
-	let step = $state<Step>("details");
-	let projectName = $state("");
-	let projectDescription = $state("");
-	let nameError = $state("");
+	let step = $state<Step>('details');
+	let projectName = $state('');
+	let projectDescription = $state('');
+	let nameError = $state('');
 	let emailErrors = $state<string[]>([]);
-	let inviteEmails = $state([""]);
+	let inviteEmails = $state(['']);
 	let createConfirmOpen = $state(false);
 	let skipConfirmOpen = $state(false);
-	let savePhase = $state<SavePhase>("idle");
-	let actionError = $state("");
+	let savePhase = $state<SavePhase>('idle');
+	let actionError = $state('');
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 	let createdProjectId = $state<string | null>(null);
 	let isCreatingProject = $state(false);
 	let isSendingInvites = $state(false);
 	let selectedIcon = $state<ProjectIconKey>(defaultProjectIconKey);
-	let iconSearch = $state("");
+	let iconSearch = $state('');
 
 	let normalizedIconSearch = $derived(iconSearch.trim().toLowerCase());
 	let filteredIconOptions = $derived.by(() => {
@@ -58,8 +55,7 @@
 	});
 	let selectedIconOption = $derived.by(() => {
 		return (
-			projectIconOptions.find((option) => option.key === selectedIcon) ??
-			projectIconOptions[0]
+			projectIconOptions.find((option) => option.key === selectedIcon) ?? projectIconOptions[0]
 		);
 	});
 	let SelectedIconComponent = $derived.by(() =>
@@ -74,10 +70,10 @@
 		!existingProjects.some((name) => normalizeName(name) === normalizeName(value));
 
 	const validateName = () => {
-		nameError = "";
+		nameError = '';
 		const trimmed = projectName.trim();
 		if (!trimmed) {
-			nameError = "Project name is required.";
+			nameError = 'Project name is required.';
 			return false;
 		}
 		if (trimmed.length > maxNameLength) {
@@ -85,7 +81,7 @@
 			return false;
 		}
 		if (!isUniqueName(trimmed)) {
-			nameError = "You already have a project with this name.";
+			nameError = 'You already have a project with this name.';
 			return false;
 		}
 		return true;
@@ -94,19 +90,19 @@
 	const startSave = (onDone: () => void) => {
 		if (saveTimer) clearTimeout(saveTimer);
 		if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
-		savePhase = "saving";
+		savePhase = 'saving';
 		saveTimer = setTimeout(() => {
-			savePhase = "saved";
+			savePhase = 'saved';
 			onDone();
 			savedBadgeTimer = setTimeout(() => {
-				savePhase = "idle";
+				savePhase = 'idle';
 			}, 1200);
 		}, 900);
 	};
 
 	const createProjectAction = async () => {
 		if (isCreatingProject) return;
-		actionError = "";
+		actionError = '';
 		if (!validateName()) return;
 		const trimmed = projectName.trim();
 		const description = projectDescription.trim();
@@ -124,18 +120,18 @@
 			createConfirmOpen = false;
 			startSave(() => {
 				isCreatingProject = false;
-				step = "invite";
+				step = 'invite';
 			});
 		} catch (error) {
-			console.error("Failed to create project", error);
-			actionError = "Unable to create project right now.";
+			console.error('Failed to create project', error);
+			actionError = 'Unable to create project right now.';
 			isCreatingProject = false;
 		}
 	};
 
 	const addInviteRow = () => {
-		inviteEmails = [...inviteEmails, ""];
-		emailErrors = [...emailErrors, ""];
+		inviteEmails = [...inviteEmails, ''];
+		emailErrors = [...emailErrors, ''];
 	};
 
 	const removeInviteRow = (index: number) => {
@@ -146,25 +142,25 @@
 	const validateEmails = () => {
 		emailErrors = inviteEmails.map((email) => {
 			const trimmed = email.trim();
-			if (!trimmed) return "";
+			if (!trimmed) return '';
 			const isValidFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-			if (!isValidFormat) return "Invalid email format.";
-			if (!existingUsers.includes(trimmed)) return "User not found.";
-			return "";
+			if (!isValidFormat) return 'Invalid email format.';
+			if (!existingUsers.includes(trimmed)) return 'User not found.';
+			return '';
 		});
 		return emailErrors.every((err) => !err);
 	};
 
 	const sendInvites = async () => {
 		if (isSendingInvites) return;
-		actionError = "";
+		actionError = '';
 		if (!validateEmails() || !createdProjectId) return;
 		const inviteList = inviteEmails
 			.map((value) => value.trim().toLowerCase())
 			.filter(Boolean)
 			.map((email) => ({
 				email,
-				role: "Limited Access" as const
+				role: 'Limited Access' as const
 			}));
 
 		if (!inviteList.length) {
@@ -177,14 +173,14 @@
 			const result = await sendProjectInvites({ projectId: createdProjectId, invites: inviteList });
 			if (!result.success) {
 				actionError = result.error;
-				emailErrors = inviteEmails.map((email) => (email.trim() ? result.error : ""));
+				emailErrors = inviteEmails.map((email) => (email.trim() ? result.error : ''));
 				return;
 			}
 
 			startSave(() => {});
 		} catch (error) {
-			console.error("Failed to send project invites", error);
-			actionError = "Unable to send invites right now.";
+			console.error('Failed to send project invites', error);
+			actionError = 'Unable to send invites right now.';
 		} finally {
 			isSendingInvites = false;
 		}
@@ -193,13 +189,13 @@
 	const finishCreation = async () => {
 		try {
 			if (!createdProjectId) {
-				await goto("/projects");
+				await goto('/projects');
 				return;
 			}
 			await goto(`/project/${createdProjectId}`);
 		} catch (error) {
-			console.error("Failed to finish project creation navigation", error);
-			actionError = "Unable to navigate right now.";
+			console.error('Failed to finish project creation navigation', error);
+			actionError = 'Unable to navigate right now.';
 		}
 	};
 </script>
@@ -214,11 +210,11 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg">
+<div class="flex flex-col gap-2 rounded-lg border bg-background p-2">
 	<header
-		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+		class="flex h-12 w-full shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
-		<div class="flex items-center gap-2 px-4 w-full">
+		<div class="flex w-full items-center gap-2 px-4">
 			<Sidebar.Trigger class="-ms-1" />
 			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 			<Breadcrumb.Root>
@@ -233,32 +229,28 @@
 
 	<div class="flex flex-col gap-5 py-2 md:px-20">
 		<div class="flex flex-col gap-2 rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
-					Add project - Create a new project
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
+				Add project - Create a new project
 			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<h1 class="text-3xl font-semibold">Add Project</h1>
 				<div class="flex items-center gap-2 text-xs text-muted-foreground">
-					{#if savePhase === "saving"}
+					{#if savePhase === 'saving'}
 						<span class="text-blue-600">Saving...</span>
-					{:else if savePhase === "saved"}
+					{:else if savePhase === 'saved'}
 						<span class="text-emerald-600">Saved</span>
 					{/if}
 				</div>
 			</div>
 		</div>
 
-		{#if step === "details"}
+		{#if step === 'details'}
 			<section class="flex flex-col gap-4 rounded-lg bg-background p-4">
 				<div class="text-sm font-medium">Project details</div>
 				<div class="grid gap-4">
 					<div class="grid gap-2">
 						<Label>Project name</Label>
-						<Input
-							bind:value={projectName}
-							maxlength={maxNameLength}
-							onblur={validateName}
-						/>
+						<Input bind:value={projectName} maxlength={maxNameLength} onblur={validateName} />
 						<div class="text-xs text-muted-foreground">
 							Unique per creator. Max {maxNameLength} characters.
 						</div>
@@ -279,9 +271,7 @@
 								</div>
 							</Select.Trigger>
 							<Select.Content class="max-w-100">
-								<div
-									class="sticky top-0 z-10 border-b bg-popover p-2"
-								>
+								<div class="sticky top-0 z-10 border-b bg-popover p-2">
 									<Input
 										bind:value={iconSearch}
 										placeholder="Search icons..."
@@ -292,7 +282,7 @@
 								{#if filteredIconOptions.length === 0}
 									<div class="px-3 py-2 text-xs text-muted-foreground">No icons found.</div>
 								{:else}
-									<div class="grid max-h-72 grid-cols-3 max-w-100 gap-2 overflow-y-auto p-2">
+									<div class="grid max-h-72 max-w-100 grid-cols-3 gap-2 overflow-y-auto p-2">
 										{#each filteredIconOptions as option (option.key)}
 											{@const OptionIcon = resolveIconComponent(option.icon, FolderKanban)}
 											<Select.Item
@@ -332,11 +322,9 @@
 								</Dialog.Description>
 							</Dialog.Header>
 							<Dialog.Footer>
-								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-									Cancel
-								</Dialog.Close>
+								<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 								<Button onclick={createProjectAction} disabled={isCreatingProject}>
-									{isCreatingProject ? "Creating..." : "Create project"}
+									{isCreatingProject ? 'Creating...' : 'Create project'}
 								</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
@@ -381,17 +369,15 @@
 				</div>
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<div class="flex items-center gap-2 text-xs text-muted-foreground">
-						{#if savePhase === "saving"}
+						{#if savePhase === 'saving'}
 							<span class="text-blue-600">Saving...</span>
-						{:else if savePhase === "saved"}
+						{:else if savePhase === 'saved'}
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
 					<div class="flex items-center gap-2">
 						<Dialog.Root bind:open={skipConfirmOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline" })}>
-								Skip
-							</Dialog.Trigger>
+							<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>Skip</Dialog.Trigger>
 							<Dialog.Content>
 								<Dialog.Header>
 									<Dialog.Title>Skip invitations?</Dialog.Title>
@@ -400,18 +386,16 @@
 									</Dialog.Description>
 								</Dialog.Header>
 								<Dialog.Footer>
-									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-										Cancel
-									</Dialog.Close>
+									<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 									<Dialog.Close class={buttonVariants()} onclick={finishCreation}>
 										Finish
 									</Dialog.Close>
 								</Dialog.Footer>
 							</Dialog.Content>
 						</Dialog.Root>
-						<Button onclick={sendInvites} disabled={isSendingInvites || savePhase === "saving"}>
+						<Button onclick={sendInvites} disabled={isSendingInvites || savePhase === 'saving'}>
 							<MailPlus class="mr-2 h-4 w-4" />
-							{isSendingInvites ? "Inviting..." : "Invite"}
+							{isSendingInvites ? 'Inviting...' : 'Invite'}
 						</Button>
 					</div>
 				</div>

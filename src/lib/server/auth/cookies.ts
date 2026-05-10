@@ -1,5 +1,5 @@
-import { dev } from "$app/environment";
-import type { Cookies } from "@sveltejs/kit";
+import { dev } from '$app/environment';
+import type { Cookies } from '@sveltejs/kit';
 import {
 	ACCESS_TOKEN_FALLBACK_TTL_MS,
 	AUTH_ACCESS_TOKEN_COOKIE,
@@ -12,13 +12,13 @@ import {
 	PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_MS,
 	PERMISSION_CONTEXT_TTL_MS,
 	REMEMBER_SESSION_TTL_MS
-} from "./constants";
+} from './constants';
 
 const baseCookieOptions = {
 	httpOnly: true,
 	secure: !dev,
-	sameSite: "strict" as const,
-	path: "/"
+	sameSite: 'strict' as const,
+	path: '/'
 };
 
 const parseExpiresAt = (value: string | Date | null | undefined): Date | null => {
@@ -49,14 +49,10 @@ export const getAccessTokenCookie = (cookies: Cookies): string | null =>
 	cookies.get(AUTH_ACCESS_TOKEN_COOKIE) ?? null;
 
 export const clearAccessTokenCookie = (cookies: Cookies): void => {
-	cookies.delete(AUTH_ACCESS_TOKEN_COOKIE, { path: "/" });
+	cookies.delete(AUTH_ACCESS_TOKEN_COOKIE, { path: '/' });
 };
 
-export const setRefreshTokenCookie = (
-	cookies: Cookies,
-	token: string,
-	remember = false
-): void => {
+export const setRefreshTokenCookie = (cookies: Cookies, token: string, remember = false): void => {
 	const ttl = remember ? REMEMBER_SESSION_TTL_MS : DEFAULT_SESSION_TTL_MS;
 	cookies.set(AUTH_REFRESH_TOKEN_COOKIE, token, {
 		...baseCookieOptions,
@@ -68,7 +64,7 @@ export const getRefreshTokenCookie = (cookies: Cookies): string | null =>
 	cookies.get(AUTH_REFRESH_TOKEN_COOKIE) ?? null;
 
 export const clearRefreshTokenCookie = (cookies: Cookies): void => {
-	cookies.delete(AUTH_REFRESH_TOKEN_COOKIE, { path: "/" });
+	cookies.delete(AUTH_REFRESH_TOKEN_COOKIE, { path: '/' });
 };
 
 export const setPermissionContextCookie = (
@@ -88,7 +84,7 @@ export const getPermissionContextCookie = (cookies: Cookies): string | null =>
 	cookies.get(AUTH_PERMISSION_CONTEXT_COOKIE) ?? null;
 
 export const clearPermissionContextCookie = (cookies: Cookies): void => {
-	cookies.delete(AUTH_PERMISSION_CONTEXT_COOKIE, { path: "/" });
+	cookies.delete(AUTH_PERMISSION_CONTEXT_COOKIE, { path: '/' });
 };
 
 export const setPermissionContextRevalidateCooldownCookie = (
@@ -96,17 +92,17 @@ export const setPermissionContextRevalidateCooldownCookie = (
 	cooldownMs = PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_MS
 ): void => {
 	const maxAge = Math.max(1, Math.ceil(cooldownMs / 1000));
-	cookies.set(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE, "1", {
+	cookies.set(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE, '1', {
 		...baseCookieOptions,
 		maxAge
 	});
 };
 
 export const hasPermissionContextRevalidateCooldownCookie = (cookies: Cookies): boolean =>
-	cookies.get(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE) === "1";
+	cookies.get(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE) === '1';
 
 export const clearPermissionContextRevalidateCooldownCookie = (cookies: Cookies): void => {
-	cookies.delete(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE, { path: "/" });
+	cookies.delete(AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE, { path: '/' });
 };
 
 export const setApiAuthTokenCookies = (
@@ -135,11 +131,7 @@ export const clearApiAuthTokenCookies = (cookies: Cookies): void => {
 	clearPermissionContextRevalidateCooldownCookie(cookies);
 };
 
-export const setSessionCookie = (
-	cookies: Cookies,
-	token: string,
-	expiresAt: Date
-): void => {
+export const setSessionCookie = (cookies: Cookies, token: string, expiresAt: Date): void => {
 	cookies.set(AUTH_SESSION_COOKIE, token, {
 		...baseCookieOptions,
 		expires: expiresAt
@@ -147,7 +139,7 @@ export const setSessionCookie = (
 };
 
 export const clearSessionCookie = (cookies: Cookies): void => {
-	cookies.delete(AUTH_SESSION_COOKIE, { path: "/" });
+	cookies.delete(AUTH_SESSION_COOKIE, { path: '/' });
 };
 
 export const getSessionCookie = (cookies: Cookies): string | null =>
@@ -163,7 +155,7 @@ export const setAuthNoticeCookie = (cookies: Cookies, message: string): void => 
 export const consumeAuthNoticeCookie = (cookies: Cookies): string | null => {
 	const notice = cookies.get(AUTH_NOTICE_COOKIE) ?? null;
 	if (notice) {
-		cookies.delete(AUTH_NOTICE_COOKIE, { path: "/" });
+		cookies.delete(AUTH_NOTICE_COOKIE, { path: '/' });
 	}
 	return notice;
 };

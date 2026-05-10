@@ -1,4 +1,4 @@
-import { getProblems } from "$lib/remote/problem.remote";
+import { getProblems } from '$lib/remote/problem.remote';
 
 export async function load({ params }: { params: { projectId: string } }) {
 	const result = await getProblems({ projectId: params.projectId, limit: 20 });

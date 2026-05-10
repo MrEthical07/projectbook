@@ -1,32 +1,32 @@
 export const permissionDomains = [
-	"project",
-	"story",
-	"problem",
-	"idea",
-	"task",
-	"feedback",
-	"resource",
-	"page",
-	"calendar",
-	"member"
+	'project',
+	'story',
+	'problem',
+	'idea',
+	'task',
+	'feedback',
+	'resource',
+	'page',
+	'calendar',
+	'member'
 ] as const satisfies readonly PermissionDomain[];
 
 export const permissionActions = [
-	"view",
-	"create",
-	"edit",
-	"delete",
-	"archive",
-	"statusChange"
+	'view',
+	'create',
+	'edit',
+	'delete',
+	'archive',
+	'statusChange'
 ] as const satisfies readonly PermissionAction[];
 
 export const permissionActionBitLabels = [
-	"view",
-	"create",
-	"edit",
-	"delete",
-	"archive",
-	"status"
+	'view',
+	'create',
+	'edit',
+	'delete',
+	'archive',
+	'status'
 ] as const;
 
 export const PERMISSION_BITS_PER_DOMAIN = 6;
@@ -55,10 +55,7 @@ export const permissionActionIndex: Record<PermissionAction, number> = {
 	statusChange: 5
 };
 
-export const getPermissionBit = (
-	domainIndex: number,
-	actionIndex: number
-): bigint => {
+export const getPermissionBit = (domainIndex: number, actionIndex: number): bigint => {
 	const bitIndex = domainIndex * PERMISSION_BITS_PER_DOMAIN + actionIndex;
 	if (bitIndex < 0 || bitIndex >= PERMISSION_BIT_CAP) {
 		throw new Error(`Permission bit index '${bitIndex}' is out of range.`);

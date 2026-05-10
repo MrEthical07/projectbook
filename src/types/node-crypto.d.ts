@@ -1,11 +1,11 @@
-declare module "node:crypto" {
+declare module 'node:crypto' {
 	export interface Hash {
 		update(data: string | Uint8Array): Hash;
-		digest(encoding: "hex"): string;
+		digest(encoding: 'hex'): string;
 	}
 
 	export interface RandomBytesResult {
-		toString(encoding: "base64url"): string;
+		toString(encoding: 'base64url'): string;
 	}
 
 	export function createHash(algorithm: string): Hash;

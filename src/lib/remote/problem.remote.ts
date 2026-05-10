@@ -1,11 +1,11 @@
-import { command, query } from "$app/server";
-import { z } from "zod";
+import { command, query } from '$app/server';
+import { z } from 'zod';
 import {
 	encodePathSegment,
 	remoteMutationRequest,
 	remoteQueryRequest,
 	type MutationResult
-} from "$lib/server/api/remote";
+} from '$lib/server/api/remote';
 
 type ProblemPageInput = {
 	projectId: string;
@@ -14,7 +14,7 @@ type ProblemPageInput = {
 
 type ProblemListInput = {
 	projectId: string;
-	status?: "Draft" | "Locked" | "Archived";
+	status?: 'Draft' | 'Locked' | 'Archived';
 	cursor?: string;
 	limit?: number;
 };
@@ -27,16 +27,16 @@ type ProblemListResult = {
 type ProblemSourceOption = {
 	id: string;
 	title: string;
-	phase: "Empathize";
+	phase: 'Empathize';
 	href: string;
 };
 
 type LinkedSource = {
 	id: string;
 	title: string;
-	type: "story" | "journey";
-	label: "User Story" | "User Journey";
-	phase: "Empathize";
+	type: 'story' | 'journey';
+	label: 'User Story' | 'User Journey';
+	phase: 'Empathize';
 	href: string;
 };
 
@@ -59,7 +59,7 @@ const lockProblemSchema = z.object({
 const updateProblemStatusSchema = z.object({
 	projectId: z.string().min(1),
 	problemId: z.string().min(1),
-	status: z.enum(["Draft", "Locked", "Archived"])
+	status: z.enum(['Draft', 'Locked', 'Archived'])
 });
 
 const updateProblemSchema = z.object({
@@ -69,26 +69,26 @@ const updateProblemSchema = z.object({
 });
 
 const asRecord = (value: unknown): Record<string, unknown> =>
-	value && typeof value === "object" && !Array.isArray(value)
+	value && typeof value === 'object' && !Array.isArray(value)
 		? (value as Record<string, unknown>)
 		: {};
 
-const asString = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+const asString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
 const asStringArray = (value: unknown): string[] => {
 	if (!Array.isArray(value)) {
 		return [];
 	}
 	return value
-		.map((item) => (typeof item === "string" ? item.trim() : ""))
+		.map((item) => (typeof item === 'string' ? item.trim() : ''))
 		.filter((item) => item.length > 0);
 };
 
 const normalizeProblemStatus = (value: string): ProblemStatus => {
-	if (value === "Locked" || value === "Archived") {
+	if (value === 'Locked' || value === 'Archived') {
 		return value;
 	}
-	return "Draft";
+	return 'Draft';
 };
 
 const mapSourceOption = (value: unknown): ProblemSourceOption | null => {
@@ -102,7 +102,7 @@ const mapSourceOption = (value: unknown): ProblemSourceOption | null => {
 	return {
 		id,
 		title,
-		phase: "Empathize",
+		phase: 'Empathize',
 		href
 	};
 };
@@ -117,16 +117,16 @@ const mapLinkedSource = (value: unknown): LinkedSource | null => {
 	}
 
 	const typeRaw = (asString(row.artifactType) || asString(row.type)).toLowerCase();
-	const isJourney = typeRaw.includes("journey") || href.includes("/journeys/");
-	const type: LinkedSource["type"] = isJourney ? "journey" : "story";
-	const label: LinkedSource["label"] = isJourney ? "User Journey" : "User Story";
+	const isJourney = typeRaw.includes('journey') || href.includes('/journeys/');
+	const type: LinkedSource['type'] = isJourney ? 'journey' : 'story';
+	const label: LinkedSource['label'] = isJourney ? 'User Journey' : 'User Story';
 
 	return {
 		id,
 		title,
 		type,
 		label,
-		phase: "Empathize",
+		phase: 'Empathize',
 		href
 	};
 };
@@ -143,9 +143,7 @@ const mapSourcePainPoint = (value: unknown, index: number): SourcePainPoint | nu
 	return { id, text, sourceLabel };
 };
 
-const mapSourcePersona = (
-	value: unknown
-): { name: string; description: string } | null => {
+const mapSourcePersona = (value: unknown): { name: string; description: string } | null => {
 	const row = asRecord(value);
 	const name = asString(row.name);
 	if (!name) {
@@ -157,9 +155,7 @@ const mapSourcePersona = (
 	};
 };
 
-const mapPainInsight = (
-	value: unknown
-): { text: string; sourceLabel: string } | null => {
+const mapPainInsight = (value: unknown): { text: string; sourceLabel: string } | null => {
 	const row = asRecord(value);
 	const text = asString(row.text);
 	const sourceLabel = asString(row.sourceLabel);
@@ -185,52 +181,57 @@ const mapJourneyPainInsight = (
 const buildProblemsPath = (input: ProblemListInput): string => {
 	const search = new URLSearchParams();
 	if (input.status) {
-		search.set("filter.status", input.status);
+		search.set('filter.status', input.status);
 	}
-	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const cursor = typeof input.cursor === 'string' ? input.cursor.trim() : '';
 	if (cursor) {
-		search.set("pagination.cursor", cursor);
+		search.set('pagination.cursor', cursor);
 	}
-	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
-		search.set("pagination.limit", String(Math.trunc(input.limit)));
+	if (typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set('pagination.limit', String(Math.trunc(input.limit)));
 	}
 	const query = search.toString();
 	const basePath = `/projects/${encodePathSegment(input.projectId)}/problems`;
 	return query ? `${basePath}?${query}` : basePath;
 };
 
-export const getProblems = query("unchecked", async (input: ProblemListInput): Promise<ProblemListResult> => {
-	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
-	const limit =
-		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
-			? Math.trunc(input.limit)
-			: 20;
-	const payload = await remoteQueryRequest<{ items?: ProblemRow[]; next_cursor?: string | null }>({
-		path: buildProblemsPath(input),
-		method: "GET",
-		cachePolicy: {
-			namespace: "problems-list",
-			ttlMs: 20_000,
-			keyParts: {
-				project_id: input.projectId,
-				status: input.status ?? null,
-				cursor_present: cursor.length > 0,
-				limit,
-				sort: "last_updated_desc"
-			},
-			tags: ["problems-list", `problems-list:${input.projectId}`]
-		}
-	});
-	return {
-		items: Array.isArray(payload.items) ? payload.items : [],
-		nextCursor:
-			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
-				? payload.next_cursor
-				: null
-	};
-});
+export const getProblems = query(
+	'unchecked',
+	async (input: ProblemListInput): Promise<ProblemListResult> => {
+		const cursor = typeof input.cursor === 'string' ? input.cursor.trim() : '';
+		const limit =
+			typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit > 0
+				? Math.trunc(input.limit)
+				: 20;
+		const payload = await remoteQueryRequest<{ items?: ProblemRow[]; next_cursor?: string | null }>(
+			{
+				path: buildProblemsPath(input),
+				method: 'GET',
+				cachePolicy: {
+					namespace: 'problems-list',
+					ttlMs: 20_000,
+					keyParts: {
+						project_id: input.projectId,
+						status: input.status ?? null,
+						cursor_present: cursor.length > 0,
+						limit,
+						sort: 'last_updated_desc'
+					},
+					tags: ['problems-list', `problems-list:${input.projectId}`]
+				}
+			}
+		);
+		return {
+			items: Array.isArray(payload.items) ? payload.items : [],
+			nextCursor:
+				typeof payload.next_cursor === 'string' && payload.next_cursor.trim().length > 0
+					? payload.next_cursor
+					: null
+		};
+	}
+);
 
-export const getProblemPageData = query("unchecked", async (input: ProblemPageInput) => {
+export const getProblemPageData = query('unchecked', async (input: ProblemPageInput) => {
 	const payload = await remoteQueryRequest<{
 		problem?: {
 			id?: string;
@@ -255,7 +256,7 @@ export const getProblemPageData = query("unchecked", async (input: ProblemPageIn
 		};
 	}>({
 		path: `/projects/${encodePathSegment(input.projectId)}/problems/${encodePathSegment(input.problemId)}`,
-		method: "GET"
+		method: 'GET'
 	});
 
 	const problem = asRecord(payload.problem);
@@ -290,15 +291,13 @@ export const getProblemPageData = query("unchecked", async (input: ProblemPageIn
 			painPoints: (Array.isArray(sourceInsights.painPoints) ? sourceInsights.painPoints : [])
 				.map(mapPainInsight)
 				.filter((item): item is { text: string; sourceLabel: string } => item !== null),
-			journeyPainPoints: (
-				Array.isArray(sourceInsights.journeyPainPoints)
-					? sourceInsights.journeyPainPoints
-					: []
+			journeyPainPoints: (Array.isArray(sourceInsights.journeyPainPoints)
+				? sourceInsights.journeyPainPoints
+				: []
 			)
 				.map(mapJourneyPainInsight)
 				.filter(
-					(item): item is { text: string; journeyName: string; stageName: string } =>
-						item !== null
+					(item): item is { text: string; journeyName: string; stageName: string } => item !== null
 				)
 		},
 		linkedSources: (Array.isArray(detail.linkedSources) ? detail.linkedSources : [])
@@ -331,16 +330,16 @@ export const getProblemPageData = query("unchecked", async (input: ProblemPageIn
 });
 
 export const createProblem = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<ProblemRow>> => {
 		const parsed = createProblemSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<ProblemRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems`,
-			method: "POST",
+			method: 'POST',
 			body: {
 				statement: parsed.data.statement
 			}
@@ -349,16 +348,16 @@ export const createProblem = command(
 );
 
 export const updateProblem = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<ProblemRow>> => {
 		const parsed = updateProblemSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<ProblemRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems/${encodePathSegment(parsed.data.problemId)}`,
-			method: "PATCH",
+			method: 'PATCH',
 			body: {
 				state: parsed.data.state
 			}
@@ -367,19 +366,19 @@ export const updateProblem = command(
 );
 
 export const lockProblem = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<ProblemRow>> => {
 		const parsed = lockProblemSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<ProblemRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems/${encodePathSegment(parsed.data.problemId)}`,
-			method: "PATCH",
+			method: 'PATCH',
 			body: {
 				state: {
-					status: "Locked"
+					status: 'Locked'
 				}
 			}
 		});
@@ -387,16 +386,16 @@ export const lockProblem = command(
 );
 
 export const updateProblemStatus = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<ProblemRow>> => {
 		const parsed = updateProblemStatusSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<ProblemRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/problems/${encodePathSegment(parsed.data.problemId)}`,
-			method: "PATCH",
+			method: 'PATCH',
 			body: {
 				state: {
 					status: parsed.data.status

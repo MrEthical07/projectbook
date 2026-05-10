@@ -1,19 +1,26 @@
 <script lang="ts">
-	import { getContext, onDestroy } from "svelte";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Badge } from "$lib/components/ui/badge";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import * as Popover from "$lib/components/ui/popover";
-	import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table";
-	import { Textarea } from "$lib/components/ui/textarea";
+	import { getContext, onDestroy } from 'svelte';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Popover from '$lib/components/ui/popover';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import {
+		Table,
+		TableBody,
+		TableCell,
+		TableHead,
+		TableHeader,
+		TableRow
+	} from '$lib/components/ui/table';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import {
 		Archive,
 		ArrowDown,
@@ -24,36 +31,43 @@
 		Info,
 		MoreHorizontal,
 		Plus,
-		Trash2,
-	} from "@lucide/svelte";
-	import { invalidate } from "$app/navigation";
-	import { page } from "$app/state";
-	import { updatePageEditor } from "$lib/remote/page.remote";
-	import { can } from "$lib/utils/permission";
-	import { toast } from "svelte-sonner";
+		Trash2
+	} from '@lucide/svelte';
+	import { invalidate } from '$app/navigation';
+	import { page } from '$app/state';
+	import { updatePageEditor } from '$lib/remote/page.remote';
+	import { can } from '$lib/utils/permission';
+	import { toast } from 'svelte-sonner';
 
-	type PageStatus = "Draft" | "Archived";
-	type PageContentType = "Document" | "Table" | "Board" | "List" | "Calendar" | "Gallery" | "Timeline";
+	type PageStatus = 'Draft' | 'Archived';
+	type PageContentType =
+		| 'Document'
+		| 'Table'
+		| 'Board'
+		| 'List'
+		| 'Calendar'
+		| 'Gallery'
+		| 'Timeline';
 
 	type PageBlockType =
-		| "Paragraph"
-		| "Heading 1"
-		| "Heading 2"
-		| "Heading 3"
-		| "Quote"
-		| "Callout"
-		| "Divider"
-		| "Bulleted List"
-		| "Numbered List"
-		| "Checklist"
-		| "Code Block"
-		| "Image"
-		| "Video"
-		| "File Embed"
-		| "Table"
-		| "Toggle List"
-		| "Page Link"
-		| "Link Preview";
+		| 'Paragraph'
+		| 'Heading 1'
+		| 'Heading 2'
+		| 'Heading 3'
+		| 'Quote'
+		| 'Callout'
+		| 'Divider'
+		| 'Bulleted List'
+		| 'Numbered List'
+		| 'Checklist'
+		| 'Code Block'
+		| 'Image'
+		| 'Video'
+		| 'File Embed'
+		| 'Table'
+		| 'Toggle List'
+		| 'Page Link'
+		| 'Link Preview';
 
 	type PageBlock = {
 		id: string;
@@ -80,7 +94,7 @@
 	type DatabaseItem = {
 		id: string;
 		title: string;
-		status: "Backlog" | "In progress" | "Done";
+		status: 'Backlog' | 'In progress' | 'Done';
 		date: string;
 		owner: string;
 		tag: string;
@@ -89,28 +103,28 @@
 	};
 
 	const blockOptions: { type: PageBlockType; label: string }[] = [
-		{ type: "Paragraph", label: "Paragraph" },
-		{ type: "Heading 1", label: "Heading 1" },
-		{ type: "Heading 2", label: "Heading 2" },
-		{ type: "Heading 3", label: "Heading 3" },
-		{ type: "Quote", label: "Quote" },
-		{ type: "Callout", label: "Callout" },
-		{ type: "Divider", label: "Divider" },
-		{ type: "Bulleted List", label: "Bulleted list" },
-		{ type: "Numbered List", label: "Numbered list" },
-		{ type: "Checklist", label: "Checklist" },
-		{ type: "Code Block", label: "Code block" },
-		{ type: "Image", label: "Image" },
-		{ type: "Video", label: "Video embed" },
-		{ type: "File Embed", label: "File embed" },
-		{ type: "Table", label: "Inline table" },
-		{ type: "Toggle List", label: "Toggle list" },
-		{ type: "Page Link", label: "Page link" },
-		{ type: "Link Preview", label: "Link preview" },
+		{ type: 'Paragraph', label: 'Paragraph' },
+		{ type: 'Heading 1', label: 'Heading 1' },
+		{ type: 'Heading 2', label: 'Heading 2' },
+		{ type: 'Heading 3', label: 'Heading 3' },
+		{ type: 'Quote', label: 'Quote' },
+		{ type: 'Callout', label: 'Callout' },
+		{ type: 'Divider', label: 'Divider' },
+		{ type: 'Bulleted List', label: 'Bulleted list' },
+		{ type: 'Numbered List', label: 'Numbered list' },
+		{ type: 'Checklist', label: 'Checklist' },
+		{ type: 'Code Block', label: 'Code block' },
+		{ type: 'Image', label: 'Image' },
+		{ type: 'Video', label: 'Video embed' },
+		{ type: 'File Embed', label: 'File embed' },
+		{ type: 'Table', label: 'Inline table' },
+		{ type: 'Toggle List', label: 'Toggle list' },
+		{ type: 'Page Link', label: 'Page link' },
+		{ type: 'Link Preview', label: 'Link preview' }
 	];
 
 	let { data } = $props();
-	const required = <T>(value: T | null | undefined, field: string): T => {
+	const required = <T,>(value: T | null | undefined, field: string): T => {
 		if (value === undefined || value === null) {
 			throw new Error(`Page payload is missing '${field}'.`);
 		}
@@ -118,22 +132,22 @@
 	};
 	const projectId = page.params.projectId;
 	const routeParams = page.params as Record<string, string | undefined>;
-	const pageId = routeParams.pageId ?? "";
-	const access = getContext<ProjectAccess | undefined>("access");
+	const pageId = routeParams.pageId ?? '';
+	const access = getContext<ProjectAccess | undefined>('access');
 	const permissions = access?.permissions;
-	const canEditPage = can(permissions, "page", "edit");
-	const defaultView: View = { id: "view-default", name: "Document", type: "Document" };
+	const canEditPage = can(permissions, 'page', 'edit');
+	const defaultView: View = { id: 'view-default', name: 'Document', type: 'Document' };
 	let tagOptions = $derived.by(() => structuredClone(data.editor.tagOptions) as string[]);
 	let linkedArtifactOptions = $derived.by(
 		() => structuredClone(data.editor.linkedArtifactOptions) as string[]
 	);
 
-	let status = $state<PageStatus>("Draft");
-	let title = $state("");
-	let owner = $state("");
-	let createdAt = $state("");
-	let lastEdited = $state("");
-	let description = $state("");
+	let status = $state<PageStatus>('Draft');
+	let title = $state('');
+	let owner = $state('');
+	let createdAt = $state('');
+	let lastEdited = $state('');
+	let description = $state('');
 	let tags = $state<string[]>([]);
 	let linkedArtifacts = $state<string[]>([]);
 	let blockDialogOpen = $state(false);
@@ -143,28 +157,28 @@
 	let statusMutationPending = $state(false);
 	let readOnlyView = $state(false);
 	let fullWidth = $state(false);
-	let dragId = $state("");
+	let dragId = $state('');
 	let views = $state<View[]>([defaultView]);
 	let activeViewId = $state(defaultView.id);
 	let addViewOpen = $state(false);
-	let newViewName = $state("");
-	let newViewType = $state<PageContentType>("Table");
+	let newViewName = $state('');
+	let newViewType = $state<PageContentType>('Table');
 	let viewWarningOpen = $state(false);
-	let viewWarningMessage = $state("");
+	let viewWarningMessage = $state('');
 	let renameColumnOpen = $state(false);
-	let renameColumnId = $state("");
-	let renameColumnValue = $state("");
+	let renameColumnId = $state('');
+	let renameColumnValue = $state('');
 
-	let docHeading = $state("");
-	let docBody = $state("");
+	let docHeading = $state('');
+	let docBody = $state('');
 	let blocks = $state<PageBlock[]>([]);
 	let tableColumns = $state<TableColumn[]>([]);
 	let tableRows = $state<TableRow[]>([]);
 	let databaseItems = $state<DatabaseItem[]>([]);
 
-	type SavePhase = "idle" | "saving" | "saved";
-	let savePhase = $state<SavePhase>("idle");
-	let savedSignature = $state("");
+	type SavePhase = 'idle' | 'saving' | 'saved';
+	let savePhase = $state<SavePhase>('idle');
+	let savedSignature = $state('');
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -183,12 +197,12 @@
 			activeViewId,
 			tableColumns,
 			tableRows,
-			databaseItems,
+			databaseItems
 		})
 	);
 
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
-	let isReadOnly = $derived(status === "Archived" || readOnlyView || !canEditPage);
+	let isReadOnly = $derived(status === 'Archived' || readOnlyView || !canEditPage);
 	let activeView = $derived.by(() => {
 		const resolvedView = views.find((view) => view.id === activeViewId);
 		if (!resolvedView) {
@@ -196,27 +210,27 @@
 		}
 		return resolvedView;
 	});
-	let isDatabaseView = $derived(activeView?.type !== "Document");
+	let isDatabaseView = $derived(activeView?.type !== 'Document');
 	let saveIndicator = $derived.by(() => {
-		if (savePhase === "saving") {
-			return "saving";
+		if (savePhase === 'saving') {
+			return 'saving';
 		}
 
 		if (isDirty) {
-			return "edited";
+			return 'edited';
 		}
 
-		if (savePhase === "saved") {
-			return "saved";
+		if (savePhase === 'saved') {
+			return 'saved';
 		}
 
-		return "idle";
+		return 'idle';
 	});
 
 	const statusClass = (value: PageStatus) =>
-		value === "Archived"
-			? "bg-amber-500/10 text-amber-500 border-amber-500/20"
-			: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+		value === 'Archived'
+			? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+			: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
 
 	const changePageStatus = async (nextStatus: PageStatus) => {
 		if (!permissions || !canEditPage || statusMutationPending) {
@@ -240,7 +254,7 @@
 				}
 			});
 			if (!result.success) {
-				toast.error("error" in result ? result.error : "Status update failed.");
+				toast.error('error' in result ? result.error : 'Status update failed.');
 				return;
 			}
 
@@ -249,10 +263,10 @@
 			savedSignature = currentSignature;
 			archiveDialogOpen = false;
 			unarchiveDialogOpen = false;
-			toast.success("Status updated");
+			toast.success('Status updated');
 		} catch (error) {
-			console.error("Failed to update page status", error);
-			toast.error("Status update failed.");
+			console.error('Failed to update page status', error);
+			toast.error('Status update failed.');
 		} finally {
 			statusMutationPending = false;
 		}
@@ -264,25 +278,21 @@
 			{
 				id: `block-${Date.now()}`,
 				type,
-				content: "",
-			},
+				content: ''
+			}
 		];
 		blockDialogOpen = false;
 	};
 
 	const isCompatibleView = (nextType: PageContentType) => {
-		const hasDocContent =
-			Boolean(docHeading.trim()) || Boolean(docBody.trim());
+		const hasDocContent = Boolean(docHeading.trim()) || Boolean(docBody.trim());
 		const hasDatabaseContent =
-			databaseItems.length > 0 ||
-			tableRows.length > 0 ||
-			tableColumns.length > 0;
-		if (nextType === "Document") {
+			databaseItems.length > 0 || tableRows.length > 0 || tableColumns.length > 0;
+		if (nextType === 'Document') {
 			return !hasDatabaseContent;
 		}
 		return !hasDocContent;
 	};
-
 
 	const selectView = (view: View) => {
 		if (activeViewId === view.id) {
@@ -290,7 +300,7 @@
 		}
 		if (!isCompatibleView(view.type)) {
 			viewWarningMessage =
-				"That view is not compatible with the current content and could cause data loss. Create a new page if you need a different view type.";
+				'That view is not compatible with the current content and could cause data loss. Create a new page if you need a different view type.';
 			viewWarningOpen = true;
 			return;
 		}
@@ -304,17 +314,17 @@
 		const nextId = `view-${Date.now()}`;
 		views = [...views, { id: nextId, name: newViewName.trim(), type: newViewType }];
 		activeViewId = nextId;
-		newViewName = "";
-		newViewType = "Table";
+		newViewName = '';
+		newViewType = 'Table';
 		addViewOpen = false;
 	};
 
 	const addColumn = () => {
 		const nextId = `col-${Date.now()}`;
-		tableColumns = [...tableColumns, { id: nextId, name: "New column" }];
+		tableColumns = [...tableColumns, { id: nextId, name: 'New column' }];
 		tableRows = tableRows.map((row) => ({
 			...row,
-			cells: { ...row.cells, [nextId]: "" },
+			cells: { ...row.cells, [nextId]: '' }
 		}));
 	};
 
@@ -358,7 +368,7 @@
 		const rowId = `row-${Date.now()}`;
 		const cells: Record<string, string> = {};
 		for (const column of tableColumns) {
-			cells[column.id] = "";
+			cells[column.id] = '';
 		}
 		tableRows = [...tableRows, { id: rowId, cells }];
 	};
@@ -382,14 +392,14 @@
 			...databaseItems,
 			{
 				id: nextId,
-				title: "New item",
-				status: "Backlog",
-				date: "2026-01-18",
+				title: 'New item',
+				status: 'Backlog',
+				date: '2026-01-18',
 				owner,
-				tag: "Notes",
-				docHeading: "Notes",
-				docBody: "",
-			},
+				tag: 'Notes',
+				docHeading: 'Notes',
+				docBody: ''
+			}
 		];
 	};
 
@@ -408,24 +418,24 @@
 			...blocks,
 			{
 				...block,
-				id: `block-${Date.now()}`,
-			},
+				id: `block-${Date.now()}`
+			}
 		];
 	};
 
 	let newItemOpen = $state(false);
-	let newItemTitle = $state("");
-	let newItemStatus = $state<DatabaseItem["status"]>("Backlog");
-	let newItemDate = $state("2026-01-18");
-	let newItemOwner = $state("");
-	let newItemTag = $state("Notes");
+	let newItemTitle = $state('');
+	let newItemStatus = $state<DatabaseItem['status']>('Backlog');
+	let newItemDate = $state('2026-01-18');
+	let newItemOwner = $state('');
+	let newItemTag = $state('Notes');
 
 	const openNewItemDialog = () => {
-		newItemTitle = "";
-		newItemStatus = "Backlog";
-		newItemDate = "2026-01-18";
+		newItemTitle = '';
+		newItemStatus = 'Backlog';
+		newItemDate = '2026-01-18';
 		newItemOwner = owner;
-		newItemTag = "Notes";
+		newItemTag = 'Notes';
 		newItemOpen = true;
 	};
 
@@ -443,41 +453,39 @@
 				date: newItemDate,
 				owner: newItemOwner,
 				tag: newItemTag,
-				docHeading: "Notes",
-				docBody: "",
-			},
+				docHeading: 'Notes',
+				docBody: ''
+			}
 		];
 		newItemOpen = false;
 	};
 
 	let galleryOpen = $state(false);
-	let galleryItemId = $state("");
+	let galleryItemId = $state('');
 
 	const openGalleryItem = (itemId: string) => {
 		galleryItemId = itemId;
 		galleryOpen = true;
 	};
 
-	let activeGalleryItem = $derived(
-		databaseItems.find((item) => item.id === galleryItemId) ?? null
-	);
+	let activeGalleryItem = $derived(databaseItems.find((item) => item.id === galleryItemId) ?? null);
 
 	let discussion = $state([
 		{
-			id: "msg-1",
-			author: "Avery Patel",
-			message: "Noted the key customer reactions from the session.",
-			time: "09:42",
+			id: 'msg-1',
+			author: 'Avery Patel',
+			message: 'Noted the key customer reactions from the session.',
+			time: '09:42'
 		},
 		{
-			id: "msg-2",
-			author: "Nia Clark",
-			message: "Agree - especially the confusion around deadlines.",
-			time: "09:45",
-		},
+			id: 'msg-2',
+			author: 'Nia Clark',
+			message: 'Agree - especially the confusion around deadlines.',
+			time: '09:45'
+		}
 	]);
 
-	let newMessage = $state("");
+	let newMessage = $state('');
 
 	const sendMessage = () => {
 		if (!newMessage.trim()) {
@@ -489,10 +497,10 @@
 				id: `msg-${Date.now()}`,
 				author: owner,
 				message: newMessage.trim(),
-				time: "Now",
-			},
+				time: 'Now'
+			}
 		];
-		newMessage = "";
+		newMessage = '';
 	};
 
 	const moveBlock = (fromId: string, toId: string) => {
@@ -512,8 +520,8 @@
 		blocks = updated;
 	};
 
-	const moveBlockByIndex = (index: number, direction: "up" | "down") => {
-		const targetIndex = direction === "up" ? index - 1 : index + 1;
+	const moveBlockByIndex = (index: number, direction: 'up' | 'down') => {
+		const targetIndex = direction === 'up' ? index - 1 : index + 1;
 		if (targetIndex < 0 || targetIndex >= blocks.length) {
 			return;
 		}
@@ -542,7 +550,7 @@
 
 	const triggerSave = async () => {
 		if (!permissions || !canEditPage) return;
-		if (savePhase === "saving" || !isDirty) {
+		if (savePhase === 'saving' || !isDirty) {
 			return;
 		}
 
@@ -554,7 +562,7 @@
 			clearTimeout(savedBadgeTimer);
 		}
 
-		savePhase = "saving";
+		savePhase = 'saving';
 		try {
 			const result = await updatePageEditor({
 				input: {
@@ -578,21 +586,21 @@
 				}
 			});
 			if (!result.success) {
-				savePhase = "idle";
+				savePhase = 'idle';
 				return;
 			}
 			lastEdited = new Date().toISOString().slice(0, 10);
 			savedSignature = currentSignature;
-			savePhase = "saved";
+			savePhase = 'saved';
 			savedBadgeTimer = setTimeout(() => {
 				if (!isDirty) {
-					savePhase = "idle";
+					savePhase = 'idle';
 				}
 			}, 1400);
 		} catch (error) {
-			console.error("Failed to save page editor state", error);
-			savePhase = "idle";
-			toast.error("Save failed. Please try again.");
+			console.error('Failed to save page editor state', error);
+			savePhase = 'idle';
+			toast.error('Save failed. Please try again.');
 		}
 	};
 
@@ -625,30 +633,30 @@
 		}
 
 		const nextStatus = editor.defaultValues.status as PageStatus;
-		const nextTitle = required(editor.defaultValues.title, "editor.defaultValues.title");
-		const nextOwner = required(editor.defaultValues.owner, "editor.defaultValues.owner");
+		const nextTitle = required(editor.defaultValues.title, 'editor.defaultValues.title');
+		const nextOwner = required(editor.defaultValues.owner, 'editor.defaultValues.owner');
 		const nextCreatedAt = required(
 			editor.defaultValues.createdAt,
-			"editor.defaultValues.createdAt"
+			'editor.defaultValues.createdAt'
 		);
 		const nextLastEdited = required(
 			editor.defaultValues.lastEdited,
-			"editor.defaultValues.lastEdited"
+			'editor.defaultValues.lastEdited'
 		);
 		const nextDescription = required(
 			editor.defaultValues.description,
-			"editor.defaultValues.description"
+			'editor.defaultValues.description'
 		);
 		const nextTags = structuredClone(editor.tags) as string[];
 		const nextLinkedArtifacts = structuredClone(editor.linkedArtifacts) as string[];
 		const nextViews = structuredClone(editor.defaultViews) as View[];
 		const normalizedViews = nextViews.length > 0 ? nextViews : [defaultView];
-		const requestedViewId = required(editor.activeViewId, "editor.activeViewId");
+		const requestedViewId = required(editor.activeViewId, 'editor.activeViewId');
 		const resolvedViewId = normalizedViews.some((view) => view.id === requestedViewId)
 			? requestedViewId
 			: normalizedViews[0].id;
-		const nextDocHeading = required(editor.docHeading, "editor.docHeading");
-		const nextDocBody = required(editor.docBody, "editor.docBody");
+		const nextDocHeading = required(editor.docHeading, 'editor.docHeading');
+		const nextDocBody = required(editor.docBody, 'editor.docBody');
 		const nextTableColumns = structuredClone(editor.tableColumns) as TableColumn[];
 		const nextTableRows = structuredClone(editor.tableRows) as TableRow[];
 		const nextDatabaseItems = Array.isArray(editor.databaseItems)
@@ -669,24 +677,24 @@
 		deleteDialogOpen = false;
 		statusMutationPending = false;
 		readOnlyView = false;
-		dragId = "";
+		dragId = '';
 		views = normalizedViews;
 		activeViewId = resolvedViewId;
 		addViewOpen = false;
-		newViewName = "";
-		newViewType = "Table";
+		newViewName = '';
+		newViewType = 'Table';
 		viewWarningOpen = false;
-		viewWarningMessage = "";
+		viewWarningMessage = '';
 		renameColumnOpen = false;
-		renameColumnId = "";
-		renameColumnValue = "";
+		renameColumnId = '';
+		renameColumnValue = '';
 		docHeading = nextDocHeading;
 		docBody = nextDocBody;
 		blocks = [];
 		tableColumns = nextTableColumns;
 		tableRows = nextTableRows;
 		databaseItems = nextDatabaseItems;
-		savePhase = "idle";
+		savePhase = 'idle';
 		savedSignature = JSON.stringify({
 			status: nextStatus,
 			title: nextTitle,
@@ -700,27 +708,26 @@
 			activeViewId: resolvedViewId,
 			tableColumns: nextTableColumns,
 			tableRows: nextTableRows,
-			databaseItems: nextDatabaseItems,
+			databaseItems: nextDatabaseItems
 		});
 		saveReady = true;
 	});
 </script>
 
 <svelte:head>
-	<title>{title || "Page"} • Pages • ProjectBook</title>
-	<meta
-		name="description"
-		content="Edit this project page and linked content blocks."
-	/>
+	<title>{title || 'Page'} • Pages • ProjectBook</title>
+	<meta name="description" content="Edit this project page and linked content blocks." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class={`flex flex-col gap-2 p-2 bg-background border rounded-lg ${fullWidth ? "w-full" : "w-full"}`}>
+<div
+	class={`flex flex-col gap-2 rounded-lg border bg-background p-2 ${fullWidth ? 'w-full' : 'w-full'}`}
+>
 	<header
-		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+		class="flex h-12 w-full shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
-		<div class="flex items-center gap-2 px-4 w-full">
+		<div class="flex w-full items-center gap-2 px-4">
 			<Sidebar.Trigger class="-ms-1" />
 			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 			<Breadcrumb.Root>
@@ -737,15 +744,15 @@
 		</div>
 	</header>
 
-	<div class={`flex flex-col ${fullWidth ? "md:px-8" : "md:px-20"} gap-4 py-2`}>
-		<div class="flex mt-2 flex-col bg-background rounded-lg gap-2 p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
+	<div class={`flex flex-col ${fullWidth ? 'md:px-8' : 'md:px-20'} gap-4 py-2`}>
+		<div class="mt-2 flex flex-col gap-2 rounded-lg bg-background p-2">
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
 				Pages - {status}
 			</div>
 			<Input
 				type="text"
 				bind:value={title}
-				class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-full py-4 px-3"
+				class="h-full border-0 bg-transparent px-3 py-4 text-4xl! shadow-none outline-0"
 				placeholder="Page Title"
 				disabled={isReadOnly}
 			/>
@@ -753,7 +760,7 @@
 				<div class="flex flex-wrap items-center gap-2">
 					<Badge variant="outline" class={statusClass(status)}>{status}</Badge>
 					<Popover.Root>
-						<Popover.Trigger class={buttonVariants({ variant: "ghost", size: "icon" })}>
+						<Popover.Trigger class={buttonVariants({ variant: 'ghost', size: 'icon' })}>
 							<Info class="h-4 w-4" />
 						</Popover.Trigger>
 						<Popover.Content align="start" class="w-90">
@@ -765,9 +772,9 @@
 										<Avatar.Root class="h-7 w-7">
 											<Avatar.Fallback>
 												{owner
-													.split(" ")
+													.split(' ')
 													.map((part) => part[0])
-													.join("")
+													.join('')
 													.slice(0, 2)}
 											</Avatar.Fallback>
 										</Avatar.Root>
@@ -808,11 +815,7 @@
 											</Badge>
 										{/each}
 									</div>
-									<Select.Root
-										type="multiple"
-										disabled={isReadOnly}
-										bind:value={tags}
-									>
+									<Select.Root type="multiple" disabled={isReadOnly} bind:value={tags}>
 										<Select.Trigger class="w-40">Add tag</Select.Trigger>
 										<Select.Content>
 											{#each tagOptions as option (option)}
@@ -841,11 +844,7 @@
 											</Badge>
 										{/each}
 									</div>
-									<Select.Root
-										type="multiple"
-										disabled={isReadOnly}
-										bind:value={linkedArtifacts}
-									>
+									<Select.Root type="multiple" disabled={isReadOnly} bind:value={linkedArtifacts}>
 										<Select.Trigger class="w-52">Link artifact</Select.Trigger>
 										<Select.Content>
 											{#each linkedArtifactOptions as option (option)}
@@ -859,26 +858,25 @@
 							</div>
 						</Popover.Content>
 					</Popover.Root>
-					{#if status === "Archived"}
+					{#if status === 'Archived'}
 						<Dialog.Root bind:open={unarchiveDialogOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canEditPage || statusMutationPending}>
+							<Dialog.Trigger
+								class={buttonVariants({ variant: 'outline', size: 'sm' })}
+								disabled={!canEditPage || statusMutationPending}
+							>
 								Unarchive
 							</Dialog.Trigger>
 							<Dialog.Content>
 								<Dialog.Header>
 									<Dialog.Title>Unarchive this page?</Dialog.Title>
-									<Dialog.Description>
-										This will make the page editable again.
-									</Dialog.Description>
+									<Dialog.Description>This will make the page editable again.</Dialog.Description>
 								</Dialog.Header>
 								<Dialog.Footer>
-									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-										Cancel
-									</Dialog.Close>
+									<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 									<Dialog.Close
 										class={buttonVariants()}
 										onclick={() => {
-											void changePageStatus("Draft");
+											void changePageStatus('Draft');
 										}}
 										disabled={!canEditPage || statusMutationPending}
 									>
@@ -889,7 +887,10 @@
 						</Dialog.Root>
 					{:else}
 						<Dialog.Root bind:open={archiveDialogOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canEditPage || statusMutationPending}>
+							<Dialog.Trigger
+								class={buttonVariants({ variant: 'outline', size: 'sm' })}
+								disabled={!canEditPage || statusMutationPending}
+							>
 								Archive
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -900,13 +901,11 @@
 									</Dialog.Description>
 								</Dialog.Header>
 								<Dialog.Footer>
-									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-										Cancel
-									</Dialog.Close>
+									<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 									<Dialog.Close
 										class={buttonVariants()}
 										onclick={() => {
-											void changePageStatus("Archived");
+											void changePageStatus('Archived');
 										}}
 										disabled={!canEditPage || statusMutationPending}
 									>
@@ -917,7 +916,7 @@
 						</Dialog.Root>
 					{/if}
 					<Dialog.Root bind:open={deleteDialogOpen}>
-						<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+						<Dialog.Trigger class={buttonVariants({ variant: 'outline', size: 'sm' })}>
 							Delete
 						</Dialog.Trigger>
 						<Dialog.Content>
@@ -928,46 +927,34 @@
 								</Dialog.Description>
 							</Dialog.Header>
 							<Dialog.Footer>
-								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-									Cancel
-								</Dialog.Close>
-								<Dialog.Close class={buttonVariants()} onclick={() => {}}>
-									Delete
-								</Dialog.Close>
+								<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
+								<Dialog.Close class={buttonVariants()} onclick={() => {}}>Delete</Dialog.Close>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
 				</div>
 				<div class="flex items-center gap-3">
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => (readOnlyView = !readOnlyView)}
-					>
-						{readOnlyView ? "Editable view" : "Read-only view"}
+					<Button variant="outline" size="sm" onclick={() => (readOnlyView = !readOnlyView)}>
+						{readOnlyView ? 'Editable view' : 'Read-only view'}
 					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => (fullWidth = !fullWidth)}
-					>
-						{fullWidth ? "Standard width" : "Full width"}
+					<Button variant="outline" size="sm" onclick={() => (fullWidth = !fullWidth)}>
+						{fullWidth ? 'Standard width' : 'Full width'}
 					</Button>
-					<div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
-						{#if saveIndicator === "edited"}
+					<div class="flex min-h-6 flex-col items-end text-xs leading-tight text-muted-foreground">
+						{#if saveIndicator === 'edited'}
 							<span class="text-amber-600">Edited</span>
-						{:else if saveIndicator === "saving"}
+						{:else if saveIndicator === 'saving'}
 							<span class="text-blue-600">Saving...</span>
-						{:else if saveIndicator === "saved"}
+						{:else if saveIndicator === 'saved'}
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
 					<Button
 						size="sm"
 						onclick={triggerSave}
-						disabled={!canEditPage || savePhase === "saving" || !isDirty}
+						disabled={!canEditPage || savePhase === 'saving' || !isDirty}
 					>
-						{savePhase === "saving" ? "Saving..." : "Save changes"}
+						{savePhase === 'saving' ? 'Saving...' : 'Save changes'}
 					</Button>
 				</div>
 			</div>
@@ -975,9 +962,9 @@
 
 		<Separator class="mt-2 px-2"></Separator>
 
-		<div class="py-2 w-full flex flex-col gap-4">
-			<section class="flex flex-col gap-3 py-4 w-full bg-background rounded-lg">
-				<div class="flex flex-row gap-2 items-center w-full">
+		<div class="flex w-full flex-col gap-4 py-2">
+			<section class="flex w-full flex-col gap-3 rounded-lg bg-background py-4">
+				<div class="flex w-full flex-row items-center gap-2">
 					<span class="font-medium text-nowrap">Page Content</span>
 					<Separator></Separator>
 				</div>
@@ -985,7 +972,7 @@
 					<div class="flex flex-wrap items-center gap-2">
 						{#each views as view (view.id)}
 							<Button
-								variant={activeViewId === view.id ? "default" : "outline"}
+								variant={activeViewId === view.id ? 'default' : 'outline'}
 								size="sm"
 								onclick={() => selectView(view)}
 							>
@@ -993,15 +980,13 @@
 							</Button>
 						{/each}
 						<Dialog.Root bind:open={addViewOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: 'outline', size: 'sm' })}>
 								+ Add view
 							</Dialog.Trigger>
 							<Dialog.Content>
 								<Dialog.Header>
 									<Dialog.Title>Add a view</Dialog.Title>
-									<Dialog.Description>
-										Create a Notion-style view for this page.
-									</Dialog.Description>
+									<Dialog.Description>Create a Notion-style view for this page.</Dialog.Description>
 								</Dialog.Header>
 								<div class="grid gap-3">
 									<div class="grid gap-2">
@@ -1025,9 +1010,7 @@
 									</div>
 								</div>
 								<Dialog.Footer>
-									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-										Cancel
-									</Dialog.Close>
+									<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 									<Button class={buttonVariants()} onclick={addView} disabled={!newViewName.trim()}>
 										Add view
 									</Button>
@@ -1036,7 +1019,7 @@
 						</Dialog.Root>
 					</div>
 					<div class="flex items-center gap-2">
-						{#if activeView?.type === "Document"}
+						{#if activeView?.type === 'Document'}
 							<Button
 								variant="outline"
 								size="sm"
@@ -1046,7 +1029,7 @@
 								<Plus class="mr-2 h-4 w-4" />
 								Add block
 							</Button>
-						{:else if activeView?.type === "Table"}
+						{:else if activeView?.type === 'Table'}
 							<Button variant="outline" size="sm" disabled={isReadOnly} onclick={addColumn}>
 								+ Column
 							</Button>
@@ -1060,22 +1043,22 @@
 						{/if}
 					</div>
 				</div>
-				{#if activeView?.type === "Document"}
-					<div class="flex flex-col border rounded-md p-2">
+				{#if activeView?.type === 'Document'}
+					<div class="flex flex-col rounded-md border p-2">
 						<Input
 							bind:value={docHeading}
 							placeholder="Untitled"
 							disabled={isReadOnly}
-							class="text-4xl font-semibold border-none shadow-none px-2 rounded-b-none"
+							class="rounded-b-none border-none px-2 text-4xl font-semibold shadow-none"
 						/>
 						<Textarea
 							bind:value={docBody}
 							placeholder="Start writing..."
 							disabled={isReadOnly}
-							class="min-h-56 border-none shadow-none px-2 rounded-t-none"
+							class="min-h-56 rounded-t-none border-none px-2 shadow-none"
 						/>
 					</div>
-				{:else if activeView?.type === "Table"}
+				{:else if activeView?.type === 'Table'}
 					<div class="flex flex-col gap-3">
 						<div class="text-sm text-muted-foreground">
 							Use a lightweight database table for structured notes.
@@ -1128,7 +1111,7 @@
 											<TableCell class="text-right">
 												<DropdownMenu.Root>
 													<DropdownMenu.Trigger
-														class={`${buttonVariants({ variant: "ghost", size: "icon" })} opacity-0 group-hover:opacity-100 transition`}
+														class={`${buttonVariants({ variant: 'ghost', size: 'icon' })} opacity-0 transition group-hover:opacity-100`}
 													>
 														<MoreHorizontal class="h-4 w-4" />
 													</DropdownMenu.Trigger>
@@ -1149,9 +1132,9 @@
 							</Table>
 						</div>
 					</div>
-				{:else if activeView?.type === "Board"}
+				{:else if activeView?.type === 'Board'}
 					<div class="grid gap-3 md:grid-cols-3">
-					{#each ["Backlog", "In progress", "Done"] as lane (lane)}
+						{#each ['Backlog', 'In progress', 'Done'] as lane (lane)}
 							<div class="rounded-lg border border-border p-3">
 								<div class="text-sm font-medium">{lane}</div>
 								<div class="mt-3 flex flex-col gap-2">
@@ -1169,7 +1152,7 @@
 							</div>
 						{/each}
 					</div>
-				{:else if activeView?.type === "List"}
+				{:else if activeView?.type === 'List'}
 					<div class="flex flex-col gap-2">
 						{#each databaseItems as item (item.id)}
 							<button
@@ -1185,7 +1168,7 @@
 							</button>
 						{/each}
 					</div>
-				{:else if activeView?.type === "Calendar"}
+				{:else if activeView?.type === 'Calendar'}
 					<div class="grid gap-2 md:grid-cols-3">
 						{#each databaseItems as item (item.id)}
 							<button
@@ -1199,7 +1182,7 @@
 							</button>
 						{/each}
 					</div>
-				{:else if activeView?.type === "Gallery"}
+				{:else if activeView?.type === 'Gallery'}
 					<div class="grid gap-3 md:grid-cols-3">
 						{#each databaseItems as item (item.id)}
 							<button
@@ -1214,9 +1197,9 @@
 										<Avatar.Root class="h-5 w-5">
 											<Avatar.Fallback class="text-[10px]">
 												{item.owner
-													.split(" ")
+													.split(' ')
 													.map((part) => part[0])
-													.join("")
+													.join('')
 													.slice(0, 2)}
 											</Avatar.Fallback>
 										</Avatar.Root>
@@ -1228,11 +1211,11 @@
 							</button>
 						{/each}
 					</div>
-				{:else if activeView?.type === "Timeline"}
+				{:else if activeView?.type === 'Timeline'}
 					<div class="flex flex-col gap-3">
 						{#each databaseItems as item (item.id)}
 							<div class="flex items-start gap-3">
-								<div class="text-xs text-muted-foreground w-24">{item.date}</div>
+								<div class="w-24 text-xs text-muted-foreground">{item.date}</div>
 								<button
 									type="button"
 									class="flex-1 rounded-lg border border-border px-3 py-2 text-left hover:bg-muted/40"
@@ -1247,42 +1230,36 @@
 				{/if}
 			</section>
 
-			<section class="flex flex-col gap-3 py-4 w-full bg-background rounded-lg">
-				<div class="flex flex-row gap-2 items-center w-full">
+			<section class="flex w-full flex-col gap-3 rounded-lg bg-background py-4">
+				<div class="flex w-full flex-row items-center gap-2">
 					<span class="font-medium text-nowrap">Discussion</span>
 					<Separator></Separator>
 				</div>
 				<div class="flex flex-col gap-3">
 					{#each discussion as message (message.id)}
-						<div class={`flex ${message.author === owner ? "justify-end" : "justify-start"}`}>
+						<div class={`flex ${message.author === owner ? 'justify-end' : 'justify-start'}`}>
 							<div class="max-w-[70%] rounded-2xl border border-border px-3 py-2 text-sm">
 								<div class="flex items-center gap-2 text-xs text-muted-foreground">
 									<Avatar.Root class="h-5 w-5">
 										<Avatar.Fallback class="text-[10px]">
 											{message.author
-												.split(" ")
+												.split(' ')
 												.map((part) => part[0])
-												.join("")
+												.join('')
 												.slice(0, 2)}
 										</Avatar.Fallback>
 									</Avatar.Root>
 									<span>{message.author}</span>
 								</div>
 								<div>{message.message}</div>
-								<div class="text-[10px] text-muted-foreground text-right">{message.time}</div>
+								<div class="text-right text-[10px] text-muted-foreground">{message.time}</div>
 							</div>
 						</div>
 					{/each}
 				</div>
 				<div class="flex items-center gap-2">
-					<Input
-						placeholder="Write a reply..."
-						bind:value={newMessage}
-						disabled={isReadOnly}
-					/>
-					<Button size="sm" disabled={isReadOnly} onclick={sendMessage}>
-						Send
-					</Button>
+					<Input placeholder="Write a reply..." bind:value={newMessage} disabled={isReadOnly} />
+					<Button size="sm" disabled={isReadOnly} onclick={sendMessage}>Send</Button>
 				</div>
 			</section>
 		</div>
@@ -1293,9 +1270,7 @@
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>Add a block</Dialog.Title>
-			<Dialog.Description>
-				Choose a block type to insert into this page.
-			</Dialog.Description>
+			<Dialog.Description>Choose a block type to insert into this page.</Dialog.Description>
 		</Dialog.Header>
 		<div class="grid gap-2">
 			{#each blockOptions as option (option.type)}
@@ -1310,9 +1285,7 @@
 			{/each}
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-				Cancel
-			</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
@@ -1353,7 +1326,7 @@
 			</div>
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 			<Button class={buttonVariants()} onclick={confirmNewItem} disabled={!newItemTitle.trim()}>
 				Add item
 			</Button>
@@ -1364,7 +1337,7 @@
 <Dialog.Root bind:open={galleryOpen}>
 	<Dialog.Content class="max-w-2xl">
 		<Dialog.Header>
-			<Dialog.Title>{activeGalleryItem?.title || "Page"}</Dialog.Title>
+			<Dialog.Title>{activeGalleryItem?.title || 'Page'}</Dialog.Title>
 			<Dialog.Description>Gallery item document</Dialog.Description>
 		</Dialog.Header>
 		{#if activeGalleryItem}
@@ -1375,13 +1348,21 @@
 						id="edit-item-title"
 						bind:value={activeGalleryItem.title}
 						disabled={isReadOnly}
-						oninput={(event) => updateDatabaseItem(activeGalleryItem.id, { title: event.currentTarget.value })}
+						oninput={(event) =>
+							updateDatabaseItem(activeGalleryItem.id, { title: event.currentTarget.value })}
 					/>
 				</div>
 				<div class="grid gap-2 md:grid-cols-2">
 					<div class="grid gap-2">
 						<Label for="edit-item-status">Status</Label>
-						<Select.Root type="single" value={activeGalleryItem.status} onValueChange={(value) => updateDatabaseItem(activeGalleryItem.id, { status: value as DatabaseItem["status"] })}>
+						<Select.Root
+							type="single"
+							value={activeGalleryItem.status}
+							onValueChange={(value) =>
+								updateDatabaseItem(activeGalleryItem.id, {
+									status: value as DatabaseItem['status']
+								})}
+						>
 							<Select.Trigger id="edit-item-status">{activeGalleryItem.status}</Select.Trigger>
 							<Select.Content>
 								<Select.Item value="Backlog" label="Backlog">Backlog</Select.Item>
@@ -1392,17 +1373,36 @@
 					</div>
 					<div class="grid gap-2">
 						<Label for="edit-item-date">Date</Label>
-						<Input id="edit-item-date" type="date" value={activeGalleryItem.date} disabled={isReadOnly} oninput={(event) => updateDatabaseItem(activeGalleryItem.id, { date: event.currentTarget.value })} />
+						<Input
+							id="edit-item-date"
+							type="date"
+							value={activeGalleryItem.date}
+							disabled={isReadOnly}
+							oninput={(event) =>
+								updateDatabaseItem(activeGalleryItem.id, { date: event.currentTarget.value })}
+						/>
 					</div>
 				</div>
 				<div class="grid gap-2 md:grid-cols-2">
 					<div class="grid gap-2">
 						<Label for="edit-item-owner">Owner</Label>
-						<Input id="edit-item-owner" value={activeGalleryItem.owner} disabled={isReadOnly} oninput={(event) => updateDatabaseItem(activeGalleryItem.id, { owner: event.currentTarget.value })} />
+						<Input
+							id="edit-item-owner"
+							value={activeGalleryItem.owner}
+							disabled={isReadOnly}
+							oninput={(event) =>
+								updateDatabaseItem(activeGalleryItem.id, { owner: event.currentTarget.value })}
+						/>
 					</div>
 					<div class="grid gap-2">
 						<Label for="edit-item-tag">Tag</Label>
-						<Input id="edit-item-tag" value={activeGalleryItem.tag} disabled={isReadOnly} oninput={(event) => updateDatabaseItem(activeGalleryItem.id, { tag: event.currentTarget.value })} />
+						<Input
+							id="edit-item-tag"
+							value={activeGalleryItem.tag}
+							disabled={isReadOnly}
+							oninput={(event) =>
+								updateDatabaseItem(activeGalleryItem.id, { tag: event.currentTarget.value })}
+						/>
 					</div>
 				</div>
 				<Input
@@ -1410,7 +1410,7 @@
 					disabled={isReadOnly}
 					oninput={(event) =>
 						updateDatabaseItem(activeGalleryItem.id, {
-							docHeading: event.currentTarget.value,
+							docHeading: event.currentTarget.value
 						})}
 					class="text-xl font-semibold"
 				/>
@@ -1419,14 +1419,14 @@
 					disabled={isReadOnly}
 					oninput={(event) =>
 						updateDatabaseItem(activeGalleryItem.id, {
-							docBody: event.currentTarget.value,
+							docBody: event.currentTarget.value
 						})}
 					class="min-h-40"
 				/>
 			</div>
 		{/if}
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Close</Dialog.Close>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
@@ -1438,7 +1438,7 @@
 			<Dialog.Description>{viewWarningMessage}</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Close</Dialog.Close>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
@@ -1454,12 +1454,14 @@
 			<Input id="rename-column" bind:value={renameColumnValue} />
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button class={buttonVariants()} onclick={confirmRenameColumn} disabled={!renameColumnValue.trim()}>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
+			<Button
+				class={buttonVariants()}
+				onclick={confirmRenameColumn}
+				disabled={!renameColumnValue.trim()}
+			>
 				Save
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
-
-

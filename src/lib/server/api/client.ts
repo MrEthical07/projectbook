@@ -1,5 +1,5 @@
-import type { RequestEvent } from "@sveltejs/kit";
-import { z } from "zod";
+import type { RequestEvent } from '@sveltejs/kit';
+import { z } from 'zod';
 import {
 	clearPermissionContextCookie,
 	clearApiAuthTokenCookies,
@@ -8,31 +8,30 @@ import {
 	getRefreshTokenCookie,
 	setPermissionContextRevalidateCooldownCookie,
 	setApiAuthTokenCookies
-} from "$lib/server/auth/cookies";
-import { buildApiUrl, resolveBackendApiBaseUrl } from "./config";
-import type { SessionContextResponse } from "./auth";
-import { createApiRequestError, isApiRequestError } from "./error-mapping";
+} from '$lib/server/auth/cookies';
+import { buildApiUrl, resolveBackendApiBaseUrl } from './config';
+import type { SessionContextResponse } from './auth';
+import { createApiRequestError, isApiRequestError } from './error-mapping';
 
 const SENSITIVE_HINTS = [
-	"password",
-	"token",
-	"secret",
-	"authorization",
-	"cookie",
-	"session",
-	"apikey",
-	"api_key"
+	'password',
+	'token',
+	'secret',
+	'authorization',
+	'cookie',
+	'session',
+	'apikey',
+	'api_key'
 ];
 
-const ANSI_BLUE = "\x1b[34m";
-const ANSI_RESET = "\x1b[0m";
+const ANSI_BLUE = '\x1b[34m';
+const ANSI_RESET = '\x1b[0m';
 
 const resolvedMethod = (options: ApiRequestOptions): string =>
-	options.method ??
-	(options.body === undefined && options.rawBody === undefined ? "GET" : "POST");
+	options.method ?? (options.body === undefined && options.rawBody === undefined ? 'GET' : 'POST');
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-	Boolean(value) && typeof value === "object" && !Array.isArray(value);
+	Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 const keyLooksSensitive = (key: string): boolean => {
 	const normalized = key.toLowerCase();
@@ -49,15 +48,12 @@ const redactForLog = (value: unknown): unknown => {
 
 	const output: Record<string, unknown> = {};
 	for (const [key, fieldValue] of Object.entries(value)) {
-		output[key] = keyLooksSensitive(key) ? "[REDACTED]" : redactForLog(fieldValue);
+		output[key] = keyLooksSensitive(key) ? '[REDACTED]' : redactForLog(fieldValue);
 	}
 	return output;
 };
 
-const logRefreshRotation = (
-	message: string,
-	details?: Record<string, unknown>
-): void => {
+const logRefreshRotation = (message: string, details?: Record<string, unknown>): void => {
 	console.info(
 		`${ANSI_BLUE}[auth:refresh] ${message}${ANSI_RESET}`,
 		details ? redactForLog(details) : undefined
@@ -65,20 +61,20 @@ const logRefreshRotation = (
 };
 
 const logAuthFlow = (details: {
-	stage: "refresh_attempt" | "refresh_dedupe" | "ensure_authenticated";
-	outcome: "success" | "invalid" | "retryable";
+	stage: 'refresh_attempt' | 'refresh_dedupe' | 'ensure_authenticated';
+	outcome: 'success' | 'invalid' | 'retryable';
 	retry: boolean;
 	status_code?: number;
 	reason?: string;
-	source?: "local" | "shared" | "origin";
+	source?: 'local' | 'shared' | 'origin';
 }): void => {
-	console.info("[auth:flow]", redactForLog(details));
+	console.info('[auth:flow]', redactForLog(details));
 };
 
 const headersForLog = (headers: Headers): Record<string, string> => {
 	const output: Record<string, string> = {};
 	for (const [key, value] of headers.entries()) {
-		output[key] = keyLooksSensitive(key) ? "[REDACTED]" : value;
+		output[key] = keyLooksSensitive(key) ? '[REDACTED]' : value;
 	}
 	return output;
 };
@@ -87,7 +83,7 @@ const bodyForLog = (options: ApiRequestOptions): unknown => {
 	if (options.rawBody !== undefined) {
 		const raw = options.rawBody.trim();
 		if (raw.length === 0) {
-			return "";
+			return '';
 		}
 		try {
 			return redactForLog(JSON.parse(raw));
@@ -104,7 +100,7 @@ const logApiRequest = (
 	headers: Headers,
 	origin: string
 ): void => {
-	console.info("[api:request]", {
+	console.info('[api:request]', {
 		origin,
 		method: resolvedMethod(options),
 		path: options.path,
@@ -122,7 +118,7 @@ const logApiResponse = <TData>(
 	envelope: ApiEnvelope<TData> | null,
 	durationMs: number
 ): void => {
-	console.info("[api:response]", {
+	console.info('[api:response]', {
 		method: resolvedMethod(options),
 		path: options.path,
 		url,
@@ -141,7 +137,7 @@ const logApiError = (
 	err: unknown,
 	extra?: Record<string, unknown>
 ): void => {
-	console.error("[api:error]", {
+	console.error('[api:error]', {
 		context,
 		method: resolvedMethod(options),
 		path: options.path,
@@ -184,7 +180,7 @@ const apiEnvelopeSchema = z
 	.strict();
 
 type ParsedApiEnvelope = z.infer<typeof apiEnvelopeSchema>;
-type ApiEnvelope<T> = Omit<ParsedApiEnvelope, "data"> & {
+type ApiEnvelope<T> = Omit<ParsedApiEnvelope, 'data'> & {
 	data?: T;
 };
 
@@ -193,27 +189,27 @@ const parseApiEnvelope = <TData>(
 	statusCode: number,
 	options: ApiRequestOptions
 ): ApiEnvelope<TData> => {
-	if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "API response violated envelope contract.",
+			fallbackReason: 'API response violated envelope contract.',
 			details: {
 				path: options.path,
 				status_code: statusCode,
-				reason: "envelope must be a JSON object"
+				reason: 'envelope must be a JSON object'
 			}
 		});
 	}
 
 	const candidate = payload as Record<string, unknown>;
-	if (Object.prototype.hasOwnProperty.call(candidate, "requestId")) {
+	if (Object.prototype.hasOwnProperty.call(candidate, 'requestId')) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "API response violated envelope contract.",
+			fallbackReason: 'API response violated envelope contract.',
 			details: {
 				path: options.path,
 				status_code: statusCode,
-				reason: "legacy requestId field is not allowed"
+				reason: 'legacy requestId field is not allowed'
 			}
 		});
 	}
@@ -222,7 +218,7 @@ const parseApiEnvelope = <TData>(
 	if (!parsed.success) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "API response violated envelope contract.",
+			fallbackReason: 'API response violated envelope contract.',
 			details: {
 				path: options.path,
 				status_code: statusCode,
@@ -235,55 +231,55 @@ const parseApiEnvelope = <TData>(
 	if (envelope.success && envelope.error !== undefined) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "API response violated envelope contract.",
+			fallbackReason: 'API response violated envelope contract.',
 			details: {
 				path: options.path,
 				status_code: statusCode,
-				reason: "success response cannot include error payload"
+				reason: 'success response cannot include error payload'
 			}
 		});
 	}
 	if (!envelope.success && envelope.error === undefined) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "API response violated envelope contract.",
+			fallbackReason: 'API response violated envelope contract.',
 			details: {
 				path: options.path,
 				status_code: statusCode,
-				reason: "failed response must include error payload"
+				reason: 'failed response must include error payload'
 			}
 		});
 	}
 	if (!envelope.success && envelope.data !== undefined) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "API response violated envelope contract.",
+			fallbackReason: 'API response violated envelope contract.',
 			details: {
 				path: options.path,
 				status_code: statusCode,
-				reason: "failed response cannot include data payload"
+				reason: 'failed response cannot include data payload'
 			}
 		});
 	}
 	if (statusCode < 400 && !envelope.success) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "API response violated envelope contract.",
+			fallbackReason: 'API response violated envelope contract.',
 			details: {
 				path: options.path,
 				status_code: statusCode,
-				reason: "success HTTP status cannot return success=false"
+				reason: 'success HTTP status cannot return success=false'
 			}
 		});
 	}
 	if (statusCode >= 400 && envelope.success) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "API response violated envelope contract.",
+			fallbackReason: 'API response violated envelope contract.',
 			details: {
 				path: options.path,
 				status_code: statusCode,
-				reason: "error HTTP status cannot return success=true"
+				reason: 'error HTTP status cannot return success=true'
 			}
 		});
 	}
@@ -292,7 +288,7 @@ const parseApiEnvelope = <TData>(
 };
 
 const ACCESS_TOKEN_REFRESH_BUFFER_SECONDS = 45;
-const REFRESH_PROMISE_LOCAL_KEY = "__projectbook_refresh_promise";
+const REFRESH_PROMISE_LOCAL_KEY = '__projectbook_refresh_promise';
 
 export type ApiAuthTokenSet = {
 	accessToken: string;
@@ -302,15 +298,15 @@ export type ApiAuthTokenSet = {
 
 export type RefreshOutcome =
 	| {
-			type: "success";
+			type: 'success';
 			tokens: ApiAuthTokenSet;
 			session?: SessionContextResponse;
 	  }
 	| {
-			type: "invalid";
+			type: 'invalid';
 	  }
 	| {
-			type: "retryable";
+			type: 'retryable';
 	  };
 
 export type EnsureAuthResult = {
@@ -324,7 +320,7 @@ const refreshPromiseByToken = new Map<string, Promise<RefreshOutcome>>();
 
 export type ApiRequestOptions<TBody = unknown> = {
 	path: string;
-	method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+	method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 	body?: TBody;
 	rawBody?: string;
 	headers?: HeadersInit;
@@ -333,8 +329,8 @@ export type ApiRequestOptions<TBody = unknown> = {
 };
 
 const parseJsonSafe = async <T>(response: Response): Promise<T | null> => {
-	const contentType = response.headers.get("content-type") ?? "";
-	if (!contentType.toLowerCase().includes("application/json")) {
+	const contentType = response.headers.get('content-type') ?? '';
+	if (!contentType.toLowerCase().includes('application/json')) {
 		return null;
 	}
 	try {
@@ -344,24 +340,24 @@ const parseJsonSafe = async <T>(response: Response): Promise<T | null> => {
 	}
 };
 
-const buildRequestHeaders = (
-	options: ApiRequestOptions,
-	accessToken?: string | null
-): Headers => {
+const buildRequestHeaders = (options: ApiRequestOptions, accessToken?: string | null): Headers => {
 	const headers = new Headers(options.headers ?? {});
-	headers.set("User-Agent", "projectbook-server");
-	headers.set("Accept", "application/json");
-	if ((options.body !== undefined || options.rawBody !== undefined) && !headers.has("Content-Type")) {
-		headers.set("Content-Type", "application/json");
+	headers.set('User-Agent', 'projectbook-server');
+	headers.set('Accept', 'application/json');
+	if (
+		(options.body !== undefined || options.rawBody !== undefined) &&
+		!headers.has('Content-Type')
+	) {
+		headers.set('Content-Type', 'application/json');
 	}
 	if (options.auth !== false && accessToken) {
-		headers.set("Authorization", `Bearer ${accessToken}`);
+		headers.set('Authorization', `Bearer ${accessToken}`);
 	}
 	return headers;
 };
 
 const parseDateFromUnix = (value: unknown): Date | null => {
-	if (typeof value !== "number" || !Number.isFinite(value)) {
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
 		return null;
 	}
 	const parsed = new Date(value * 1000);
@@ -369,18 +365,16 @@ const parseDateFromUnix = (value: unknown): Date | null => {
 };
 
 const decodeJwtExpiryUnix = (token: string): number | null => {
-	const parts = token.split(".");
+	const parts = token.split('.');
 	if (parts.length < 2) {
 		return null;
 	}
 	try {
-		const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-		const padded = payloadBase64 + "=".repeat((4 - (payloadBase64.length % 4)) % 4);
+		const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+		const padded = payloadBase64 + '='.repeat((4 - (payloadBase64.length % 4)) % 4);
 		const decoded = globalThis.atob(padded);
 		const payload = JSON.parse(decoded) as { exp?: unknown };
-		return typeof payload.exp === "number" && Number.isFinite(payload.exp)
-			? payload.exp
-			: null;
+		return typeof payload.exp === 'number' && Number.isFinite(payload.exp) ? payload.exp : null;
 	} catch {
 		return null;
 	}
@@ -396,19 +390,19 @@ const isAccessTokenValidForRequest = (token: string): boolean => {
 };
 
 const envelopeErrorCode = <TData>(envelope: ApiEnvelope<TData> | null): string => {
-	if (!envelope?.error || typeof envelope.error !== "object") {
-		return "";
+	if (!envelope?.error || typeof envelope.error !== 'object') {
+		return '';
 	}
 	const code = (envelope.error as { code?: unknown }).code;
-	return typeof code === "string" ? code.trim().toLowerCase() : "";
+	return typeof code === 'string' ? code.trim().toLowerCase() : '';
 };
 
 const envelopeErrorMessage = <TData>(envelope: ApiEnvelope<TData> | null): string => {
-	if (!envelope?.error || typeof envelope.error !== "object") {
-		return "";
+	if (!envelope?.error || typeof envelope.error !== 'object') {
+		return '';
 	}
 	const message = (envelope.error as { message?: unknown }).message;
-	return typeof message === "string" ? message.trim().toLowerCase() : "";
+	return typeof message === 'string' ? message.trim().toLowerCase() : '';
 };
 
 const shouldClearOnRefreshFailure = <TData>(
@@ -421,11 +415,11 @@ const shouldClearOnRefreshFailure = <TData>(
 	if (statusCode !== 403) {
 		return false;
 	}
-	if (envelopeErrorCode(envelope) !== "forbidden") {
+	if (envelopeErrorCode(envelope) !== 'forbidden') {
 		return false;
 	}
 	const message = envelopeErrorMessage(envelope);
-	return message.includes("authentication state rejected");
+	return message.includes('authentication state rejected');
 };
 
 const isRetryableRefreshStatus = (statusCode: number): boolean =>
@@ -440,7 +434,7 @@ const isSessionContextResponse = (value: unknown): value is SessionContextRespon
 	if (!isPlainObject(value)) {
 		return false;
 	}
-	if (typeof value.user_id !== "string" || value.user_id.trim().length === 0) {
+	if (typeof value.user_id !== 'string' || value.user_id.trim().length === 0) {
 		return false;
 	}
 	return Array.isArray(value.project_permissions);
@@ -476,15 +470,15 @@ const shouldInvalidatePermissionContext = <TData>(
 		return false;
 	}
 	const code = envelopeErrorCode(envelope);
-	return code === "forbidden" || code === "permission_denied";
+	return code === 'forbidden' || code === 'permission_denied';
 };
 
 const readRefreshPromise = (event: RequestEvent): Promise<RefreshOutcome> | null => {
 	const candidate = event.locals[REFRESH_PROMISE_LOCAL_KEY];
-	if (!candidate || typeof candidate !== "object") {
+	if (!candidate || typeof candidate !== 'object') {
 		return null;
 	}
-	if (typeof (candidate as Promise<RefreshOutcome>).then !== "function") {
+	if (typeof (candidate as Promise<RefreshOutcome>).then !== 'function') {
 		return null;
 	}
 	return candidate as Promise<RefreshOutcome>;
@@ -494,13 +488,13 @@ const applyRefreshOutcome = (
 	event: RequestEvent,
 	outcome: RefreshOutcome,
 	canWriteCookies: boolean,
-	source: "local" | "shared" | "origin",
+	source: 'local' | 'shared' | 'origin',
 	previousRefreshToken?: string
 ): RefreshOutcome => {
-	if (outcome.type === "invalid") {
+	if (outcome.type === 'invalid') {
 		if (canWriteCookies) {
 			clearApiAuthTokenCookies(event.cookies);
-			logRefreshRotation("refresh token invalid; cleared access and refresh cookies", {
+			logRefreshRotation('refresh token invalid; cleared access and refresh cookies', {
 				source,
 				new_access_cookie_created: false,
 				new_refresh_cookie_created: false
@@ -509,7 +503,7 @@ const applyRefreshOutcome = (
 		return outcome;
 	}
 
-	if (outcome.type === "success" && canWriteCookies) {
+	if (outcome.type === 'success' && canWriteCookies) {
 		setApiAuthTokenCookies(
 			event.cookies,
 			{
@@ -520,12 +514,12 @@ const applyRefreshOutcome = (
 			false,
 			{ clearPermissionContext: false }
 		);
-		logRefreshRotation("new access and refresh cookies created after refresh", {
+		logRefreshRotation('new access and refresh cookies created after refresh', {
 			source,
 			new_access_cookie_created: true,
 			new_refresh_cookie_created: true,
 			refresh_rotated:
-				typeof previousRefreshToken === "string"
+				typeof previousRefreshToken === 'string'
 					? outcome.tokens.refreshToken !== previousRefreshToken
 					: undefined,
 			access_expires_at_utc:
@@ -539,15 +533,13 @@ const applyRefreshOutcome = (
 };
 
 export const extractApiAuthTokens = (payload: unknown): ApiAuthTokenSet | null => {
-	if (!payload || typeof payload !== "object") {
+	if (!payload || typeof payload !== 'object') {
 		return null;
 	}
 
 	const candidate = payload as Record<string, unknown>;
-	const accessToken =
-		typeof candidate.access_token === "string" ? candidate.access_token : null;
-	const refreshToken =
-		typeof candidate.refresh_token === "string" ? candidate.refresh_token : null;
+	const accessToken = typeof candidate.access_token === 'string' ? candidate.access_token : null;
+	const refreshToken = typeof candidate.refresh_token === 'string' ? candidate.refresh_token : null;
 	const accessExpiresAt = parseDateFromUnix(candidate.access_expires_unix);
 
 	if (!accessToken || !refreshToken || !accessExpiresAt) {
@@ -569,10 +561,10 @@ const executeRequest = async <TData, TBody>(
 	const baseUrl = resolveBackendApiBaseUrl(event.url.origin);
 	const url = buildApiUrl(baseUrl, options.path);
 	const method = resolvedMethod(options);
-	if (method === "DELETE" && (options.body !== undefined || options.rawBody !== undefined)) {
+	if (method === 'DELETE' && (options.body !== undefined || options.rawBody !== undefined)) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "DELETE requests must not include a body.",
+			fallbackReason: 'DELETE requests must not include a body.',
 			details: {
 				path: options.path,
 				method
@@ -595,13 +587,13 @@ const executeRequest = async <TData, TBody>(
 						: JSON.stringify(options.body)
 		});
 	} catch (err) {
-		logApiError(url, options, "fetch", err, {
+		logApiError(url, options, 'fetch', err, {
 			statusCode: 503,
 			cause: err instanceof Error ? err.message : String(err)
 		});
 		throw createApiRequestError({
 			statusCode: 503,
-			fallbackReason: "Unable to reach API service.",
+			fallbackReason: 'Unable to reach API service.',
 			details: {
 				path: options.path,
 				method,
@@ -625,103 +617,100 @@ const performRefreshAttempt = async (
 	let envelope: ApiEnvelope<unknown> | null;
 
 	try {
-		const refreshResult = await executeRequest<unknown, { refresh_token: string }>(
-			event,
-			{
-				path: "/auth/refresh",
-				method: "POST",
-				auth: false,
-				body: {
-					refresh_token: refreshToken
-				}
+		const refreshResult = await executeRequest<unknown, { refresh_token: string }>(event, {
+			path: '/auth/refresh',
+			method: 'POST',
+			auth: false,
+			body: {
+				refresh_token: refreshToken
 			}
-		);
+		});
 		response = refreshResult.response;
 		envelope = refreshResult.envelope;
 	} catch (err) {
 		if (isApiRequestError(err)) {
 			logAuthFlow({
-				stage: "refresh_attempt",
-				outcome: "retryable",
+				stage: 'refresh_attempt',
+				outcome: 'retryable',
 				retry,
 				status_code: err.statusCode,
 				reason: err.reason
 			});
-			return { type: "retryable" };
+			return { type: 'retryable' };
 		}
 
 		logAuthFlow({
-			stage: "refresh_attempt",
-			outcome: "retryable",
+			stage: 'refresh_attempt',
+			outcome: 'retryable',
 			retry,
 			reason: err instanceof Error ? err.message : String(err)
 		});
-		return { type: "retryable" };
+		return { type: 'retryable' };
 	}
 
 	if (!response.ok) {
 		if (shouldClearOnRefreshFailure(response.status, envelope)) {
 			logAuthFlow({
-				stage: "refresh_attempt",
-				outcome: "invalid",
+				stage: 'refresh_attempt',
+				outcome: 'invalid',
 				retry,
 				status_code: response.status
 			});
-			return { type: "invalid" };
+			return { type: 'invalid' };
 		}
 
 		if (isRetryableRefreshStatus(response.status)) {
 			logAuthFlow({
-				stage: "refresh_attempt",
-				outcome: "retryable",
+				stage: 'refresh_attempt',
+				outcome: 'retryable',
 				retry,
 				status_code: response.status
 			});
-			return { type: "retryable" };
+			return { type: 'retryable' };
 		}
 
 		logAuthFlow({
-			stage: "refresh_attempt",
-			outcome: "retryable",
+			stage: 'refresh_attempt',
+			outcome: 'retryable',
 			retry,
 			status_code: response.status,
-			reason: "non-invalid refresh failure treated as transient"
+			reason: 'non-invalid refresh failure treated as transient'
 		});
-		return { type: "retryable" };
+		return { type: 'retryable' };
 	}
 
 	if (!envelope || envelope.success !== true || envelope.data === undefined) {
 		logAuthFlow({
-			stage: "refresh_attempt",
-			outcome: "retryable",
+			stage: 'refresh_attempt',
+			outcome: 'retryable',
 			retry,
 			status_code: response.status,
-			reason: "refresh response was incomplete"
+			reason: 'refresh response was incomplete'
 		});
-		return { type: "retryable" };
+		return { type: 'retryable' };
 	}
 
 	const nextTokens = extractApiAuthTokens(envelope.data);
 	if (!nextTokens) {
 		logAuthFlow({
-			stage: "refresh_attempt",
-			outcome: "retryable",
+			stage: 'refresh_attempt',
+			outcome: 'retryable',
 			retry,
 			status_code: response.status,
-			reason: "refresh response missing tokens"
+			reason: 'refresh response missing tokens'
 		});
-		return { type: "retryable" };
+		return { type: 'retryable' };
 	}
 
 	logAuthFlow({
-		stage: "refresh_attempt",
-		outcome: "success",
+		stage: 'refresh_attempt',
+		outcome: 'success',
 		retry,
 		status_code: response.status
 	});
 
 	return {
-		type: "success",
+		type: 'success',
 		tokens: nextTokens,
 		session: extractRefreshSessionContext(envelope.data)
 	};
@@ -737,28 +726,28 @@ const refreshAccessToken = async (
 	const pendingRefresh = readRefreshPromise(event);
 	if (pendingRefresh) {
 		const outcome = await pendingRefresh;
-		return applyRefreshOutcome(event, outcome, canWriteCookies, "local");
+		return applyRefreshOutcome(event, outcome, canWriteCookies, 'local');
 	}
 	const refreshToken = getRefreshTokenCookie(event.cookies);
 	if (!refreshToken) {
-		return applyRefreshOutcome(event, { type: "invalid" }, canWriteCookies, "origin");
+		return applyRefreshOutcome(event, { type: 'invalid' }, canWriteCookies, 'origin');
 	}
 
 	const sharedRefreshPromise = refreshPromiseByToken.get(refreshToken);
 	if (sharedRefreshPromise) {
-		logRefreshRotation("waiting for in-flight rotation", {
-			dedupe_scope: "cross-request"
+		logRefreshRotation('waiting for in-flight rotation', {
+			dedupe_scope: 'cross-request'
 		});
 		event.locals[REFRESH_PROMISE_LOCAL_KEY] = sharedRefreshPromise;
 		try {
 			const outcome = await sharedRefreshPromise;
 			logAuthFlow({
-				stage: "refresh_dedupe",
+				stage: 'refresh_dedupe',
 				outcome: outcome.type,
 				retry: false,
-				source: "shared"
+				source: 'shared'
 			});
-			return applyRefreshOutcome(event, outcome, canWriteCookies, "shared", refreshToken);
+			return applyRefreshOutcome(event, outcome, canWriteCookies, 'shared', refreshToken);
 		} finally {
 			delete event.locals[REFRESH_PROMISE_LOCAL_KEY];
 		}
@@ -766,7 +755,7 @@ const refreshAccessToken = async (
 
 	const refreshPromise = (async (): Promise<RefreshOutcome> => {
 		const firstAttempt = await performRefreshAttempt(event, refreshToken, false);
-		if (firstAttempt.type !== "retryable") {
+		if (firstAttempt.type !== 'retryable') {
 			return firstAttempt;
 		}
 
@@ -777,7 +766,7 @@ const refreshAccessToken = async (
 	refreshPromiseByToken.set(refreshToken, refreshPromise);
 	try {
 		const outcome = await refreshPromise;
-		return applyRefreshOutcome(event, outcome, canWriteCookies, "origin", refreshToken);
+		return applyRefreshOutcome(event, outcome, canWriteCookies, 'origin', refreshToken);
 	} finally {
 		delete event.locals[REFRESH_PROMISE_LOCAL_KEY];
 		if (refreshPromiseByToken.get(refreshToken) === refreshPromise) {
@@ -807,17 +796,17 @@ export const ensureAuthenticated = async (
 			clearApiAuthTokenCookies(event.cookies);
 		}
 		logAuthFlow({
-			stage: "ensure_authenticated",
-			outcome: "invalid",
+			stage: 'ensure_authenticated',
+			outcome: 'invalid',
 			retry: false,
-			reason: "refresh token missing"
+			reason: 'refresh token missing'
 		});
 		return {
 			authenticated: false
 		};
 	}
 
-	logRefreshRotation("access token missing/expired; refreshing before request", {
+	logRefreshRotation('access token missing/expired; refreshing before request', {
 		preflight: true
 	});
 
@@ -825,10 +814,10 @@ export const ensureAuthenticated = async (
 		allowCookieWrites: canWriteCookies
 	});
 
-	if (refreshOutcome.type === "success") {
+	if (refreshOutcome.type === 'success') {
 		logAuthFlow({
-			stage: "ensure_authenticated",
-			outcome: "success",
+			stage: 'ensure_authenticated',
+			outcome: 'success',
 			retry: false
 		});
 		return {
@@ -838,10 +827,10 @@ export const ensureAuthenticated = async (
 		};
 	}
 
-	if (refreshOutcome.type === "invalid") {
+	if (refreshOutcome.type === 'invalid') {
 		logAuthFlow({
-			stage: "ensure_authenticated",
-			outcome: "invalid",
+			stage: 'ensure_authenticated',
+			outcome: 'invalid',
 			retry: false
 		});
 		return {
@@ -850,10 +839,10 @@ export const ensureAuthenticated = async (
 	}
 
 	logAuthFlow({
-		stage: "ensure_authenticated",
-		outcome: "retryable",
+		stage: 'ensure_authenticated',
+		outcome: 'retryable',
 		retry: true,
-		reason: "refresh unavailable after one retry"
+		reason: 'refresh unavailable after one retry'
 	});
 	return {
 		authenticated: false,
@@ -864,9 +853,7 @@ export const ensureAuthenticated = async (
 const authFailureError = (transient: boolean) =>
 	createApiRequestError({
 		statusCode: transient ? 503 : 401,
-		fallbackReason: transient
-			? "authentication temporarily unavailable"
-			: "authentication required"
+		fallbackReason: transient ? 'authentication temporarily unavailable' : 'authentication required'
 	});
 
 export const apiRequest = async <TData, TBody = unknown>(
@@ -884,7 +871,7 @@ export const apiRequest = async <TData, TBody = unknown>(
 		});
 		if (!auth.authenticated) {
 			const apiError = authFailureError(auth.transient === true);
-			logApiError(url, options, "preflight-auth-failed", apiError, {
+			logApiError(url, options, 'preflight-auth-failed', apiError, {
 				statusCode: auth.transient === true ? 503 : 401,
 				transient: auth.transient === true
 			});
@@ -894,9 +881,9 @@ export const apiRequest = async <TData, TBody = unknown>(
 		if (!auth.accessToken) {
 			const apiError = createApiRequestError({
 				statusCode: 500,
-				fallbackReason: "authentication state missing access token"
+				fallbackReason: 'authentication state missing access token'
 			});
-			logApiError(url, options, "missing-access-after-preflight", apiError, {
+			logApiError(url, options, 'missing-access-after-preflight', apiError, {
 				statusCode: 500
 			});
 			throw apiError;
@@ -922,7 +909,7 @@ export const apiRequest = async <TData, TBody = unknown>(
 			envelope,
 			fallbackReason: response.statusText
 		});
-		logApiError(url, options, "response-not-ok", apiError, {
+		logApiError(url, options, 'response-not-ok', apiError, {
 			statusCode: response.status,
 			envelope
 		});
@@ -933,9 +920,9 @@ export const apiRequest = async <TData, TBody = unknown>(
 		const apiError = createApiRequestError({
 			statusCode: response.status,
 			envelope,
-			fallbackReason: "Request failed."
+			fallbackReason: 'Request failed.'
 		});
-		logApiError(url, options, "envelope-failed", apiError, {
+		logApiError(url, options, 'envelope-failed', apiError, {
 			statusCode: response.status,
 			envelope
 		});
@@ -950,9 +937,9 @@ export const apiRequest = async <TData, TBody = unknown>(
 		const apiError = createApiRequestError({
 			statusCode: 500,
 			envelope,
-			fallbackReason: "Response payload is missing data."
+			fallbackReason: 'Response payload is missing data.'
 		});
-		logApiError(url, options, "missing-data", apiError, {
+		logApiError(url, options, 'missing-data', apiError, {
 			statusCode: 500,
 			envelope
 		});

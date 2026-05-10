@@ -1,12 +1,12 @@
-import { randomUUID } from "node:crypto";
-import type { Handle, RequestEvent } from "@sveltejs/kit";
+import { randomUUID } from 'node:crypto';
+import type { Handle, RequestEvent } from '@sveltejs/kit';
 import {
 	sessionContextRequest,
 	type SessionContextProjectPermission,
 	type SessionContextResponse
-} from "$lib/server/api/auth";
-import { ensureAuthenticated } from "$lib/server/api/client";
-import { isApiRequestError } from "$lib/server/api/error-mapping";
+} from '$lib/server/api/auth';
+import { ensureAuthenticated } from '$lib/server/api/client';
+import { isApiRequestError } from '$lib/server/api/error-mapping';
 import {
 	clearApiAuthTokenCookies,
 	clearPermissionContextRevalidateCooldownCookie,
@@ -15,51 +15,56 @@ import {
 	getRefreshTokenCookie,
 	getPermissionContextCookie,
 	setPermissionContextCookie
-} from "$lib/server/auth/cookies";
-import { parsePermissionContextToken } from "$lib/server/auth/permission-context";
+} from '$lib/server/auth/cookies';
+import { parsePermissionContextToken } from '$lib/server/auth/permission-context';
 
 const PUBLIC_PATHS = [
-	"/auth", 
-	"/auth/verify", 
-	"/auth/forgot-password", 
-	"/auth/reset-password", 
-	"/healthz",
-	"/readyz",
-	"/privacy-policy",
-	"/terms-and-conditions"
+	'/auth',
+	'/auth/verify',
+	'/auth/forgot-password',
+	'/auth/reset-password',
+	'/healthz',
+	'/readyz',
+	'/privacy-policy',
+	'/terms-and-conditions',
+	'/',
+	'/artifacts',
+	'/workflow',
+	'/collaboration'
 ];
 
-const UNVERIFIED_ALLOWED_PATHS = ["/auth/verify", "/logout"];
+const UNVERIFIED_ALLOWED_PATHS = ['/auth/verify', '/logout'];
 
 const isPublicPath = (pathname: string): boolean =>
-	PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+	PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
 const isAllowedWhileUnverified = (pathname: string): boolean =>
-	UNVERIFIED_ALLOWED_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+	UNVERIFIED_ALLOWED_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
 const buildVerifyRedirect = (event: RequestEvent): string => {
 	const query = new URLSearchParams();
-	const email = event.locals.user?.email?.trim() ?? "";
+	const email = event.locals.user?.email?.trim() ?? '';
 	if (email.length > 0) {
-		query.set("email", email);
+		query.set('email', email);
 	}
 	const serialized = query.toString();
-	return serialized.length > 0 ? `/auth/verify?${serialized}` : "/auth/verify";
+	return serialized.length > 0 ? `/auth/verify?${serialized}` : '/auth/verify';
 };
 
 const isKnownProjectRole = (value: string | undefined): value is ProjectRole =>
-	value === "Owner" ||
-	value === "Admin" ||
-	value === "Editor" ||
-	value === "Member" ||
-	value === "Viewer" ||
-	value === "Limited Access";
+	value === 'Owner' ||
+	value === 'Admin' ||
+	value === 'Editor' ||
+	value === 'Member' ||
+	value === 'Viewer' ||
+	value === 'Limited Access';
 
 const sameProjectID = (left: string, right: string): boolean =>
 	left.trim().toLowerCase() === right.trim().toLowerCase();
 
 const resolveRouteProjectID = (event: RequestEvent): string | null => {
-	const routeProjectID = typeof event.params.projectId === "string" ? event.params.projectId.trim() : "";
+	const routeProjectID =
+		typeof event.params.projectId === 'string' ? event.params.projectId.trim() : '';
 	if (routeProjectID.length > 0) {
 		return routeProjectID;
 	}
@@ -99,7 +104,7 @@ const resolveProjectPermissionEntry = (
 };
 
 const toPermissionMaskString = (value: number | undefined): PermissionMask | undefined => {
-	if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+	if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
 		return undefined;
 	}
 	return Math.trunc(value).toString();
@@ -142,11 +147,8 @@ const applyLocalsFromPermissionContext = (
 	};
 };
 
-const persistPermissionContext = (
-	event: RequestEvent,
-	context: SessionContextResponse
-): void => {
-	const contextToken = context.context_token?.trim() ?? "";
+const persistPermissionContext = (event: RequestEvent, context: SessionContextResponse): void => {
+	const contextToken = context.context_token?.trim() ?? '';
 	if (contextToken.length > 0) {
 		setPermissionContextCookie(
 			event.cookies,
@@ -171,8 +173,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	let auth = hasAuthEvidence
 		? await ensureAuthenticated(event)
 		: {
-			authenticated: false
-		};
+				authenticated: false
+			};
 
 	if (auth.authenticated) {
 		const permissionContextToken = getPermissionContextCookie(event.cookies);
@@ -192,7 +194,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				persistPermissionContext(event, sessionContext);
 				applyLocalsFromPermissionContext(event, sessionContext);
 			} catch (err) {
-				console.error("[hooks] session context failed", err);
+				console.error('[hooks] session context failed', err);
 				if (isApiRequestError(err) && err.statusCode === 401) {
 					clearApiAuthTokenCookies(event.cookies);
 					auth = {
@@ -210,24 +212,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	if (!event.locals.user && !isPublicPath(event.url.pathname)) {
 		if (hasAuthEvidence && auth.authenticated === false && auth.transient === true) {
-			console.warn("[hooks] auth degraded state resolved as UNAUTHENTICATED", {
+			console.warn('[hooks] auth degraded state resolved as UNAUTHENTICATED', {
 				path: event.url.pathname
 			});
 		}
-		if (event.url.pathname !== "/logout") {
+		if (event.url.pathname !== '/logout') {
 			return new Response(null, {
 				status: 303,
-				headers: { location: "/auth" }
+				headers: { location: '/auth' }
 			});
 		}
 	}
 
-	const userIsUnverified = event.locals.user?.authenticated === true && event.locals.user?.emailVerified === false;
+	const userIsUnverified =
+		event.locals.user?.authenticated === true && event.locals.user?.emailVerified === false;
 	if (userIsUnverified) {
 		const isPublic = isPublicPath(event.url.pathname);
 		const shouldRedirect =
 			!isAllowedWhileUnverified(event.url.pathname) &&
-			(event.url.pathname === "/auth" || !isPublic);
+			(event.url.pathname === '/auth' || !isPublic);
 
 		if (shouldRedirect) {
 			return new Response(null, {

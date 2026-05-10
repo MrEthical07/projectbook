@@ -1,8 +1,5 @@
-import { query } from "$app/server";
-import {
-	encodePathSegment,
-	remoteQueryRequest
-} from "$lib/server/api/remote";
+import { query } from '$app/server';
+import { encodePathSegment, remoteQueryRequest } from '$lib/server/api/remote';
 
 type HomeActivityInput = {
 	limit?: number;
@@ -21,68 +18,68 @@ type PaginatedProjectActivity = {
 
 const appendPaginationQuery = (path: string, limit?: number, cursor?: string): string => {
 	const params = new URLSearchParams();
-	if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
-		params.set("pagination.limit", String(Math.trunc(limit)));
+	if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
+		params.set('pagination.limit', String(Math.trunc(limit)));
 	}
-	if (typeof cursor === "string" && cursor.trim().length > 0) {
-		params.set("pagination.cursor", cursor.trim());
+	if (typeof cursor === 'string' && cursor.trim().length > 0) {
+		params.set('pagination.cursor', cursor.trim());
 	}
 	const queryString = params.toString();
 	return queryString.length > 0 ? `${path}?${queryString}` : path;
 };
 
-export const getUserActivity = query("unchecked", (input: HomeActivityInput) => {
+export const getUserActivity = query('unchecked', (input: HomeActivityInput) => {
 	return remoteQueryRequest<HomeActivityItem[]>({
-		path: appendPaginationQuery("/home/activity", input.limit),
-		method: "GET",
+		path: appendPaginationQuery('/home/activity', input.limit),
+		method: 'GET',
 		cachePolicy: {
-			namespace: "home-activity",
+			namespace: 'home-activity',
 			ttlMs: 15_000,
 			keyParts: {
-				limit: typeof input.limit === "number" ? Math.trunc(input.limit) : undefined
+				limit: typeof input.limit === 'number' ? Math.trunc(input.limit) : undefined
 			},
-			tags: ["home-activity"]
+			tags: ['home-activity']
 		}
 	});
 });
 
-export const getUserDashboardActivity = query("unchecked", (input: HomeActivityInput) => {
+export const getUserDashboardActivity = query('unchecked', (input: HomeActivityInput) => {
 	return remoteQueryRequest<HomeActivityItem[]>({
-		path: appendPaginationQuery("/home/dashboard-activity", input.limit),
-		method: "GET",
+		path: appendPaginationQuery('/home/dashboard-activity', input.limit),
+		method: 'GET',
 		cachePolicy: {
-			namespace: "home-dashboard-activity",
+			namespace: 'home-dashboard-activity',
 			ttlMs: 15_000,
 			keyParts: {
-				limit: typeof input.limit === "number" ? Math.trunc(input.limit) : undefined
+				limit: typeof input.limit === 'number' ? Math.trunc(input.limit) : undefined
 			},
-			tags: ["home-dashboard", "home-activity"]
+			tags: ['home-dashboard', 'home-activity']
 		}
 	});
 });
 
-export const getProjectActivity = query("unchecked", (input: ProjectActivityInput) => {
+export const getProjectActivity = query('unchecked', (input: ProjectActivityInput) => {
 	return remoteQueryRequest<{ items?: ProjectActivityItem[]; next_cursor?: string | null }>({
 		path: appendPaginationQuery(
 			`/projects/${encodePathSegment(input.projectId)}/activity`,
 			input.limit,
 			input.cursor
 		),
-		method: "GET",
+		method: 'GET',
 		cachePolicy: {
-			namespace: "project-activity",
+			namespace: 'project-activity',
 			ttlMs: 15_000,
 			keyParts: {
 				project_id: input.projectId,
-				cursor_present: typeof input.cursor === "string" && input.cursor.trim().length > 0,
-				limit: typeof input.limit === "number" ? Math.trunc(input.limit) : undefined
+				cursor_present: typeof input.cursor === 'string' && input.cursor.trim().length > 0,
+				limit: typeof input.limit === 'number' ? Math.trunc(input.limit) : undefined
 			},
-			tags: [`project:${input.projectId}`, "project-activity"]
+			tags: [`project:${input.projectId}`, 'project-activity']
 		}
 	}).then((payload): PaginatedProjectActivity => {
 		const items = Array.isArray(payload.items) ? payload.items : [];
 		const nextCursor =
-			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+			typeof payload.next_cursor === 'string' && payload.next_cursor.trim().length > 0
 				? payload.next_cursor
 				: null;
 		return { items, nextCursor };

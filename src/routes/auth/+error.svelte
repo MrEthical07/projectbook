@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { page } from "$app/state";
-	import StatusErrorCard from "$lib/components/errors/status-error-card.svelte";
+	import { page } from '$app/state';
+	import StatusErrorCard from '$lib/components/errors/status-error-card.svelte';
 </script>
 
 <StatusErrorCard

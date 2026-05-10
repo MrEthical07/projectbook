@@ -1,31 +1,38 @@
 <script lang="ts">
-	import { getContext, onDestroy, untrack } from "svelte";
-	import * as Alert from "$lib/components/ui/alert";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Badge } from "$lib/components/ui/badge";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components/ui/table";
-	import { Textarea } from "$lib/components/ui/textarea";
-	import { ExternalLink } from "@lucide/svelte";
-	import { page } from "$app/state";
-	import { updateResource, updateResourceStatus } from "$lib/remote/resource.remote";
-	import { can } from "$lib/utils/permission";
+	import { getContext, onDestroy, untrack } from 'svelte';
+	import * as Alert from '$lib/components/ui/alert';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import {
+		Table,
+		TableBody,
+		TableCell,
+		TableHead,
+		TableHeader,
+		TableRow
+	} from '$lib/components/ui/table';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { ExternalLink } from '@lucide/svelte';
+	import { page } from '$app/state';
+	import { updateResource, updateResourceStatus } from '$lib/remote/resource.remote';
+	import { can } from '$lib/utils/permission';
 
 	const projectId = page.params.projectId;
 
-	type ResourceStatus = "Active" | "Archived";
-	type LinkedArtifactType = "User Story" | "Problem Statement" | "Idea" | "Task";
+	type ResourceStatus = 'Active' | 'Archived';
+	type LinkedArtifactType = 'User Story' | 'Problem Statement' | 'Idea' | 'Task';
 
 	type LinkedArtifact = {
 		id: string;
 		title: string;
 		type: LinkedArtifactType;
-		phase: "Empathize" | "Define" | "Ideate" | "Prototype";
+		phase: 'Empathize' | 'Define' | 'Ideate' | 'Prototype';
 		href: string;
 	};
 
@@ -37,26 +44,26 @@
 	};
 
 	let { data } = $props();
-	const required = <T>(value: T | null | undefined, field: string): T => {
+	const required = <T,>(value: T | null | undefined, field: string): T => {
 		if (value === undefined || value === null) {
 			throw new Error(`Resource payload is missing '${field}'.`);
 		}
 		return value;
 	};
-	const access = getContext<ProjectAccess | undefined>("access");
+	const access = getContext<ProjectAccess | undefined>('access');
 	const permissions = access?.permissions;
-	const canEditResource = can(permissions, "resource", "edit");
-	let name = $state("");
-	let fileType = $state("");
-	let docType = $state("");
-	let status = $state<ResourceStatus>("Active");
-	let description = $state("");
-	let owner = $state("");
-	let createdAt = $state("");
-	let updatedAt = $state("");
-	let fileSize = $state("");
+	const canEditResource = can(permissions, 'resource', 'edit');
+	let name = $state('');
+	let fileType = $state('');
+	let docType = $state('');
+	let status = $state<ResourceStatus>('Active');
+	let description = $state('');
+	let owner = $state('');
+	let createdAt = $state('');
+	let updatedAt = $state('');
+	let fileSize = $state('');
 
-	let notesText = $state("");
+	let notesText = $state('');
 	let versionDialogOpen = $state(false);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
@@ -64,22 +71,22 @@
 	let pendingStatus = $state<ResourceStatus | null>(null);
 	let statusMutationPending = $state(false);
 
-	let newVersionDescription = $state("");
-	let newVersionLabel = $state("v4");
+	let newVersionDescription = $state('');
+	let newVersionLabel = $state('v4');
 	let addSectionOpen = $state(false);
 
 	let linkedArtifacts = $state<LinkedArtifact[]>([]);
 
 	let versions = $state<VersionRow[]>([]);
 
-	type SavePhase = "idle" | "saving" | "saved";
-	let savePhase = $state<SavePhase>("idle");
-	let savedSignature = $state("");
+	type SavePhase = 'idle' | 'saving' | 'saved';
+	let savePhase = $state<SavePhase>('idle');
+	let savedSignature = $state('');
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	let isReadOnly = $derived(status === "Archived" || !canEditResource);
+	let isReadOnly = $derived(status === 'Archived' || !canEditResource);
 	let currentSignature = $derived(
 		JSON.stringify({
 			name,
@@ -92,27 +99,27 @@
 	);
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 	let saveIndicator = $derived.by(() => {
-		if (savePhase === "saving") {
-			return "saving";
+		if (savePhase === 'saving') {
+			return 'saving';
 		}
 
 		if (isDirty) {
-			return "edited";
+			return 'edited';
 		}
 
-		if (savePhase === "saved") {
-			return "saved";
+		if (savePhase === 'saved') {
+			return 'saved';
 		}
 
-		return "idle";
+		return 'idle';
 	});
 
 	const statusBadgeClass = (currentStatus: ResourceStatus) => {
-		if (currentStatus === "Archived") {
-			return "bg-slate-500/10 text-slate-500 border-slate-500/20";
+		if (currentStatus === 'Archived') {
+			return 'bg-slate-500/10 text-slate-500 border-slate-500/20';
 		}
 
-		return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+		return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
 	};
 
 	const requestStatusChange = (nextStatus: ResourceStatus) => {
@@ -149,7 +156,7 @@
 			pendingStatus = null;
 			statusConfirmOpen = false;
 		} catch (error) {
-			console.error("Failed to update resource status", error);
+			console.error('Failed to update resource status', error);
 		} finally {
 			statusMutationPending = false;
 		}
@@ -161,7 +168,7 @@
 
 	const triggerSave = async () => {
 		if (!permissions || !canEditResource) return;
-		if (savePhase === "saving" || !isDirty) {
+		if (savePhase === 'saving' || !isDirty) {
 			return;
 		}
 
@@ -173,7 +180,7 @@
 			clearTimeout(savedBadgeTimer);
 		}
 
-		savePhase = "saving";
+		savePhase = 'saving';
 		const result = await updateResource({
 			input: {
 				projectId,
@@ -187,17 +194,17 @@
 					versions
 				}
 			}
-});
+		});
 		if (!result.success) {
-			savePhase = "idle";
+			savePhase = 'idle';
 			return;
 		}
 		updatedAt = new Date().toISOString().slice(0, 10);
 		savedSignature = currentSignature;
-		savePhase = "saved";
+		savePhase = 'saved';
 		savedBadgeTimer = setTimeout(() => {
 			if (!isDirty) {
-				savePhase = "idle";
+				savePhase = 'idle';
 			}
 		}, 1400);
 	};
@@ -215,17 +222,17 @@
 	$effect(() => {
 		const d = data;
 		untrack(() => {
-			const resource = required(d.resource, "resource");
-			name = required(resource.name, "resource.name");
-			fileType = required(resource.fileType, "resource.fileType");
-			docType = required(resource.docType, "resource.docType");
+			const resource = required(d.resource, 'resource');
+			name = required(resource.name, 'resource.name');
+			fileType = required(resource.fileType, 'resource.fileType');
+			docType = required(resource.docType, 'resource.docType');
 			status = resource.status as ResourceStatus;
-			description = required(resource.description, "resource.description");
-			owner = required(resource.owner, "resource.owner");
-			createdAt = required(resource.createdAt, "resource.createdAt");
-			updatedAt = required(resource.updatedAt, "resource.updatedAt");
-			fileSize = required(resource.fileSize, "resource.fileSize");
-			notesText = required(resource.notesText, "resource.notesText");
+			description = required(resource.description, 'resource.description');
+			owner = required(resource.owner, 'resource.owner');
+			createdAt = required(resource.createdAt, 'resource.createdAt');
+			updatedAt = required(resource.updatedAt, 'resource.updatedAt');
+			fileSize = required(resource.fileSize, 'resource.fileSize');
+			notesText = required(resource.notesText, 'resource.notesText');
 			linkedArtifacts = structuredClone(resource.linkedArtifacts) as LinkedArtifact[];
 			versions = structuredClone(resource.versions) as VersionRow[];
 			versionDialogOpen = false;
@@ -234,7 +241,7 @@
 			statusConfirmOpen = false;
 			pendingStatus = null;
 			statusMutationPending = false;
-			savePhase = "idle";
+			savePhase = 'idle';
 			savedSignature = JSON.stringify({
 				name,
 				docType,
@@ -249,7 +256,7 @@
 </script>
 
 <svelte:head>
-	<title>{name || "Resource"} • Resources • ProjectBook</title>
+	<title>{name || 'Resource'} • Resources • ProjectBook</title>
 	<meta
 		name="description"
 		content="View this resource, its versions, and linked project artifacts."
@@ -258,11 +265,11 @@
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg w-full">
+<div class="flex w-full flex-col gap-2 rounded-lg border bg-background p-2">
 	<header
-		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+		class="flex h-12 w-full shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
-		<div class="flex items-center gap-2 px-4 w-full">
+		<div class="flex w-full items-center gap-2 px-4">
 			<Sidebar.Trigger class="-ms-1" />
 			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 			<Breadcrumb.Root>
@@ -279,15 +286,13 @@
 		</div>
 	</header>
 
-	<div class="flex flex-col md:px-20 gap-4 py-2">
-		<div class="flex mt-2 flex-col bg-background rounded-lg gap-2 p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
-				Resource - File
-			</div>
+	<div class="flex flex-col gap-4 py-2 md:px-20">
+		<div class="mt-2 flex flex-col gap-2 rounded-lg bg-background p-2">
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">Resource - File</div>
 			<Input
 				type="text"
 				bind:value={name}
-				class="bg-transparent outline-0 shadow-none border-0 text-4xl! h-fit py-4 px-3"
+				class="h-fit border-0 bg-transparent px-3 py-4 text-4xl! shadow-none outline-0"
 				disabled={isReadOnly}
 			/>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
@@ -297,9 +302,12 @@
 					<Badge class={statusBadgeClass(status)} variant="outline">
 						{status}
 					</Badge>
-					{#if status === "Archived"}
+					{#if status === 'Archived'}
 						<Dialog.Root bind:open={unarchiveDialogOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canEditResource || statusMutationPending}>
+							<Dialog.Trigger
+								class={buttonVariants({ variant: 'outline', size: 'sm' })}
+								disabled={!canEditResource || statusMutationPending}
+							>
 								Unarchive
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -310,12 +318,10 @@
 									</Dialog.Description>
 								</Dialog.Header>
 								<Dialog.Footer>
-									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-										Cancel
-									</Dialog.Close>
+									<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 									<Dialog.Close
 										class={buttonVariants()}
-										onclick={() => requestStatusChange("Active")}
+										onclick={() => requestStatusChange('Active')}
 										disabled={!canEditResource || statusMutationPending}
 									>
 										Unarchive
@@ -325,7 +331,10 @@
 						</Dialog.Root>
 					{:else}
 						<Dialog.Root bind:open={archiveDialogOpen}>
-							<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canEditResource || statusMutationPending}>
+							<Dialog.Trigger
+								class={buttonVariants({ variant: 'outline', size: 'sm' })}
+								disabled={!canEditResource || statusMutationPending}
+							>
 								Archive
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -336,12 +345,10 @@
 									</Dialog.Description>
 								</Dialog.Header>
 								<Dialog.Footer>
-									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-										Cancel
-									</Dialog.Close>
+									<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 									<Dialog.Close
 										class={buttonVariants()}
-										onclick={() => requestStatusChange("Archived")}
+										onclick={() => requestStatusChange('Archived')}
 										disabled={!canEditResource || statusMutationPending}
 									>
 										Archive
@@ -352,21 +359,21 @@
 					{/if}
 				</div>
 				<div class="flex items-center gap-3">
-					<div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
-						{#if saveIndicator === "edited"}
+					<div class="flex min-h-6 flex-col items-end text-xs leading-tight text-muted-foreground">
+						{#if saveIndicator === 'edited'}
 							<span class="text-amber-600">Edited</span>
-						{:else if saveIndicator === "saving"}
+						{:else if saveIndicator === 'saving'}
 							<span class="text-blue-600">Saving...</span>
-						{:else if saveIndicator === "saved"}
+						{:else if saveIndicator === 'saved'}
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
 					<Button
 						size="sm"
 						onclick={triggerSave}
-						disabled={!canEditResource || savePhase === "saving" || !isDirty}
+						disabled={!canEditResource || savePhase === 'saving' || !isDirty}
 					>
-						{savePhase === "saving" ? "Saving..." : "Save changes"}
+						{savePhase === 'saving' ? 'Saving...' : 'Save changes'}
 					</Button>
 				</div>
 			</div>
@@ -374,9 +381,9 @@
 
 		<Separator class="mt-2 px-2"></Separator>
 
-		<div class="py-2 w-full flex flex-col gap-4">
-			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
-				<div class="flex flex-row gap-2 items-center w-full">
+		<div class="flex w-full flex-col gap-4 py-2">
+			<section class="flex w-full flex-col gap-3 rounded-lg bg-background p-4">
+				<div class="flex w-full flex-row items-center gap-2">
 					<span class="font-medium text-nowrap">Resource Overview</span>
 					<Separator></Separator>
 				</div>
@@ -385,17 +392,15 @@
 						Preview not available for this file type.
 					</div>
 					<div class="flex flex-col gap-3">
-						<Button class={buttonVariants()}>
-							Download Latest
-						</Button>
+						<Button class={buttonVariants()}>Download Latest</Button>
 						<div class="text-sm text-muted-foreground">File size: {fileSize}</div>
 						<div class="text-sm text-muted-foreground">Last updated: {updatedAt}</div>
 					</div>
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
-				<div class="flex flex-row gap-2 items-center w-full">
+			<section class="flex w-full flex-col gap-3 rounded-lg bg-background p-4">
+				<div class="flex w-full flex-row items-center gap-2">
 					<span class="font-medium text-nowrap">Linked Artifacts</span>
 					<Separator></Separator>
 				</div>
@@ -429,7 +434,7 @@
 								</div>
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-								<div class="bg-accent px-2 py-1 rounded-lg text-xs font-medium">
+								<div class="rounded-lg bg-accent px-2 py-1 text-xs font-medium">
 									{artifact.phase}
 								</div>
 							</div>
@@ -438,8 +443,8 @@
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
-				<div class="flex flex-row gap-2 items-center w-full">
+			<section class="flex w-full flex-col gap-2 rounded-lg bg-background p-4">
+				<div class="flex w-full flex-row items-center gap-2">
 					<span class="font-medium text-nowrap">Version History</span>
 					<Separator></Separator>
 				</div>
@@ -455,7 +460,7 @@
 					</TableHeader>
 					<TableBody>
 						{#each versions as version, index (version.version)}
-							<TableRow class={index === 0 ? "bg-muted/40" : ""}>
+							<TableRow class={index === 0 ? 'bg-muted/40' : ''}>
 								<TableCell>{version.version}</TableCell>
 								<TableCell>{version.uploadedBy}</TableCell>
 								<TableCell>{version.uploadDate}</TableCell>
@@ -469,8 +474,8 @@
 				</Table>
 			</section>
 
-			<section class="flex flex-col gap-3 p-4 w-full bg-background rounded-lg">
-				<div class="flex flex-row gap-2 items-center w-full">
+			<section class="flex w-full flex-col gap-3 rounded-lg bg-background p-4">
+				<div class="flex w-full flex-row items-center gap-2">
 					<span class="font-medium text-nowrap">Metadata Details</span>
 					<Separator></Separator>
 				</div>
@@ -485,11 +490,7 @@
 					</div>
 					<div class="grid gap-2 md:col-span-2">
 						<Label for="resource-description">Description</Label>
-						<Textarea
-							id="resource-description"
-							bind:value={description}
-							disabled={isReadOnly}
-						/>
+						<Textarea id="resource-description" bind:value={description} disabled={isReadOnly} />
 					</div>
 					<div class="grid gap-2">
 						<Label>Owner</Label>
@@ -506,16 +507,13 @@
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
-				<div class="flex flex-row gap-2 items-center w-full">
+			<section class="flex w-full flex-col gap-2 rounded-lg bg-background p-4">
+				<div class="flex w-full flex-row items-center gap-2">
 					<span class="font-medium text-nowrap">Add New Version</span>
 					<Separator></Separator>
 				</div>
 				<Dialog.Root bind:open={versionDialogOpen}>
-					<Dialog.Trigger
-						class={buttonVariants({ variant: "outline" })}
-						disabled={isReadOnly}
-					>
+					<Dialog.Trigger class={buttonVariants({ variant: 'outline' })} disabled={isReadOnly}>
 						Upload New Version
 					</Dialog.Trigger>
 					<Dialog.Content>
@@ -530,31 +528,25 @@
 								<Label for="version-file">File</Label>
 								<Input id="version-file" type="file" />
 							</div>
-						<div class="grid gap-2">
-							<Label for="version-description">Change description</Label>
-							<Input
-								id="version-description"
-								placeholder="Describe what changed"
-								bind:value={newVersionDescription}
-							/>
-						</div>
-						<div class="grid gap-2">
-							<Label for="version-label">Version</Label>
-							<Input
-								id="version-label"
-								placeholder="v00.00"
-								bind:value={newVersionLabel}
-							/>
-						</div>
-						<div class="grid gap-2">
-							<Label>Uploaded by</Label>
-							<Input value={owner} disabled />
-						</div>
+							<div class="grid gap-2">
+								<Label for="version-description">Change description</Label>
+								<Input
+									id="version-description"
+									placeholder="Describe what changed"
+									bind:value={newVersionDescription}
+								/>
+							</div>
+							<div class="grid gap-2">
+								<Label for="version-label">Version</Label>
+								<Input id="version-label" placeholder="v00.00" bind:value={newVersionLabel} />
+							</div>
+							<div class="grid gap-2">
+								<Label>Uploaded by</Label>
+								<Input value={owner} disabled />
+							</div>
 						</div>
 						<Dialog.Footer>
-							<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-								Cancel
-							</Dialog.Close>
+							<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 							<Button class={buttonVariants()} disabled={!newVersionDescription}>
 								Upload Version
 							</Button>
@@ -563,8 +555,8 @@
 				</Dialog.Root>
 			</section>
 
-			<section class="flex flex-col gap-2 p-4 w-full bg-background rounded-lg">
-				<div class="flex flex-row gap-2 items-center w-full">
+			<section class="flex w-full flex-col gap-2 rounded-lg bg-background p-4">
+				<div class="flex w-full flex-row items-center gap-2">
 					<span class="font-medium text-nowrap">Notes</span>
 					<Separator></Separator>
 				</div>
@@ -588,14 +580,18 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="rounded-lg border border-border px-3 py-2 text-sm">
-			New status: {pendingStatus ?? "None"}
+			New status: {pendingStatus ?? 'None'}
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })} disabled={statusMutationPending}>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })} disabled={statusMutationPending}>
 				Cancel
 			</Dialog.Close>
-			<Button class={buttonVariants()} onclick={confirmStatusChange} disabled={!canEditResource || statusMutationPending}>
-				{statusMutationPending ? "Saving..." : "Confirm status"}
+			<Button
+				class={buttonVariants()}
+				onclick={confirmStatusChange}
+				disabled={!canEditResource || statusMutationPending}
+			>
+				{statusMutationPending ? 'Saving...' : 'Confirm status'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

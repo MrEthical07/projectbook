@@ -1,4 +1,4 @@
-import { getIdeaPageData } from "$lib/remote/idea.remote";
+import { getIdeaPageData } from '$lib/remote/idea.remote';
 
 export async function load({ params }: { params: { projectId: string; ideaId: string } }) {
 	return {

@@ -5,14 +5,14 @@ import {
 	permissionActions,
 	permissionDomainIndex,
 	permissionDomains
-} from "$lib/constants/permissions";
+} from '$lib/constants/permissions';
 
 const NON_VIEW_ACTIONS: PermissionAction[] = [
-	"create",
-	"edit",
-	"delete",
-	"archive",
-	"statusChange"
+	'create',
+	'edit',
+	'delete',
+	'archive',
+	'statusChange'
 ];
 
 const emptyActionPermission: ActionPermission = {
@@ -24,9 +24,10 @@ const emptyActionPermission: ActionPermission = {
 	statusChange: false
 };
 
-export const EMPTY_PERMISSION_MASK: PermissionMask = "0";
+export const EMPTY_PERMISSION_MASK: PermissionMask = '0';
 export const ALL_DEFINED_PERMISSION_MASK: PermissionMask = (
-	(1n << BigInt(PERMISSION_BITS_USED)) - 1n
+	(1n << BigInt(PERMISSION_BITS_USED)) -
+	1n
 ).toString();
 
 const createEmptyPermissions = (): EffectivePermissions => ({
@@ -43,13 +44,13 @@ const createEmptyPermissions = (): EffectivePermissions => ({
 });
 
 const toMaskBigInt = (value: unknown): bigint => {
-	if (typeof value === "bigint") {
+	if (typeof value === 'bigint') {
 		return value >= 0n ? value : 0n;
 	}
-	if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+	if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
 		return BigInt(Math.trunc(value));
 	}
-	if (typeof value === "string") {
+	if (typeof value === 'string') {
 		const trimmed = value.trim();
 		if (!trimmed) return 0n;
 		try {
@@ -63,13 +64,13 @@ const toMaskBigInt = (value: unknown): bigint => {
 };
 
 const isActionPermission = (value: unknown): value is ActionPermission => {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
 	const record = value as Record<string, unknown>;
-	return permissionActions.every((action) => typeof record[action] === "boolean");
+	return permissionActions.every((action) => typeof record[action] === 'boolean');
 };
 
 const isEffectivePermissions = (value: unknown): value is EffectivePermissions => {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
 	const record = value as Record<string, unknown>;
 	return permissionDomains.every((domain) => isActionPermission(record[domain]));
 };
@@ -78,10 +79,10 @@ export const normalizePermissionMask = (value: unknown): PermissionMask =>
 	toMaskBigInt(value).toString();
 
 const resolveDomainIndex = (domain: PermissionDomain | number): number =>
-	typeof domain === "number" ? domain : permissionDomainIndex[domain];
+	typeof domain === 'number' ? domain : permissionDomainIndex[domain];
 
 const resolveActionIndex = (action: PermissionAction | number): number =>
-	typeof action === "number" ? action : permissionActionIndex[action];
+	typeof action === 'number' ? action : permissionActionIndex[action];
 
 export const hasPerm = (
 	mask: PermissionMask | bigint | number | null | undefined,
@@ -144,14 +145,12 @@ export const validatePermissionMask = (
 	for (const domain of permissionDomains) {
 		const domainIndex = permissionDomainIndex[domain];
 		const hasView =
-			(normalizedMask &
-				getPermissionBit(domainIndex, permissionActionIndex.view)) !== 0n;
+			(normalizedMask & getPermissionBit(domainIndex, permissionActionIndex.view)) !== 0n;
 
 		let hasDependentAction = false;
 		for (const dependentAction of NON_VIEW_ACTIONS) {
 			if (
-				(normalizedMask &
-					getPermissionBit(domainIndex, permissionActionIndex[dependentAction])) !==
+				(normalizedMask & getPermissionBit(domainIndex, permissionActionIndex[dependentAction])) !==
 				0n
 			) {
 				hasDependentAction = true;
@@ -209,10 +208,7 @@ export const permissionsToMask = (
 	for (const domain of permissionDomains) {
 		for (const action of permissionActions) {
 			if (permissions[domain][action]) {
-				mask |= getPermissionBit(
-					permissionDomainIndex[domain],
-					permissionActionIndex[action]
-				);
+				mask |= getPermissionBit(permissionDomainIndex[domain], permissionActionIndex[action]);
 			}
 		}
 	}
@@ -228,10 +224,8 @@ export const maskToPermissions = (
 		for (const action of permissionActions) {
 			permissions[domain][action] =
 				(resolvedMask &
-					getPermissionBit(
-						permissionDomainIndex[domain],
-						permissionActionIndex[action]
-					)) !== 0n;
+					getPermissionBit(permissionDomainIndex[domain], permissionActionIndex[action])) !==
+				0n;
 		}
 	}
 	return permissions;
@@ -263,13 +257,7 @@ export const isCustomPermissionMask = (
 ): boolean => toMaskBigInt(mask) !== toMaskBigInt(roleMask);
 
 export function can(
-	permissionsOrMask:
-		| EffectivePermissions
-		| PermissionMask
-		| bigint
-		| number
-		| null
-		| undefined,
+	permissionsOrMask: EffectivePermissions | PermissionMask | bigint | number | null | undefined,
 	domain: PermissionDomain,
 	action: PermissionAction
 ): boolean {
@@ -280,13 +268,7 @@ export function can(
 }
 
 export function hasReadAccess(
-	permissionsOrMask:
-		| EffectivePermissions
-		| PermissionMask
-		| bigint
-		| number
-		| null
-		| undefined
+	permissionsOrMask: EffectivePermissions | PermissionMask | bigint | number | null | undefined
 ): boolean {
 	if (!permissionsOrMask) return false;
 	if (isEffectivePermissions(permissionsOrMask)) {
@@ -294,5 +276,5 @@ export function hasReadAccess(
 			(domainPermission: ActionPermission) => domainPermission.view
 		);
 	}
-	return permissionDomains.some((domain) => hasPerm(permissionsOrMask, domain, "view"));
+	return permissionDomains.some((domain) => hasPerm(permissionsOrMask, domain, 'view'));
 }

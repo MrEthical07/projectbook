@@ -83,11 +83,16 @@
 				<div class="mt-3 space-y-4 text-sm text-muted-foreground">
 					<div>
 						<h3 class="font-medium text-foreground">Can I edit artifacts later?</h3>
-						<p class="mt-1">Yes. Most artifact pages are editable unless status rules restrict actions.</p>
+						<p class="mt-1">
+							Yes. Most artifact pages are editable unless status rules restrict actions.
+						</p>
 					</div>
 					<div>
 						<h3 class="font-medium text-foreground">How are permissions enforced?</h3>
-						<p class="mt-1">Permissions are mask-based. Roles provide default masks, and authorized users can manage member and role masks.</p>
+						<p class="mt-1">
+							Permissions are mask-based. Roles provide default masks, and authorized users can
+							manage member and role masks.
+						</p>
 					</div>
 					<div>
 						<h3 class="font-medium text-foreground">Where can I see cross-project activity?</h3>

@@ -1,17 +1,17 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-const textDecoder = new TextDecoder("utf8", { fatal: false });
+const textDecoder = new TextDecoder('utf8', { fatal: false });
 
 const isIgnoredPath = (filePath) => {
-	if (filePath.startsWith("node_modules/")) {
+	if (filePath.startsWith('node_modules/')) {
 		return true;
 	}
-	if (filePath === "pnpm-lock.yaml") {
+	if (filePath === 'pnpm-lock.yaml') {
 		return true;
 	}
-	if (filePath.startsWith(".env")) {
+	if (filePath.startsWith('.env')) {
 		return true;
 	}
 	return false;
@@ -29,41 +29,41 @@ const isLikelyBinary = (buffer) => {
 
 const patterns = [
 	{
-		name: "AWS access key",
+		name: 'AWS access key',
 		re: /\bAKIA[0-9A-Z]{16}\b/g
 	},
 	{
-		name: "GitHub token",
+		name: 'GitHub token',
 		re: /\b(?:ghp|github_pat)_[A-Za-z0-9_]{30,}\b/g
 	},
 	{
-		name: "Google API key",
+		name: 'Google API key',
 		re: /\bAIza[0-9A-Za-z_-]{20,}\b/g
 	},
 	{
-		name: "Slack token",
+		name: 'Slack token',
 		re: /\bxox[baprs]-[A-Za-z0-9-]{12,}\b/g
 	},
 	{
-		name: "Resend API key",
+		name: 'Resend API key',
 		re: /\bre_[A-Za-z0-9_-]{20,}\b/g
 	},
 	{
-		name: "Private key material",
+		name: 'Private key material',
 		re: /-----BEGIN (?:RSA|OPENSSH|EC|DSA|PRIVATE) KEY-----/g
 	},
 	{
-		name: "Credentialed remote database URL",
+		name: 'Credentialed remote database URL',
 		re: /\b(?:postgres(?:ql)?|mongodb(?:\+srv)?|redis):\/\/[^/\s:@]+:[^@\s]+@(?!(?:localhost|127\.0\.0\.1|::1)\b)[^\s'"`]+/gi
 	}
 ];
 
-const lineNumberAt = (content, index) => content.slice(0, index).split("\n").length;
+const lineNumberAt = (content, index) => content.slice(0, index).split('\n').length;
 
-const trackedFilesOutput = execFileSync("git", ["ls-files", "-z"], {
-	encoding: "utf8"
+const trackedFilesOutput = execFileSync('git', ['ls-files', '-z'], {
+	encoding: 'utf8'
 });
-const trackedFiles = trackedFilesOutput.split("\0").filter(Boolean);
+const trackedFiles = trackedFilesOutput.split('\0').filter(Boolean);
 
 const findings = [];
 for (const filePath of trackedFiles) {
@@ -76,7 +76,7 @@ for (const filePath of trackedFiles) {
 	try {
 		raw = readFileSync(absolutePath);
 	} catch (error) {
-		if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+		if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
 			continue;
 		}
 		throw error;
@@ -102,13 +102,11 @@ for (const filePath of trackedFiles) {
 }
 
 if (findings.length > 0) {
-	console.error("Secret lint failed: potential sensitive values found in tracked files.");
+	console.error('Secret lint failed: potential sensitive values found in tracked files.');
 	for (const finding of findings) {
-		console.error(
-			`- ${finding.filePath}:${finding.line} [${finding.kind}] ${finding.value}`
-		);
+		console.error(`- ${finding.filePath}:${finding.line} [${finding.kind}] ${finding.value}`);
 	}
 	process.exit(1);
 }
 
-console.log("Secret lint passed: no high-signal secret patterns detected.");
+console.log('Secret lint passed: no high-signal secret patterns detected.');

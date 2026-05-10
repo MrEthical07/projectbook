@@ -57,4 +57,4 @@ Frontend server auth relies on backend-issued session context responses and no l
 3. Validate linked references and status transitions for client input.
 4. Encode all path params with `encodePathSegment`.
 5. Return consistent mutation result shape.
-5. Avoid introducing service-layer indirection.
+6. Avoid introducing service-layer indirection.

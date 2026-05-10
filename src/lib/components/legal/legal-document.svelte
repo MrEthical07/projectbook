@@ -1,14 +1,17 @@
 <script lang="ts">
-	import type { LegalDocumentData } from "$lib/content/legal";
+	import type { LegalDocumentData } from '$lib/content/legal';
 
 	let { document }: { document: LegalDocumentData } = $props();
 </script>
 
-<main id="top" class="min-h-screen bg-linear-to-b from-background via-background to-muted/30 p-4 sm:p-8">
+<main
+	id="top"
+	class="min-h-screen bg-linear-to-b from-background via-background to-muted/30 p-4 sm:p-8"
+>
 	<div class="mx-auto grid w-full max-w-7xl gap-6 lg:grid-cols-[280px_1fr]">
 		<aside class="lg:sticky lg:top-6 lg:h-fit">
 			<div class="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
-				<p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">
+				<p class="text-[11px] font-semibold tracking-[0.24em] text-primary uppercase">
 					{document.eyebrow}
 				</p>
 				<div class="mt-4 space-y-1">
@@ -47,7 +50,7 @@
 
 		<div class="space-y-6">
 			<section class="rounded-xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
-				<p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-primary">
+				<p class="text-[11px] font-semibold tracking-[0.24em] text-primary uppercase">
 					{document.eyebrow}
 				</p>
 				<h1 class="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{document.title}</h1>
@@ -55,17 +58,24 @@
 					{document.description}
 				</p>
 
-				<div class="mt-6 inline-flex rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
+				<div
+					class="mt-6 inline-flex rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs text-muted-foreground"
+				>
 					Last updated {document.lastUpdated}
 				</div>
 
-				<div class="mt-6 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground">
+				<div
+					class="mt-6 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4 text-sm text-muted-foreground"
+				>
 					{document.reviewNotice}
 				</div>
 			</section>
 
 			{#each document.sections as section (section.id)}
-				<section id={section.id} class="rounded-xl border border-border/70 bg-card p-6 shadow-sm sm:p-8">
+				<section
+					id={section.id}
+					class="rounded-xl border border-border/70 bg-card p-6 shadow-sm sm:p-8"
+				>
 					<div class="flex flex-wrap items-start justify-between gap-3">
 						<h2 class="text-2xl font-semibold tracking-tight">{section.title}</h2>
 						<a

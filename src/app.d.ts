@@ -3,7 +3,7 @@
 declare global {
 	// Shared primitives.
 	type TimestampString = string;
-	type ProjectStatus = "Active" | "Archived";
+	type ProjectStatus = 'Active' | 'Archived';
 
 	// Shared role and permission types.
 	type ActionPermission = {
@@ -33,13 +33,7 @@ declare global {
 	type PermissionDomain = keyof EffectivePermissions;
 	type PermissionAction = keyof ActionPermission;
 
-	type ProjectRole =
-		| "Owner"
-		| "Admin"
-		| "Editor"
-		| "Member"
-		| "Viewer"
-		| "Limited Access";
+	type ProjectRole = 'Owner' | 'Admin' | 'Editor' | 'Member' | 'Viewer' | 'Limited Access';
 
 	type RolePermissionMap = Record<ProjectRole, EffectivePermissions>;
 	type RolePermissionMaskMap = Record<ProjectRole, PermissionMask>;
@@ -55,56 +49,56 @@ declare global {
 		permissions: EffectivePermissions;
 	};
 
-	type MemberRole = Exclude<ProjectRole, "Member">;
+	type MemberRole = Exclude<ProjectRole, 'Member'>;
 
 	// Shared icon identifiers.
 	type ProjectIconKey =
-		| "folderKanban"
-		| "rocket"
-		| "lightbulb"
-		| "flaskConical"
-		| "compass"
-		| "target"
-		| "briefcase"
-		| "layoutGrid"
-		| "notebookPen"
-		| "sparkles"
-		| "code"
-		| "palette"
-		| "zap"
-		| "shieldCheck"
-		| "chartLine"
-		| "database"
-		| "globe"
-		| "megaphone"
-		| "users"
-		| "graduationCap"
-		| "handshake"
-		| "wrench"
-		| "cpu"
-		| "bookOpen"
-		| "flag";
+		| 'folderKanban'
+		| 'rocket'
+		| 'lightbulb'
+		| 'flaskConical'
+		| 'compass'
+		| 'target'
+		| 'briefcase'
+		| 'layoutGrid'
+		| 'notebookPen'
+		| 'sparkles'
+		| 'code'
+		| 'palette'
+		| 'zap'
+		| 'shieldCheck'
+		| 'chartLine'
+		| 'database'
+		| 'globe'
+		| 'megaphone'
+		| 'users'
+		| 'graduationCap'
+		| 'handshake'
+		| 'wrench'
+		| 'cpu'
+		| 'bookOpen'
+		| 'flag';
 
 	// Shared artifact/domain model types.
-	type StoryStatus = "Draft" | "Locked" | "Archived";
-	type JourneyStatus = "Draft" | "Locked" | "Archived";
-	type ProblemStatus = "Draft" | "Locked" | "Archived";
-	type IdeaStatus = "Considered" | "Selected" | "Rejected" | "Archived";
-	type TaskStatus = "Planned" | "In Progress" | "Completed" | "Abandoned";
-	type FeedbackOutcome = "Validated" | "Invalidated" | "Needs Iteration";
-	type PageStatus = "Draft" | "Archived";
-	type ResourceStatus = "Active" | "Archived";
-	type CalendarEventType = "Derived" | "Manual";
+	type StoryStatus = 'Draft' | 'Locked' | 'Archived';
+	type JourneyStatus = 'Draft' | 'Locked' | 'Archived';
+	type ProblemStatus = 'Draft' | 'Locked' | 'Archived';
+	type IdeaStatus = 'Considered' | 'Selected' | 'Rejected' | 'Archived';
+	type TaskStatus = 'Planned' | 'In Progress' | 'Completed' | 'Abandoned';
+	type FeedbackOutcome = 'Validated' | 'Invalidated' | 'Needs Iteration';
+	type PageStatus = 'Draft' | 'Archived';
+	type ResourceStatus = 'Active' | 'Archived';
+	type CalendarEventType = 'Derived' | 'Manual';
 
 	type LinkedArtifact = {
 		id: string;
 		title: string;
-		type: "task" | "idea" | "problem";
-		phase: "Prototype" | "Ideate" | "Define";
+		type: 'task' | 'idea' | 'problem';
+		phase: 'Prototype' | 'Ideate' | 'Define';
 		href: string;
-		status: "Active" | "Archived";
+		status: 'Active' | 'Archived';
 	};
-	
+
 	interface StoryRow {
 		id: string;
 		projectId?: string;
@@ -222,8 +216,8 @@ declare global {
 		endTime?: string;
 		allDay: boolean;
 		owner: string;
-		phase: "Empathize" | "Define" | "Ideate" | "Prototype" | "Test" | "None";
-		artifactType: "Task" | "Feedback" | "Manual";
+		phase: 'Empathize' | 'Define' | 'Ideate' | 'Prototype' | 'Test' | 'None';
+		artifactType: 'Task' | 'Feedback' | 'Manual';
 		sourceTitle?: string;
 		description?: string;
 		location?: string;
@@ -245,7 +239,7 @@ declare global {
 		id: string;
 		name: string;
 		initials: string;
-		role?: "Owner" | "Admin" | "Editor" | "Member" | "Viewer" | "Limited Access";
+		role?: 'Owner' | 'Admin' | 'Editor' | 'Member' | 'Viewer' | 'Limited Access';
 		email?: string;
 	}
 
@@ -288,7 +282,7 @@ declare global {
 		role: ProjectRole;
 		isCustom?: boolean;
 		permissionMask?: PermissionMask;
-		status: "Active" | "Invited";
+		status: 'Active' | 'Invited';
 		joinedAt?: string;
 		updatedAt?: string;
 		joinedDate?: string;
@@ -299,9 +293,9 @@ declare global {
 	interface PendingInvite {
 		projectId?: string;
 		email: string;
-		role: "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access";
+		role: 'Owner' | 'Admin' | 'Editor' | 'Viewer' | 'Limited Access';
 		sentDate: string;
-		status: "pending" | "accepted";
+		status: 'pending' | 'accepted';
 	}
 
 	// Shared home model types.
@@ -317,7 +311,7 @@ declare global {
 		organization: string;
 		icon: ProjectIconKey;
 		description?: string;
-		role: "Owner" | "Admin" | "Editor" | "Member" | "Viewer" | "Limited Access";
+		role: 'Owner' | 'Admin' | 'Editor' | 'Member' | 'Viewer' | 'Limited Access';
 		openTasks?: number;
 		lastVisitedAt?: string;
 		lastUpdatedAt: string;
@@ -329,13 +323,13 @@ declare global {
 		projectName: string;
 		organizationName: string;
 		inviterName: string;
-		assignedRole: "Member" | "Viewer" | "Limited Access";
+		assignedRole: 'Member' | 'Viewer' | 'Limited Access';
 		expiresSoon?: boolean;
 		expired?: boolean;
 		projectDescription?: string;
 		projectStatus?: ProjectStatus;
 		projectId?: string;
-		inviterRole?: "Owner" | "Admin";
+		inviterRole?: 'Owner' | 'Admin';
 		inviterEmail?: string;
 		sentAt?: string;
 		expiresAt?: string;
@@ -347,7 +341,7 @@ declare global {
 		text?: string;
 		description?: string;
 		project?: string;
-		sourceType?: "Project Activity" | "Project Invitation" | "System Notification";
+		sourceType?: 'Project Activity' | 'Project Invitation' | 'System Notification';
 		read?: boolean;
 		timestamp: string;
 		url?: string;
@@ -368,19 +362,19 @@ declare global {
 		artifactName?: string;
 		artifactUrl?: string;
 		projectId?: string;
-		type?: "Artifacts" | "Tasks" | "Feedback" | "Comments";
+		type?: 'Artifacts' | 'Tasks' | 'Feedback' | 'Comments';
 	}
 
 	// Unified app/web error and page data contracts.
 	type WebErrorSource =
-		| "app"
-		| "client"
-		| "server"
-		| "network"
-		| "validation"
-		| "authorization"
-		| "not-found"
-		| "unknown";
+		| 'app'
+		| 'client'
+		| 'server'
+		| 'network'
+		| 'validation'
+		| 'authorization'
+		| 'not-found'
+		| 'unknown';
 
 	interface ValidationIssue {
 		path?: string;
@@ -414,7 +408,7 @@ declare global {
 		code?: string;
 		message?: string;
 		requestId?: string;
-		user?: HomeUser | ProjectAccess["user"] | null;
+		user?: HomeUser | ProjectAccess['user'] | null;
 		project?: ProjectInfo | null;
 		projectId?: string;
 		data?: Record<string, unknown>;

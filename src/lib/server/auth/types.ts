@@ -43,36 +43,30 @@ export interface IssuedSession {
 
 export interface AuthEmailLog {
 	id: string;
-	kind: "verify" | "reset";
+	kind: 'verify' | 'reset';
 	to: string;
 	link: string;
 	sentAt: Date;
 }
 
-export type LoginFailureReason = "invalid_credentials" | "email_unverified";
+export type LoginFailureReason = 'invalid_credentials' | 'email_unverified';
 
-export type LoginResult =
-	| { ok: true; user: AuthUser }
-	| { ok: false; reason: LoginFailureReason };
+export type LoginResult = { ok: true; user: AuthUser } | { ok: false; reason: LoginFailureReason };
 
-export type SignUpResult =
-	| { ok: true; user: AuthUser }
-	| { ok: false; reason: "email_taken" };
+export type SignUpResult = { ok: true; user: AuthUser } | { ok: false; reason: 'email_taken' };
 
 export type VerificationResult =
-	| { status: "success"; email: string }
-	| { status: "missing" }
-	| { status: "failed" };
+	| { status: 'success'; email: string }
+	| { status: 'missing' }
+	| { status: 'failed' };
 
 export type ResendVerificationResult =
-	| { status: "sent" }
-	| { status: "not_found" }
-	| { status: "already_verified" };
+	| { status: 'sent' }
+	| { status: 'not_found' }
+	| { status: 'already_verified' };
 
-export type ResetTokenState =
-	| { valid: true; user: AuthUser }
-	| { valid: false };
+export type ResetTokenState = { valid: true; user: AuthUser } | { valid: false };
 
 export type ResetPasswordResult =
 	| { ok: true; user: AuthUser }
-	| { ok: false; reason: "invalid_or_expired_token" };
+	| { ok: false; reason: 'invalid_or_expired_token' };

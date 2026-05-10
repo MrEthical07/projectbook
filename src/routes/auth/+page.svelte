@@ -1,49 +1,43 @@
 <script lang="ts">
-	import { Button } from "$lib/components/ui/button";
-	import * as Card from "$lib/components/ui/card";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import { Separator } from "$lib/components/ui/separator";
-	import * as Tabs from "$lib/components/ui/tabs";
-	import { BookOpen, CheckCircle2, LoaderCircle } from "@lucide/svelte";
-	import { superForm } from "sveltekit-superforms";
-	import { zod4Client } from "sveltekit-superforms/adapters";
-	import { signInSchema, signUpSchema } from "$lib/schemas/auth.schema";
-	import type { ActionData, PageProps } from "./$types";
-	import LegalLinks from "$lib/components/legal/legal-links.svelte";
+	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { Separator } from '$lib/components/ui/separator';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import { BookOpen, CheckCircle2, LoaderCircle } from '@lucide/svelte';
+	import { superForm } from 'sveltekit-superforms';
+	import { zod4Client } from 'sveltekit-superforms/adapters';
+	import { signInSchema, signUpSchema } from '$lib/schemas/auth.schema';
+	import type { ActionData, PageProps } from './$types';
+	import LegalLinks from '$lib/components/legal/legal-links.svelte';
 
-	type AuthTab = "signin" | "signup";
+	type AuthTab = 'signin' | 'signup';
 
 	let { data, form }: PageProps = $props();
-	let activeTab = $state<AuthTab>("signin");
+	let activeTab = $state<AuthTab>('signin');
 
 	const resolveLoginFormState = () => (form as ActionData | null)?.loginForm ?? data.loginForm;
 	const resolveSignupFormState = () => (form as ActionData | null)?.signupForm ?? data.signupForm;
 
-	const loginSuperForm = superForm(
-		resolveLoginFormState(),
-		{
-			id: "sign-in-form",
-			validators: zod4Client(signInSchema),
-			onUpdated: ({ form: updatedForm }) => {
-				if (!updatedForm.valid || updatedForm.message) {
-					activeTab = "signin";
-				}
+	const loginSuperForm = superForm(resolveLoginFormState(), {
+		id: 'sign-in-form',
+		validators: zod4Client(signInSchema),
+		onUpdated: ({ form: updatedForm }) => {
+			if (!updatedForm.valid || updatedForm.message) {
+				activeTab = 'signin';
 			}
 		}
-	);
-	const signupSuperForm = superForm(
-		resolveSignupFormState(),
-		{
-			id: "sign-up-form",
-			validators: zod4Client(signUpSchema),
-			onUpdated: ({ form: updatedForm }) => {
-				if (!updatedForm.valid || updatedForm.message) {
-					activeTab = "signup";
-				}
+	});
+	const signupSuperForm = superForm(resolveSignupFormState(), {
+		id: 'sign-up-form',
+		validators: zod4Client(signUpSchema),
+		onUpdated: ({ form: updatedForm }) => {
+			if (!updatedForm.valid || updatedForm.message) {
+				activeTab = 'signup';
 			}
 		}
-	);
+	});
 
 	const {
 		form: loginForm,
@@ -63,24 +57,20 @@
 	let showSignInPassword = $state(false);
 	let showSignUpPassword = $state(false);
 	let showSignUpConfirmPassword = $state(false);
-	const googleSignInDisabledMessage = "Google Sign-in is disabled For the time being";
+	const googleSignInDisabledMessage = 'Google Sign-in is disabled For the time being';
 
 	const switchToSignIn = () => {
-		activeTab = "signin";
+		activeTab = 'signin';
 	};
 
 	const switchToSignUp = () => {
-		activeTab = "signup";
+		activeTab = 'signup';
 	};
-
 </script>
 
 <svelte:head>
 	<title>Login - ProjectBook</title>
-	<meta
-		name="description"
-		content="Sign in to your account or create a new ProjectBook account."
-	/>
+	<meta name="description" content="Sign in to your account or create a new ProjectBook account." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
@@ -103,7 +93,7 @@
 			</div>
 
 			<div class="space-y-4">
-				<h1 class="text-3xl font-semibold leading-tight">Design Thinking Project Hub</h1>
+				<h1 class="text-3xl leading-tight font-semibold">Design Thinking Project Hub</h1>
 				<p class="text-sm text-muted-foreground">From empathy to learning - in one place.</p>
 
 				<ul class="space-y-2 pt-2 text-sm text-muted-foreground">
@@ -162,13 +152,7 @@
 							</Tabs.List>
 
 							<Tabs.Content value="signin" class="mt-4 space-y-4">
-								<form
-									method="POST"
-									action="?/login"
-									class="space-y-4"
-									use:enhanceLogin
-									novalidate
-								>
+								<form method="POST" action="?/login" class="space-y-4" use:enhanceLogin novalidate>
 									<div class="space-y-2">
 										<Label for="signin-email">Email</Label>
 										<Input
@@ -177,7 +161,7 @@
 											type="email"
 											placeholder="name@company.com"
 											bind:value={$loginForm.email}
-											aria-invalid={$loginErrors.email?.length ? "true" : "false"}
+											aria-invalid={$loginErrors.email?.length ? 'true' : 'false'}
 										/>
 										{#if $loginErrors.email?.length}
 											<p class="text-xs text-destructive">{$loginErrors.email[0]}</p>
@@ -193,16 +177,16 @@
 												aria-pressed={showSignInPassword}
 												onclick={() => (showSignInPassword = !showSignInPassword)}
 											>
-												{showSignInPassword ? "Hide" : "Show"}
+												{showSignInPassword ? 'Hide' : 'Show'}
 											</button>
 										</div>
 										<Input
 											id="signin-password"
 											name="password"
-											type={showSignInPassword ? "text" : "password"}
+											type={showSignInPassword ? 'text' : 'password'}
 											placeholder="Enter your password"
 											bind:value={$loginForm.password}
-											aria-invalid={$loginErrors.password?.length ? "true" : "false"}
+											aria-invalid={$loginErrors.password?.length ? 'true' : 'false'}
 										/>
 										{#if $loginErrors.password?.length}
 											<p class="text-xs text-destructive">{$loginErrors.password[0]}</p>
@@ -265,7 +249,7 @@
 										<span>Sign in with Google</span>
 									</Button>
 									<p
-										class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/google-signin:opacity-100"
+										class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 w-max -translate-x-1/2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/google-signin:opacity-100"
 									>
 										{googleSignInDisabledMessage}
 									</p>
@@ -273,7 +257,11 @@
 
 								<p class="text-center text-xs text-muted-foreground">
 									Don't have an account?
-									<button class="text-primary hover:underline" type="button" onclick={switchToSignUp}>
+									<button
+										class="text-primary hover:underline"
+										type="button"
+										onclick={switchToSignUp}
+									>
 										Sign up
 									</button>
 								</p>
@@ -295,7 +283,7 @@
 											type="text"
 											placeholder="Your full name"
 											bind:value={$signupForm.name}
-											aria-invalid={$signupErrors.name?.length ? "true" : "false"}
+											aria-invalid={$signupErrors.name?.length ? 'true' : 'false'}
 										/>
 										{#if $signupErrors.name?.length}
 											<p class="text-xs text-destructive">{$signupErrors.name[0]}</p>
@@ -310,7 +298,7 @@
 											type="email"
 											placeholder="name@company.com"
 											bind:value={$signupForm.email}
-											aria-invalid={$signupErrors.email?.length ? "true" : "false"}
+											aria-invalid={$signupErrors.email?.length ? 'true' : 'false'}
 										/>
 										{#if $signupErrors.email?.length}
 											<p class="text-xs text-destructive">{$signupErrors.email[0]}</p>
@@ -326,16 +314,16 @@
 												aria-pressed={showSignUpPassword}
 												onclick={() => (showSignUpPassword = !showSignUpPassword)}
 											>
-												{showSignUpPassword ? "Hide" : "Show"}
+												{showSignUpPassword ? 'Hide' : 'Show'}
 											</button>
 										</div>
 										<Input
 											id="signup-password"
 											name="password"
-											type={showSignUpPassword ? "text" : "password"}
+											type={showSignUpPassword ? 'text' : 'password'}
 											placeholder="Min 10 chars with upper, lower, number, special"
 											bind:value={$signupForm.password}
-											aria-invalid={$signupErrors.password?.length ? "true" : "false"}
+											aria-invalid={$signupErrors.password?.length ? 'true' : 'false'}
 										/>
 										{#if $signupErrors.password?.length}
 											<p class="text-xs text-destructive">{$signupErrors.password[0]}</p>
@@ -351,16 +339,16 @@
 												aria-pressed={showSignUpConfirmPassword}
 												onclick={() => (showSignUpConfirmPassword = !showSignUpConfirmPassword)}
 											>
-												{showSignUpConfirmPassword ? "Hide" : "Show"}
+												{showSignUpConfirmPassword ? 'Hide' : 'Show'}
 											</button>
 										</div>
 										<Input
 											id="signup-confirm-password"
 											name="confirmPassword"
-											type={showSignUpConfirmPassword ? "text" : "password"}
+											type={showSignUpConfirmPassword ? 'text' : 'password'}
 											placeholder="Re-enter password"
 											bind:value={$signupForm.confirmPassword}
-											aria-invalid={$signupErrors.confirmPassword?.length ? "true" : "false"}
+											aria-invalid={$signupErrors.confirmPassword?.length ? 'true' : 'false'}
 										/>
 										{#if $signupErrors.confirmPassword?.length}
 											<p class="text-xs text-destructive">{$signupErrors.confirmPassword[0]}</p>
@@ -408,7 +396,7 @@
 										<span>Sign up with Google</span>
 									</Button>
 									<p
-										class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-max -translate-x-1/2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/google-signup:opacity-100"
+										class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 w-max -translate-x-1/2 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/google-signup:opacity-100"
 									>
 										{googleSignInDisabledMessage}
 									</p>
@@ -416,7 +404,11 @@
 
 								<p class="text-center text-xs text-muted-foreground">
 									Already have an account?
-									<button class="text-primary hover:underline" type="button" onclick={switchToSignIn}>
+									<button
+										class="text-primary hover:underline"
+										type="button"
+										onclick={switchToSignIn}
+									>
 										Sign in
 									</button>
 								</p>

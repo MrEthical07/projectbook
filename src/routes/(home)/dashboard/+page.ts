@@ -1,4 +1,4 @@
-import { getUserDashboard } from "$lib/remote/user-home.remote";
+import { getUserDashboard } from '$lib/remote/user-home.remote';
 
 export async function load() {
 	const dashboard = await getUserDashboard();

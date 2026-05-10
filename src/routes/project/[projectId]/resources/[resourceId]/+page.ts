@@ -1,4 +1,4 @@
-import { getResourcePageData } from "$lib/remote/resource.remote";
+import { getResourcePageData } from '$lib/remote/resource.remote';
 
 export async function load({ params }: { params: { projectId: string; resourceId: string } }) {
 	return {

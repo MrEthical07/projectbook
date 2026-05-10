@@ -1,23 +1,23 @@
 <script lang="ts">
-	import * as Alert from "$lib/components/ui/alert";
-	import * as AlertDialog from "$lib/components/ui/alert-dialog";
-	import { Badge } from "$lib/components/ui/badge";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Button } from "$lib/components/ui/button";
-	import * as Card from "$lib/components/ui/card";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Label } from "$lib/components/ui/label";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { Toaster } from "$lib/components/ui/sonner";
-	import { Switch } from "$lib/components/ui/switch";
-	import * as Table from "$lib/components/ui/table";
-	import { permissionActions, permissionDomains } from "$lib/constants/permissions";
+	import * as Alert from '$lib/components/ui/alert';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { Toaster } from '$lib/components/ui/sonner';
+	import { Switch } from '$lib/components/ui/switch';
+	import * as Table from '$lib/components/ui/table';
+	import { permissionActions, permissionDomains } from '$lib/constants/permissions';
 	import {
 		updateProjectMemberPermissions,
 		updateProjectRolePermissions
-	} from "$lib/remote/project.remote";
+	} from '$lib/remote/project.remote';
 	import {
 		applyPermissionDependencyRules,
 		can,
@@ -26,29 +26,29 @@
 		maskToPermissions,
 		normalizePermissionMask,
 		validatePermissionMaskValue
-	} from "$lib/utils/permission";
-	import { page } from "$app/state";
-	import { getContext, onMount } from "svelte";
-	import { toast } from "svelte-sonner";
+	} from '$lib/utils/permission';
+	import { page } from '$app/state';
+	import { getContext, onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 
 	type Member = {
 		id: string;
 		name: string;
 		email: string;
 		role: ProjectRole;
-		status: "active" | "invited";
+		status: 'active' | 'invited';
 		updatedAt: string;
 		isCustom: boolean;
 		permissionMask: PermissionMask;
 	};
 
 	const roleValues: ProjectRole[] = [
-		"Owner",
-		"Admin",
-		"Editor",
-		"Member",
-		"Viewer",
-		"Limited Access"
+		'Owner',
+		'Admin',
+		'Editor',
+		'Member',
+		'Viewer',
+		'Limited Access'
 	];
 
 	const customRoleChangeAlertText =
@@ -58,7 +58,7 @@
 		"For the users whos custom permissions are active, Role change won't affect permissions. To update permissions, edit the permissions explicitely.";
 
 	const requiredString = (value: unknown, path: string): string => {
-		if (typeof value !== "string" || value.trim().length === 0) {
+		if (typeof value !== 'string' || value.trim().length === 0) {
 			throw new Error(`Invalid or missing '${path}'.`);
 		}
 		return value.trim();
@@ -71,12 +71,12 @@
 		return value as ProjectRole;
 	};
 
-	const requiredStatus = (value: unknown, path: string): "active" | "invited" => {
-		if (typeof value !== "string") {
+	const requiredStatus = (value: unknown, path: string): 'active' | 'invited' => {
+		if (typeof value !== 'string') {
 			throw new Error(`Invalid '${path}'.`);
 		}
 		const normalized = value.trim().toLowerCase();
-		if (normalized !== "active" && normalized !== "invited") {
+		if (normalized !== 'active' && normalized !== 'invited') {
 			throw new Error(`Invalid '${path}'. Expected active or invited.`);
 		}
 		return normalized;
@@ -88,15 +88,15 @@
 		fallbackB: unknown,
 		path: string
 	): string => {
-		const first = typeof value === "string" ? value.trim() : "";
+		const first = typeof value === 'string' ? value.trim() : '';
 		if (first.length > 0) {
 			return first;
 		}
-		const second = typeof fallbackA === "string" ? fallbackA.trim() : "";
+		const second = typeof fallbackA === 'string' ? fallbackA.trim() : '';
 		if (second.length > 0) {
 			return second;
 		}
-		const third = typeof fallbackB === "string" ? fallbackB.trim() : "";
+		const third = typeof fallbackB === 'string' ? fallbackB.trim() : '';
 		if (third.length > 0) {
 			return third;
 		}
@@ -104,9 +104,9 @@
 	};
 
 	let { data } = $props();
-	const access = getContext<ProjectAccess | undefined>("access");
-	const canEditPermissions = can(access?.permissions, "member", "edit");
-	const canView = can(access?.permissions, "member", "view");
+	const access = getContext<ProjectAccess | undefined>('access');
+	const canEditPermissions = can(access?.permissions, 'member', 'edit');
+	const canView = can(access?.permissions, 'member', 'view');
 	const projectId = page.params.projectId;
 
 	const resolveRolePermissionMaskPayload = (): {
@@ -118,27 +118,25 @@
 		);
 		if (
 			!rawRolePermissionMasks ||
-			typeof rawRolePermissionMasks !== "object" ||
+			typeof rawRolePermissionMasks !== 'object' ||
 			Array.isArray(rawRolePermissionMasks)
 		) {
 			throw new Error("Invalid 'rolePermissionMasks' payload.");
 		}
 		const entries = Object.entries(rawRolePermissionMasks as Record<string, unknown>);
 		if (entries.length === 0) {
-			throw new Error("Role permission masks payload is empty.");
+			throw new Error('Role permission masks payload is empty.');
 		}
 
 		const permissionMasks = {} as RolePermissionMaskMap;
 		for (const [rawRole, rawMask] of entries) {
 			const role = requiredRole(rawRole, `rolePermissionMasks.${rawRole}`);
-			permissionMasks[role] = enforcePermissionMaskDependencies(
-				normalizePermissionMask(rawMask)
-			);
+			permissionMasks[role] = enforcePermissionMaskDependencies(normalizePermissionMask(rawMask));
 		}
 
 		return {
 			permissionMasks,
-			firstRole: requiredRole(entries[0][0], "rolePermissionMasks[0]")
+			firstRole: requiredRole(entries[0][0], 'rolePermissionMasks[0]')
 		};
 	};
 
@@ -154,19 +152,16 @@
 		}
 
 		return rawMembers.map((member, index) => {
-			if (!member || typeof member !== "object") {
+			if (!member || typeof member !== 'object') {
 				throw new Error(`Invalid 'members[${index}]'.`);
 			}
 			const row = member as Record<string, unknown>;
 			const role = requiredRole(row.role, `members[${index}].role`);
-			const roleMask = enforcePermissionMaskDependencies(
-				normalizePermissionMask(masks[role])
-			);
+			const roleMask = enforcePermissionMaskDependencies(normalizePermissionMask(masks[role]));
 			const memberMask = enforcePermissionMaskDependencies(
 				normalizePermissionMask(row.permissionMask ?? roleMask)
 			);
-			const isCustom =
-				row.isCustom === true && isCustomPermissionMask(memberMask, roleMask);
+			const isCustom = row.isCustom === true && isCustomPermissionMask(memberMask, roleMask);
 
 			return {
 				id: requiredString(row.id, `members[${index}].id`),
@@ -189,23 +184,21 @@
 	let members = $state<Member[]>(parseMembers(initialRolePayload.permissionMasks));
 
 	let permissionsSaving = $state(false);
-	let permissionsSavePhase = $state<"idle" | "saving" | "saved">("idle");
-	let permissionsSavedSignature = $state("");
+	let permissionsSavePhase = $state<'idle' | 'saving' | 'saved'>('idle');
+	let permissionsSavedSignature = $state('');
 	let permissionsSavedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
-	let roleMatrixAlert = $state("");
+	let roleMatrixAlert = $state('');
 
 	let permissionsSignature = $derived(JSON.stringify(rolePermissionMasks));
 	let permissionsDirty = $derived(permissionsSignature !== permissionsSavedSignature);
 	let permissionsIndicator = $derived.by(() => {
-		if (permissionsSavePhase === "saving") return "saving";
-		if (permissionsDirty) return "edited";
-		if (permissionsSavePhase === "saved") return "saved";
-		return "idle";
+		if (permissionsSavePhase === 'saving') return 'saving';
+		if (permissionsDirty) return 'edited';
+		if (permissionsSavePhase === 'saved') return 'saved';
+		return 'idle';
 	});
 
-	let selectedRoleMask = $derived(
-		normalizePermissionMask(rolePermissionMasks[selectedRole])
-	);
+	let selectedRoleMask = $derived(normalizePermissionMask(rolePermissionMasks[selectedRole]));
 	let selectedRolePermissions = $derived(maskToPermissions(selectedRoleMask));
 
 	const setRolePermission = (
@@ -232,12 +225,12 @@
 		if (!access?.permissions) return;
 		const selectedValidation = validatePermissionMaskValue(selectedRoleMask);
 		if (!selectedValidation.valid) {
-			toast.error(selectedValidation.errors.join("; "));
+			toast.error(selectedValidation.errors.join('; '));
 			return;
 		}
 
 		permissionsSaving = true;
-		permissionsSavePhase = "saving";
+		permissionsSavePhase = 'saving';
 		if (permissionsSavedBadgeTimer) clearTimeout(permissionsSavedBadgeTimer);
 
 		try {
@@ -250,7 +243,7 @@
 			});
 
 			if (!result.success) {
-				permissionsSavePhase = "idle";
+				permissionsSavePhase = 'idle';
 				toast.error(result.error);
 				return;
 			}
@@ -272,16 +265,16 @@
 				...rolePermissionMasks,
 				[selectedRole]: normalizedMask
 			});
-			permissionsSavePhase = "saved";
+			permissionsSavePhase = 'saved';
 			roleMatrixAlert = roleMatrixChangeAlertText;
-			toast.success("Role permissions saved.");
+			toast.success('Role permissions saved.');
 			permissionsSavedBadgeTimer = setTimeout(() => {
-				if (!permissionsDirty) permissionsSavePhase = "idle";
+				if (!permissionsDirty) permissionsSavePhase = 'idle';
 			}, 1400);
 		} catch (error) {
-			console.error("Failed to save role permissions", error);
-			permissionsSavePhase = "idle";
-			toast.error("Unable to save role permissions right now.");
+			console.error('Failed to save role permissions', error);
+			permissionsSavePhase = 'idle';
+			toast.error('Unable to save role permissions right now.');
 		} finally {
 			permissionsSaving = false;
 		}
@@ -290,21 +283,16 @@
 	let memberDialogOpen = $state(false);
 	let memberSavePending = $state(false);
 	let editingMemberId = $state<string | null>(null);
-	let memberDraftRole = $state<ProjectRole>("Member");
+	let memberDraftRole = $state<ProjectRole>('Member');
 	let memberDraftIsCustom = $state(false);
-	let memberDraftPermissionMask = $state<PermissionMask>("0");
+	let memberDraftPermissionMask = $state<PermissionMask>('0');
 	let confirmRevertCustomOpen = $state(false);
 
-	let editingMember = $derived(
-		members.find((member) => member.id === editingMemberId) ?? null
-	);
-	let memberDraftRoleMask = $derived(
-		normalizePermissionMask(rolePermissionMasks[memberDraftRole])
-	);
+	let editingMember = $derived(members.find((member) => member.id === editingMemberId) ?? null);
+	let memberDraftRoleMask = $derived(normalizePermissionMask(rolePermissionMasks[memberDraftRole]));
 	let memberDraftPermissions = $derived(maskToPermissions(memberDraftPermissionMask));
 	let memberDraftEffectiveIsCustom = $derived(
-		memberDraftIsCustom &&
-			isCustomPermissionMask(memberDraftPermissionMask, memberDraftRoleMask)
+		memberDraftIsCustom && isCustomPermissionMask(memberDraftPermissionMask, memberDraftRoleMask)
 	);
 	let showRoleChangeCustomAlert = $derived(
 		editingMember?.isCustom === true &&
@@ -313,7 +301,7 @@
 	);
 
 	const setMemberDraftRole = (nextRoleValue: string) => {
-		const nextRole = requiredRole(nextRoleValue, "memberDraftRole");
+		const nextRole = requiredRole(nextRoleValue, 'memberDraftRole');
 		memberDraftRole = nextRole;
 		if (!memberDraftIsCustom) {
 			memberDraftPermissionMask = normalizePermissionMask(rolePermissionMasks[nextRole]);
@@ -381,7 +369,7 @@
 		const draftValidation = validatePermissionMaskValue(effectivePermissionMask);
 		if (!draftValidation.valid) {
 			memberSavePending = false;
-			toast.error(draftValidation.errors.join("; "));
+			toast.error(draftValidation.errors.join('; '));
 			return;
 		}
 
@@ -408,15 +396,15 @@
 					role: result.data.role,
 					isCustom: result.data.isCustom,
 					permissionMask: normalizePermissionMask(result.data.permissionMask),
-					updatedAt: "Just now"
+					updatedAt: 'Just now'
 				};
 			});
 
 			toast.success(`Permissions updated for ${editingMember.name}.`);
 			closeMemberPermissionDialog();
 		} catch (error) {
-			console.error("Failed to save member permissions", error);
-			toast.error("Unable to save member permissions right now.");
+			console.error('Failed to save member permissions', error);
+			toast.error('Unable to save member permissions right now.');
 		} finally {
 			memberSavePending = false;
 		}
@@ -426,12 +414,10 @@
 		domain.charAt(0).toUpperCase() + domain.slice(1);
 
 	const formatActionLabel = (action: PermissionAction): string =>
-		action === "statusChange"
-			? "Status Change"
-			: action.charAt(0).toUpperCase() + action.slice(1);
+		action === 'statusChange' ? 'Status Change' : action.charAt(0).toUpperCase() + action.slice(1);
 
-	const statusVariant = (status: Member["status"]) =>
-		status === "invited" ? "secondary" : "default";
+	const statusVariant = (status: Member['status']) =>
+		status === 'invited' ? 'secondary' : 'default';
 
 	onMount(() => {
 		permissionsSavedSignature = permissionsSignature;
@@ -441,7 +427,8 @@
 <svelte:head>
 	<title>
 		Roles &amp; Permissions •
-		{((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"}
+		{((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ??
+			'Project'}
 		• ProjectBook
 	</title>
 	<meta
@@ -539,7 +526,10 @@
 			</Card.Content>
 		</Card.Root>
 
-		<Dialog.Root bind:open={memberDialogOpen} onOpenChange={(open) => !open && closeMemberPermissionDialog()}>
+		<Dialog.Root
+			bind:open={memberDialogOpen}
+			onOpenChange={(open) => !open && closeMemberPermissionDialog()}
+		>
 			<Dialog.Content class="">
 				<Dialog.Header>
 					<Dialog.Title>Edit Member Permissions</Dialog.Title>
@@ -591,7 +581,7 @@
 						{/if}
 
 						{#if memberDraftIsCustom}
-							<div class="rounded-md border overflow-hidden">
+							<div class="overflow-hidden rounded-md border">
 								<div class="border-b px-4 py-3">
 									<p class="text-sm font-medium">Custom permission matrix</p>
 									<p class="text-xs text-muted-foreground">
@@ -604,7 +594,7 @@
 											<Table.Row>
 												<Table.Head>Domain</Table.Head>
 												{#each permissionActions as action (action)}
-													<Table.Head class="text-center min-w-15">
+													<Table.Head class="min-w-15 text-center">
 														{formatActionLabel(action)}
 													</Table.Head>
 												{/each}
@@ -637,8 +627,11 @@
 
 					<Dialog.Footer>
 						<Button variant="outline" onclick={closeMemberPermissionDialog}>Cancel</Button>
-						<Button onclick={saveMemberPermissions} disabled={!canEditPermissions || memberSavePending}>
-							{memberSavePending ? "Saving..." : "Save"}
+						<Button
+							onclick={saveMemberPermissions}
+							disabled={!canEditPermissions || memberSavePending}
+						>
+							{memberSavePending ? 'Saving...' : 'Save'}
 						</Button>
 					</Dialog.Footer>
 				{/if}
@@ -650,7 +643,8 @@
 				<AlertDialog.Header>
 					<AlertDialog.Title>Revert custom permissions?</AlertDialog.Title>
 					<AlertDialog.Description>
-						This will revert from custom permissions to role specific permissions. Still want to continue?
+						This will revert from custom permissions to role specific permissions. Still want to
+						continue?
 					</AlertDialog.Description>
 				</AlertDialog.Header>
 				<AlertDialog.Footer>
@@ -718,11 +712,11 @@
 
 				<div class="mt-4 flex flex-wrap items-center justify-between gap-3">
 					<div class="min-h-4 text-xs text-muted-foreground">
-						{#if permissionsIndicator === "edited"}
+						{#if permissionsIndicator === 'edited'}
 							<span class="text-amber-600">Edited</span>
-						{:else if permissionsIndicator === "saving"}
+						{:else if permissionsIndicator === 'saving'}
 							<span class="text-blue-600">Saving...</span>
-						{:else if permissionsIndicator === "saved"}
+						{:else if permissionsIndicator === 'saved'}
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
@@ -730,7 +724,7 @@
 						onclick={saveRolePermissions}
 						disabled={!canEditPermissions || permissionsSaving || !permissionsDirty}
 					>
-						{permissionsSaving ? "Saving..." : "Save permissions"}
+						{permissionsSaving ? 'Saving...' : 'Save permissions'}
 					</Button>
 				</div>
 			</Card.Content>

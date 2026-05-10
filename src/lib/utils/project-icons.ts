@@ -1,4 +1,4 @@
-import type { Component } from "svelte";
+import type { Component } from 'svelte';
 import {
 	BookOpen,
 	Briefcase,
@@ -25,13 +25,13 @@ import {
 	Users,
 	Wrench,
 	Zap
-} from "@lucide/svelte";
+} from '@lucide/svelte';
 import {
 	defaultProjectIconKey,
 	projectIconKeys,
 	projectIconLabels,
 	type ProjectIconKey
-} from "$lib/constants/project-icons";
+} from '$lib/constants/project-icons';
 
 export const projectIconComponentMap: Record<ProjectIconKey, Component> = {
 	folderKanban: FolderKanban,

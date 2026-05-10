@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
-import type { RequestEvent } from "@sveltejs/kit";
-import type { ApiRequestOptions } from "./client";
+import { createHash } from 'node:crypto';
+import type { RequestEvent } from '@sveltejs/kit';
+import type { ApiRequestOptions } from './client';
 
 const MAX_QUERY_CACHE_ENTRIES = 1500;
 const MAX_PROJECT_SCOPE_TRACK_ENTRIES = 3000;
@@ -31,7 +31,7 @@ const normalizeTag = (tag: string): string => tag.trim().toLowerCase();
 const pruneIfNecessary = (): void => {
 	while (queryCacheStore.size > MAX_QUERY_CACHE_ENTRIES) {
 		const firstKey = queryCacheStore.keys().next().value;
-		if (typeof firstKey !== "string") {
+		if (typeof firstKey !== 'string') {
 			break;
 		}
 		queryCacheStore.delete(firstKey);
@@ -40,20 +40,21 @@ const pruneIfNecessary = (): void => {
 
 const stableSerialize = (value: unknown): string => {
 	if (Array.isArray(value)) {
-		return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
+		return `[${value.map((item) => stableSerialize(item)).join(',')}]`;
 	}
-	if (value && typeof value === "object") {
+	if (value && typeof value === 'object') {
 		const entries = Object.entries(value as Record<string, unknown>)
 			.sort(([left], [right]) => left.localeCompare(right))
 			.map(([key, nestedValue]) => `${JSON.stringify(key)}:${stableSerialize(nestedValue)}`);
-		return `{${entries.join(",")}}`;
+		return `{${entries.join(',')}}`;
 	}
 	return JSON.stringify(value);
 };
 
 const requestMethod = (options: ApiRequestOptions): string =>
-	(options.method ??
-		(options.body === undefined && options.rawBody === undefined ? "GET" : "POST")).toUpperCase();
+	(
+		options.method ?? (options.body === undefined && options.rawBody === undefined ? 'GET' : 'POST')
+	).toUpperCase();
 
 const buildCacheKey = (
 	event: RequestEvent,
@@ -64,18 +65,15 @@ const buildCacheKey = (
 		namespace: policy.namespace,
 		method: requestMethod(options),
 		path: options.path,
-		user_id: event.locals.user?.id ?? "",
-		project_id: event.params.projectId ?? "",
+		user_id: event.locals.user?.id ?? '',
+		project_id: event.params.projectId ?? '',
 		key_parts: policy.keyParts ?? {}
 	};
-	const hash = createHash("sha256").update(stableSerialize(keyPayload)).digest("hex");
+	const hash = createHash('sha256').update(stableSerialize(keyPayload)).digest('hex');
 	return `${policy.namespace}:${hash}`;
 };
 
-const buildCacheTags = (
-	event: RequestEvent,
-	policy: QueryCachePolicy
-): string[] => {
+const buildCacheTags = (event: RequestEvent, policy: QueryCachePolicy): string[] => {
 	const tags = new Set<string>();
 	tags.add(normalizeTag(`namespace:${policy.namespace}`));
 	tags.add(normalizeTag(`path:${policy.namespace}`));
@@ -114,7 +112,7 @@ const isCachePolicyValid = (policy: QueryCachePolicy | undefined): policy is Que
 const pruneProjectScopeTracking = (): void => {
 	while (lastProjectScopeByUser.size > MAX_PROJECT_SCOPE_TRACK_ENTRIES) {
 		const firstKey = lastProjectScopeByUser.keys().next().value;
-		if (typeof firstKey !== "string") {
+		if (typeof firstKey !== 'string') {
 			break;
 		}
 		lastProjectScopeByUser.delete(firstKey);
@@ -122,8 +120,8 @@ const pruneProjectScopeTracking = (): void => {
 };
 
 export const handleProjectScopeChange = (event: RequestEvent): void => {
-	const userId = event.locals.user?.id?.trim() ?? "";
-	const projectId = event.params.projectId?.trim() ?? "";
+	const userId = event.locals.user?.id?.trim() ?? '';
+	const projectId = event.params.projectId?.trim() ?? '';
 	if (userId.length === 0 || projectId.length === 0) {
 		return;
 	}
@@ -133,7 +131,7 @@ export const handleProjectScopeChange = (event: RequestEvent): void => {
 		invalidateQueryCache({
 			tags: [`user-project:${userId}:${previousProjectId}`]
 		});
-		console.info("[cache:project-switch-clear]", {
+		console.info('[cache:project-switch-clear]', {
 			user_id: userId,
 			from_project_id: previousProjectId,
 			to_project_id: projectId
@@ -149,14 +147,14 @@ export const readQueryCache = <TData>(
 	options: ApiRequestOptions,
 	policy: QueryCachePolicy | undefined
 ): TData | null => {
-	if (!isCachePolicyValid(policy) || requestMethod(options) !== "GET") {
+	if (!isCachePolicyValid(policy) || requestMethod(options) !== 'GET') {
 		return null;
 	}
 
 	const key = buildCacheKey(event, options, policy);
 	const cached = queryCacheStore.get(key);
 	if (!cached) {
-		console.info("[cache:miss]", {
+		console.info('[cache:miss]', {
 			namespace: policy.namespace,
 			path: options.path,
 			method: requestMethod(options),
@@ -167,7 +165,7 @@ export const readQueryCache = <TData>(
 	}
 	if (cached.expiresAtUnixMs <= Date.now()) {
 		queryCacheStore.delete(key);
-		console.info("[cache:stale]", {
+		console.info('[cache:stale]', {
 			namespace: policy.namespace,
 			path: options.path,
 			method: requestMethod(options),
@@ -175,7 +173,7 @@ export const readQueryCache = <TData>(
 		});
 		return null;
 	}
-	console.info("[cache:hit]", {
+	console.info('[cache:hit]', {
 		namespace: policy.namespace,
 		path: options.path,
 		method: requestMethod(options),
@@ -191,23 +189,25 @@ export const writeQueryCache = (
 	policy: QueryCachePolicy | undefined,
 	value: unknown
 ): void => {
-	if (!isCachePolicyValid(policy) || requestMethod(options) !== "GET") {
+	if (!isCachePolicyValid(policy) || requestMethod(options) !== 'GET') {
 		return;
 	}
 
 	const key = buildCacheKey(event, options, policy);
-	const expiresAtUnixMs = policy.sessionPersistent ? Number.POSITIVE_INFINITY : Date.now() + policy.ttlMs;
+	const expiresAtUnixMs = policy.sessionPersistent
+		? Number.POSITIVE_INFINITY
+		: Date.now() + policy.ttlMs;
 	queryCacheStore.set(key, {
 		value,
 		expiresAtUnixMs,
 		tags: buildCacheTags(event, policy)
 	});
-	console.info("[cache:write]", {
+	console.info('[cache:write]', {
 		namespace: policy.namespace,
 		path: options.path,
 		method: requestMethod(options),
 		key,
-		ttl_ms: policy.sessionPersistent ? "session" : policy.ttlMs,
+		ttl_ms: policy.sessionPersistent ? 'session' : policy.ttlMs,
 		expires_at_unix_ms: expiresAtUnixMs
 	});
 	pruneIfNecessary();
@@ -237,7 +237,7 @@ export const invalidateQueryCache = (invalidation: QueryCacheInvalidation | unde
 		}
 	}
 
-	console.info("[cache:invalidate]", {
+	console.info('[cache:invalidate]', {
 		tags: [...tagsToInvalidate],
 		remaining_entries: queryCacheStore.size
 	});

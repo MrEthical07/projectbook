@@ -1,10 +1,10 @@
 <script lang="ts">
-	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { useSidebar } from "$lib/components/ui/sidebar/index.js";
-	import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
-	import PlusIcon from "@lucide/svelte/icons/plus";
-	import type { Component } from "svelte";
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { useSidebar } from '$lib/components/ui/sidebar/index.js';
+	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import type { Component } from 'svelte';
 
 	type Organization = { name: string; logo: Component; plan: string };
 
@@ -36,7 +36,7 @@
 									class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 								>
 									<div
-										class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
+										class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
 									>
 										<activeSelection.logo class="size-4" />
 									</div>
@@ -53,12 +53,17 @@
 						<DropdownMenu.Content
 							class="w-(--bits-dropdown-menu-anchor-width) min-w-56 rounded-lg"
 							align="start"
-							side={sidebar.isMobile ? "bottom" : "right"}
+							side={sidebar.isMobile ? 'bottom' : 'right'}
 							sideOffset={4}
 						>
-							<DropdownMenu.Label class="text-muted-foreground text-xs">Organizations</DropdownMenu.Label>
+							<DropdownMenu.Label class="text-xs text-muted-foreground"
+								>Organizations</DropdownMenu.Label
+							>
 							{#each organizations as organization, index (index)}
-								<DropdownMenu.Item onSelect={() => (selectedOrganizationName = organization.name)} class="gap-2 p-2 hover:scale-101">
+								<DropdownMenu.Item
+									onSelect={() => (selectedOrganizationName = organization.name)}
+									class="gap-2 p-2 hover:scale-101"
+								>
 									<div class="flex size-6 items-center justify-center rounded-md border">
 										<organization.logo class="size-3.5 shrink-0" />
 									</div>
@@ -72,7 +77,7 @@
 								>
 									<PlusIcon class="size-4" />
 								</div>
-								<div class="text-muted-foreground font-medium">Add Organization</div>
+								<div class="font-medium text-muted-foreground">Add Organization</div>
 							</DropdownMenu.Item>
 						</DropdownMenu.Content>
 					</Sidebar.GroupContent>

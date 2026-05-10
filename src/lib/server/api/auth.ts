@@ -1,7 +1,7 @@
-import type { RequestEvent } from "@sveltejs/kit";
-import { setApiAuthTokenCookies } from "$lib/server/auth/cookies";
-import { apiRequest, extractApiAuthTokens } from "./client";
-import { createApiRequestError } from "./error-mapping";
+import type { RequestEvent } from '@sveltejs/kit';
+import { setApiAuthTokenCookies } from '$lib/server/auth/cookies';
+import { apiRequest, extractApiAuthTokens } from './client';
+import { createApiRequestError } from './error-mapping';
 
 type SignupPayload = {
 	name: string;
@@ -50,21 +50,20 @@ type ChangePasswordConfirmPayload = {
 };
 
 export const signupRequest = async (event: RequestEvent, payload: SignupPayload) => {
-	return apiRequest<{ user: { id: string; name: string; email: string; isEmailVerified: boolean } }>(
-		event,
-		{
-			path: "/auth/signup",
-			method: "POST",
-			auth: false,
-			body: payload
-		}
-	);
+	return apiRequest<{
+		user: { id: string; name: string; email: string; isEmailVerified: boolean };
+	}>(event, {
+		path: '/auth/signup',
+		method: 'POST',
+		auth: false,
+		body: payload
+	});
 };
 
 export const loginRequest = async (event: RequestEvent, payload: LoginPayload): Promise<void> => {
 	const data = await apiRequest<unknown, LoginPayload>(event, {
-		path: "/auth/login",
-		method: "POST",
+		path: '/auth/login',
+		method: 'POST',
 		auth: false,
 		body: payload
 	});
@@ -73,7 +72,7 @@ export const loginRequest = async (event: RequestEvent, payload: LoginPayload): 
 	if (!tokens) {
 		throw createApiRequestError({
 			statusCode: 500,
-			fallbackReason: "Login response did not include tokens."
+			fallbackReason: 'Login response did not include tokens.'
 		});
 	}
 
@@ -91,8 +90,8 @@ export const loginRequest = async (event: RequestEvent, payload: LoginPayload): 
 
 export const verifyEmailRequest = async (event: RequestEvent, payload: VerifyEmailPayload) => {
 	return apiRequest<{ status?: string; email?: string }>(event, {
-		path: "/auth/verify-email",
-		method: "POST",
+		path: '/auth/verify-email',
+		method: 'POST',
 		auth: false,
 		body: payload
 	});
@@ -103,8 +102,8 @@ export const resendVerificationRequest = async (
 	payload: ResendVerificationPayload
 ) => {
 	return apiRequest<{ status?: string; verificationId?: string }>(event, {
-		path: "/auth/resend-verification",
-		method: "POST",
+		path: '/auth/resend-verification',
+		method: 'POST',
 		auth: false,
 		body: payload
 	});
@@ -115,20 +114,17 @@ export const forgotPasswordRequest = async (
 	payload: ForgotPasswordPayload
 ) => {
 	return apiRequest<{ status?: string; challengeId?: string; message?: string }>(event, {
-		path: "/auth/forgot-password",
-		method: "POST",
+		path: '/auth/forgot-password',
+		method: 'POST',
 		auth: false,
 		body: payload
 	});
 };
 
-export const resetPasswordRequest = async (
-	event: RequestEvent,
-	payload: ResetPasswordPayload
-) => {
+export const resetPasswordRequest = async (event: RequestEvent, payload: ResetPasswordPayload) => {
 	return apiRequest<{ message?: string }>(event, {
-		path: "/auth/reset-password",
-		method: "POST",
+		path: '/auth/reset-password',
+		method: 'POST',
 		auth: false,
 		body: payload
 	});
@@ -139,8 +135,8 @@ export const requestChangePasswordOtp = async (
 	payload: ChangePasswordRequestOtpPayload
 ) => {
 	return apiRequest<{ status?: string; challengeId?: string }>(event, {
-		path: "/auth/change-password/request-otp",
-		method: "POST",
+		path: '/auth/change-password/request-otp',
+		method: 'POST',
 		body: payload
 	});
 };
@@ -150,16 +146,16 @@ export const confirmChangePassword = async (
 	payload: ChangePasswordConfirmPayload
 ) => {
 	return apiRequest<{ message?: string }>(event, {
-		path: "/auth/change-password/confirm",
-		method: "POST",
+		path: '/auth/change-password/confirm',
+		method: 'POST',
 		body: payload
 	});
 };
 
 export const logoutRequest = async (event: RequestEvent): Promise<void> => {
 	await apiRequest<null>(event, {
-		path: "/auth/logout",
-		method: "POST"
+		path: '/auth/logout',
+		method: 'POST'
 	});
 };
 
@@ -196,8 +192,8 @@ export type SessionContextResponse = {
 
 export const whoAmIRequest = async (event: RequestEvent): Promise<WhoAmIResponse> => {
 	return apiRequest<WhoAmIResponse>(event, {
-		path: "/system/whoami",
-		method: "GET"
+		path: '/system/whoami',
+		method: 'GET'
 	});
 };
 
@@ -205,7 +201,7 @@ export const sessionContextRequest = async (
 	event: RequestEvent
 ): Promise<SessionContextResponse> => {
 	return apiRequest<SessionContextResponse>(event, {
-		path: "/system/session-context",
-		method: "GET"
+		path: '/system/session-context',
+		method: 'GET'
 	});
 };

@@ -34,10 +34,12 @@ every artifact is connected, every decision is traceable, and every outcome is t
 ProjectBook is not built as separate frontend and backend layers.
 
 It is a single system where:
+
 - the backend enforces permissions, policies, and data integrity
 - the frontend reflects those rules through controlled data access and rendering
 
 This ensures:
+
 - consistent permission enforcement
 - traceable data flow
 - predictable system behavior
@@ -55,21 +57,21 @@ The frontend enforces strict architectural boundaries:
 
 These constraints are enforced through structure and runtime checks, not developer convention.
 
-
 ## Why These Decisions Exist
 
 ProjectBook prioritizes:
+
 - traceability over flexibility
 - explicit flow over convenience
 - enforced structure over optional patterns
 
 This leads to deliberate constraints:
+
 - fewer abstraction layers in frontend
 - strict data boundaries in backend
 - controlled permission propagation
 
 This system intentionally sacrifices flexibility to guarantee consistency, traceability, and correctness.
-
 
 ## Core Model
 
@@ -82,7 +84,6 @@ Story → Problem → Idea → Task → Feedback
 Each step is explicitly linked.
 Nothing exists in isolation.
 
-
 ## What Makes ProjectBook Different
 
 - Not a task manager — a structured thinking system
@@ -91,7 +92,6 @@ Nothing exists in isolation.
 - Makes reasoning behind decisions traceable
 - Exposes orphaned artifacts instead of hiding them
 
-
 ## Key Capabilities
 
 - End-to-end artifact traceability from user insight to validated outcome
@@ -99,7 +99,6 @@ Nothing exists in isolation.
 - Explicit artifact relationships with orphan-state visibility
 - Permission-aware execution across UI and backend
 - Structured workflow progression with enforced context continuity
-
 
 ## Tech Stack
 
@@ -132,7 +131,6 @@ This architecture introduces deliberate tradeoffs:
 
 These tradeoffs are intentional to ensure consistency, traceability, and correctness.
 
-
 ## What This System Avoids
 
 - No direct API calls from UI components
@@ -150,14 +148,15 @@ ProjectBook enforces a strict end-to-end execution flow:
 UI → Route Load → Remote Functions → API Layer → Backend Modules → Store → Database
 
 ### Frontend
+
 - Route-based data loading using SvelteKit load functions
 - Remote functions define strict query (`query()`) and mutation (`command()`) boundaries
 - All reads pass through cache-aware query handlers
 - All writes pass through validated command handlers with explicit invalidation
 - Local state managed via Svelte 5 runes using full-state snapshots
 
-
 ### Backend
+
 - Request pipeline:
   handler → service → repository → store → database
 - Policy stages:
@@ -189,8 +188,6 @@ There are no alternate execution routes or hidden access paths.
 
 Cache correctness is enforced through explicit invalidation, not implicit TTL-based assumptions.
 
-
-
 ## Technical Decisions
 
 - No service layer in frontend — direct remote-function model for clarity and control
@@ -207,8 +204,6 @@ Cache correctness is enforced through explicit invalidation, not implicit TTL-ba
 - Security and permissions enforced at every layer
 - No hidden coupling between artifacts
 - Fail-fast validation over silent fallback
-
-
 
 ## Getting Started
 
@@ -237,11 +232,13 @@ docker run --rm -p 3000:3000 \
 ```
 
 Container notes:
+
 - The image does not bundle secrets or `.env` files.
 - Runtime configuration is provided through environment variables.
 - The backend API is an external dependency and is not bundled into the web image.
 
 ### Note
+
 The projectbook requires fully configured and running backend api to work properly. Please refer to the [ProjectBook Backend](https://github.com/MrEthical07/projectbook-backend) repository for setup instructions. Make sure all env variables are properly set and the backend is running before starting the web application.
 
 ## Documentation

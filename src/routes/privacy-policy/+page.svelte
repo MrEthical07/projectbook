@@ -1,6 +1,6 @@
 <script lang="ts">
-	import LegalDocument from "$lib/components/legal/legal-document.svelte";
-	import { privacyPolicy } from "$lib/content/legal";
+	import LegalDocument from '$lib/components/legal/legal-document.svelte';
+	import { privacyPolicy } from '$lib/content/legal';
 </script>
 
 <svelte:head>

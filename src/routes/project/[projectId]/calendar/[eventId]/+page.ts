@@ -1,4 +1,4 @@
-import { getCalendarEventData } from "$lib/remote/calendar.remote";
+import { getCalendarEventData } from '$lib/remote/calendar.remote';
 
 export async function load({ params }: { params: { projectId: string; eventId: string } }) {
 	return {

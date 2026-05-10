@@ -1,20 +1,24 @@
 <script lang="ts">
-	import AppSidebar from "$lib/components/sidebar/app-sidebar.svelte";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import * as Card from "$lib/components/ui/card";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import * as Popover from "$lib/components/ui/popover";
-	import * as Tooltip from "$lib/components/ui/tooltip";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import { Textarea } from "$lib/components/ui/textarea";
-	import { Toaster } from "$lib/components/ui/sonner";
-	import { submitGlobalFeedback, searchProject, type ProjectSearchResultItem } from "$lib/remote/project.remote";
-	import { can } from "$lib/utils/permission";
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { mode, setMode } from "mode-watcher";
-	import { onMount } from "svelte";
+	import AppSidebar from '$lib/components/sidebar/app-sidebar.svelte';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as Card from '$lib/components/ui/card';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Popover from '$lib/components/ui/popover';
+	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { Toaster } from '$lib/components/ui/sonner';
+	import {
+		submitGlobalFeedback,
+		searchProject,
+		type ProjectSearchResultItem
+	} from '$lib/remote/project.remote';
+	import { can } from '$lib/utils/permission';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { mode, setMode } from 'mode-watcher';
+	import { onMount } from 'svelte';
 	import {
 		Moon,
 		Sun,
@@ -28,14 +32,14 @@
 		Calendar,
 		Wrench,
 		CircleHelp
-	} from "@lucide/svelte";
-	import { setContext } from "svelte";
-	import { toast } from "svelte-sonner";
-	import type { LayoutProps } from "./$types";
-	import type { ProjectNavigationData } from "$lib/remote/project-navigation.remote";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
+	} from '@lucide/svelte';
+	import { setContext } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import type { LayoutProps } from './$types';
+	import type { ProjectNavigationData } from '$lib/remote/project-navigation.remote';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 
-	type ProjectLayoutData = LayoutProps["data"] & {
+	type ProjectLayoutData = LayoutProps['data'] & {
 		access: ProjectAccess;
 		navigationData: ProjectNavigationData;
 	};
@@ -56,65 +60,65 @@
 			return layoutData.access.permissions;
 		}
 	};
-	setContext("access", accessContext);
+	setContext('access', accessContext);
 
 	const resolveDomain = (pathname: string, projectId: string): PermissionDomain => {
 		const marker = `/project/${projectId}/`;
-		const scoped = pathname.startsWith(marker) ? pathname.slice(marker.length) : "";
-		const segment = scoped.split("/")[0] ?? "";
+		const scoped = pathname.startsWith(marker) ? pathname.slice(marker.length) : '';
+		const segment = scoped.split('/')[0] ?? '';
 
-		if (segment === "stories" || segment === "journeys") return "story";
-		if (segment === "problem-statement") return "problem";
-		if (segment === "ideas" || segment === "whiteboard") return "idea";
-		if (segment === "tasks") return "task";
-		if (segment === "feedback") return "feedback";
-		if (segment === "resources") return "resource";
-		if (segment === "pages") return "page";
-		if (segment === "calendar") return "calendar";
-		if (segment === "team") return "member";
-		return "project";
+		if (segment === 'stories' || segment === 'journeys') return 'story';
+		if (segment === 'problem-statement') return 'problem';
+		if (segment === 'ideas' || segment === 'whiteboard') return 'idea';
+		if (segment === 'tasks') return 'task';
+		if (segment === 'feedback') return 'feedback';
+		if (segment === 'resources') return 'resource';
+		if (segment === 'pages') return 'page';
+		if (segment === 'calendar') return 'calendar';
+		if (segment === 'team') return 'member';
+		return 'project';
 	};
 
 	const domainLabel = (domain: PermissionDomain): string => {
-		if (domain === "member") return "Team";
+		if (domain === 'member') return 'Team';
 		return domain.charAt(0).toUpperCase() + domain.slice(1);
 	};
 
 	let currentDomain = $derived(resolveDomain(page.url.pathname, page.params.projectId as string));
-	let canViewCurrentDomain = $derived(can(layoutData.access?.permissions, currentDomain, "view"));
+	let canViewCurrentDomain = $derived(can(layoutData.access?.permissions, currentDomain, 'view'));
 
-	let searchQuery = $state("");
+	let searchQuery = $state('');
 	let searchInput = $state<HTMLInputElement | null>(null);
 	let searchPopoverAnchor = $state<HTMLDivElement | null>(null);
 	let searchPopoverOpen = $state(false);
-	let debouncedSearchQuery = $state("");
+	let debouncedSearchQuery = $state('');
 	let searchResults = $state<ProjectSearchResultItem[]>([]);
 	let searching = $state(false);
 	let activeSearchIndex = $state(-1);
-	let hoveredResultId = $state("");
+	let hoveredResultId = $state('');
 	let searchRequestToken = 0;
 
 	let feedbackDialogOpen = $state(false);
 	let feedbackSubmitting = $state(false);
-	let feedbackSubject = $state("");
-	let feedbackMessage = $state("");
+	let feedbackSubject = $state('');
+	let feedbackMessage = $state('');
 
-	let modeValue = $state<"light" | "dark">("light");
+	let modeValue = $state<'light' | 'dark'>('light');
 
 	let sidebarState = $state(true);
 
 	const toggleSidebar = () => {
 		sidebarState = !sidebarState;
-		localStorage.setItem("sidebarState", sidebarState.toString());
+		localStorage.setItem('sidebarState', sidebarState.toString());
 	};
-	
+
 	onMount(() => {
 		modeValue =
 			localStorage.modeValue ||
 			(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'light');
 		document.documentElement.classList.toggle('dark', modeValue === 'dark');
 
-		sidebarState = localStorage.sidebarState === "false" ? false : true;
+		sidebarState = localStorage.sidebarState === 'false' ? false : true;
 	});
 
 	const searchTypeIconMap: Record<string, typeof FileText> = {
@@ -130,18 +134,18 @@
 	};
 
 	const formatUpdatedDate = (value?: string): string => {
-		if (!value) return "Updated recently";
+		if (!value) return 'Updated recently';
 		const parsed = new Date(value);
-		if (Number.isNaN(parsed.getTime())) return "Updated recently";
+		if (Number.isNaN(parsed.getTime())) return 'Updated recently';
 		return parsed.toLocaleDateString(undefined, {
-			year: "numeric",
-			month: "short",
-			day: "numeric"
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
 		});
 	};
 
 	const resultTypeLabel = (typeValue: string): string => {
-		if (!typeValue) return "Artifact";
+		if (!typeValue) return 'Artifact';
 		return typeValue.charAt(0).toUpperCase() + typeValue.slice(1);
 	};
 
@@ -154,7 +158,7 @@
 	};
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+		if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
 			e.preventDefault();
 			searchInput?.focus();
 			openSearchPopover();
@@ -165,40 +169,40 @@
 			return;
 		}
 
-		if (e.key === "ArrowDown") {
+		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			activeSearchIndex = (activeSearchIndex + 1 + searchResults.length) % searchResults.length;
-			hoveredResultId = searchResults[activeSearchIndex]?.id ?? "";
+			hoveredResultId = searchResults[activeSearchIndex]?.id ?? '';
 		}
 
-		if (e.key === "ArrowUp") {
+		if (e.key === 'ArrowUp') {
 			e.preventDefault();
 			activeSearchIndex = (activeSearchIndex - 1 + searchResults.length) % searchResults.length;
-			hoveredResultId = searchResults[activeSearchIndex]?.id ?? "";
+			hoveredResultId = searchResults[activeSearchIndex]?.id ?? '';
 		}
 
-		if (e.key === "Enter" && activeSearchIndex >= 0 && activeSearchIndex < searchResults.length) {
+		if (e.key === 'Enter' && activeSearchIndex >= 0 && activeSearchIndex < searchResults.length) {
 			e.preventDefault();
 			void navigateToSearchResult(searchResults[activeSearchIndex]);
 		}
 
-		if (e.key === "Escape") {
+		if (e.key === 'Escape') {
 			searchPopoverOpen = false;
 		}
 	}
 
 	const navigateToSearchResult = async (result: ProjectSearchResultItem) => {
 		searchPopoverOpen = false;
-		searchQuery = "";
-		debouncedSearchQuery = "";
+		searchQuery = '';
+		debouncedSearchQuery = '';
 		searchResults = [];
 		activeSearchIndex = -1;
-		hoveredResultId = "";
+		hoveredResultId = '';
 		try {
 			await goto(result.href);
 		} catch (error) {
-			console.error("Search navigation failed", error);
-			toast.error("Unable to open the selected result.");
+			console.error('Search navigation failed', error);
+			toast.error('Unable to open the selected result.');
 		}
 	};
 
@@ -208,7 +212,7 @@
 		searchPopoverOpen = false;
 		searching = false;
 		activeSearchIndex = -1;
-		hoveredResultId = "";
+		hoveredResultId = '';
 	};
 
 	const submitFeedback = async () => {
@@ -216,11 +220,11 @@
 		const subject = feedbackSubject.trim();
 		const message = feedbackMessage.trim();
 		if (subject.length === 0) {
-			toast.error("Please add a subject.");
+			toast.error('Please add a subject.');
 			return;
 		}
 		if (message.length === 0) {
-			toast.error("Please add feedback details.");
+			toast.error('Please add feedback details.');
 			return;
 		}
 
@@ -233,7 +237,7 @@
 					context: {
 						projectId: page.params.projectId,
 						path: page.url.pathname,
-						userAgent: typeof navigator === "undefined" ? "" : navigator.userAgent,
+						userAgent: typeof navigator === 'undefined' ? '' : navigator.userAgent,
 						mode: modeValue,
 						submittedAt: new Date().toISOString()
 					}
@@ -246,19 +250,19 @@
 			}
 
 			feedbackDialogOpen = false;
-			feedbackSubject = "";
-			feedbackMessage = "";
-			toast.success("Feedback submitted. Thank you.");
+			feedbackSubject = '';
+			feedbackMessage = '';
+			toast.success('Feedback submitted. Thank you.');
 		} catch (error) {
-			console.error("Failed to submit feedback", error);
-			toast.error("Unable to submit feedback right now.");
+			console.error('Failed to submit feedback', error);
+			toast.error('Unable to submit feedback right now.');
 		} finally {
 			feedbackSubmitting = false;
 		}
 	};
 
 	const toggleMode = () => {
-		const nextMode = modeValue === "dark" ? "light" : "dark";
+		const nextMode = modeValue === 'dark' ? 'light' : 'dark';
 		document.documentElement.classList.toggle('dark', nextMode === 'dark');
 		setMode(nextMode);
 		localStorage.setItem('modeValue', nextMode);
@@ -266,7 +270,7 @@
 	};
 
 	$effect(() => {
-		modeValue = mode.current === "dark" ? "dark" : "light";
+		modeValue = mode.current === 'dark' ? 'dark' : 'light';
 	});
 
 	$effect(() => {
@@ -278,7 +282,7 @@
 	});
 
 	$effect(() => {
-		const scopedProjectId = page.params.projectId?.trim() ?? "";
+		const scopedProjectId = page.params.projectId?.trim() ?? '';
 		if (debouncedSearchQuery.length < 2 || scopedProjectId.length === 0) {
 			clearSearchState();
 			return;
@@ -300,7 +304,7 @@
 				}
 
 				activeSearchIndex = searchResults.length > 0 ? 0 : -1;
-				hoveredResultId = searchResults[0]?.id ?? "";
+				hoveredResultId = searchResults[0]?.id ?? '';
 			})
 			.catch(() => {
 				if (token !== searchRequestToken) return;
@@ -314,8 +318,6 @@
 				searching = false;
 			});
 	});
-
-
 </script>
 
 <svelte:document onkeydown={handleKeydown} />
@@ -323,14 +325,16 @@
 <Sidebar.Provider onOpenChange={toggleSidebar} open={sidebarState}>
 	<AppSidebar navigationData={layoutData.navigationData} access={layoutData.access} />
 	<Sidebar.Inset>
-		<div class="w-full p-2 bg-sidebar flex flex-row justify-between gap-2">
+		<div class="flex w-full flex-row justify-between gap-2 bg-sidebar p-2">
 			<div class="md:w-full"></div>
 			<Popover.Root bind:open={searchPopoverOpen}>
 				<div bind:this={searchPopoverAnchor} class="w-full max-w-sm">
 					<div
-						class="bg-background max-w-100 focus-within:border-primary relative flex h-fit w-full items-center rounded-lg border px-2 focus-within:border"
+						class="relative flex h-fit w-full max-w-100 items-center rounded-lg border bg-background px-2 focus-within:border focus-within:border-primary"
 					>
-						<div class="pointer-events-none inset-y-0 left-0 flex items-center p-2 text-muted-foreground">
+						<div
+							class="pointer-events-none inset-y-0 left-0 flex items-center p-2 text-muted-foreground"
+						>
 							<Search class="size-4" />
 						</div>
 						<Input
@@ -341,7 +345,9 @@
 							bind:ref={searchInput}
 							onfocus={openSearchPopover}
 						/>
-						<div class="flex flex-row items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+						<div
+							class="flex flex-row items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+						>
 							<Command class="text-muted-foreground" size="16" /> K
 						</div>
 					</div>
@@ -358,13 +364,15 @@
 					{:else if searchResults.length === 0 && searchQuery.length >= 2}
 						<div class="px-2 py-3 text-sm text-muted-foreground">No results found.</div>
 					{:else if searchResults.length === 0}
-						<div class="px-2 py-3 text-sm text-muted-foreground">Type at least 3 characters to search.</div>
+						<div class="px-2 py-3 text-sm text-muted-foreground">
+							Type at least 3 characters to search.
+						</div>
 					{:else}
 						<div class="space-y-1">
-							{#each searchResults as result, index (result.type + ":" + result.id)}
+							{#each searchResults as result, index (result.type + ':' + result.id)}
 								{@const ResultIcon = searchTypeIconMap[result.type] ?? FileText}
 								<div
-									class={`group flex items-start justify-between rounded-md border px-2 py-2 transition ${index === activeSearchIndex ? "border-primary bg-accent/50" : "border-transparent hover:border-border hover:bg-accent/40"}`}
+									class={`group flex items-start justify-between rounded-md border px-2 py-2 transition ${index === activeSearchIndex ? 'border-primary bg-accent/50' : 'border-transparent hover:border-border hover:bg-accent/40'}`}
 								>
 									<div class="flex min-w-0 flex-1 items-start gap-2">
 										<div class="mt-0.5 rounded bg-muted p-1 text-muted-foreground">
@@ -394,7 +402,7 @@
 											</div>
 										</div>
 									</div>
-									<div class="pl-2 pt-0.5 text-xs text-muted-foreground">
+									<div class="pt-0.5 pl-2 text-xs text-muted-foreground">
 										{formatUpdatedDate(result.updatedAt)}
 									</div>
 								</div>
@@ -403,34 +411,33 @@
 					{/if}
 				</Popover.Content>
 			</Popover.Root>
-			<div class="flex flex-row gap-2 w-fit md:w-full justify-end">
+			<div class="flex w-fit flex-row justify-end gap-2 md:w-full">
 				<Button
 					variant="outline"
-					class="hidden md:flex text-muted-foreground"
+					class="hidden text-muted-foreground md:flex"
 					onclick={() => (feedbackDialogOpen = true)}
 				>
 					Feedback
 				</Button>
 				<Tooltip.Root>
-					<Tooltip.Trigger 
-							class="text-muted-foreground {buttonVariants({ variant: 'outline', size: 'icon' })}"
-							onclick={toggleMode}
-							aria-label="Toggle dark mode"
-						>
-						{#if modeValue === "dark"}
+					<Tooltip.Trigger
+						class="text-muted-foreground {buttonVariants({ variant: 'outline', size: 'icon' })}"
+						onclick={toggleMode}
+						aria-label="Toggle dark mode"
+					>
+						{#if modeValue === 'dark'}
 							<Sun class="size-4" />
 						{:else}
 							<Moon class="size-4" />
 						{/if}
 					</Tooltip.Trigger>
 					<Tooltip.Content>
-						Switch to {modeValue === "dark" ? "light" : "dark"} mode
+						Switch to {modeValue === 'dark' ? 'light' : 'dark'} mode
 					</Tooltip.Content>
 				</Tooltip.Root>
 			</div>
-
 		</div>
-		<div class="bg-sidebar p-2 pt-0 h-full">
+		<div class="h-full bg-sidebar p-2 pt-0">
 			{#if canViewCurrentDomain}
 				{@render children()}
 			{:else}
@@ -439,8 +446,8 @@
 						<Card.Header>
 							<Card.Title>Access Denied</Card.Title>
 							<Card.Description>
-								You do not have permission to view the {domainLabel(currentDomain)} section.
-								Contact your project administrator.
+								You do not have permission to view the {domainLabel(currentDomain)} section. Contact your
+								project administrator.
 							</Card.Description>
 						</Card.Header>
 					</Card.Root>
@@ -450,8 +457,6 @@
 	</Sidebar.Inset>
 </Sidebar.Provider>
 
-
-				
 <Dialog.Root bind:open={feedbackDialogOpen}>
 	<Dialog.Content class="sm:max-w-xl">
 		<Dialog.Header>
@@ -469,7 +474,12 @@
 
 			<div class="grid gap-2">
 				<Label for="feedback-message">Feedback</Label>
-				<Textarea id="feedback-message" rows={7} placeholder="Describe your feedback in detail" bind:value={feedbackMessage} />
+				<Textarea
+					id="feedback-message"
+					rows={7}
+					placeholder="Describe your feedback in detail"
+					bind:value={feedbackMessage}
+				/>
 			</div>
 
 			<div class="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -483,7 +493,7 @@
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => (feedbackDialogOpen = false)}>Cancel</Button>
 			<Button onclick={submitFeedback} disabled={feedbackSubmitting}>
-				{feedbackSubmitting ? "Submitting..." : "Submit Feedback"}
+				{feedbackSubmitting ? 'Submitting...' : 'Submit Feedback'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

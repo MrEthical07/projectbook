@@ -1,25 +1,28 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { getContext } from "svelte";
-	import { createStory as createStoryRemote, getStories as getStoriesRemote } from "$lib/remote/story.remote";
-	import { can } from "$lib/utils/permission";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Button } from "$lib/components/ui/button";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import * as Table from "$lib/components/ui/table";
-	import { BookOpen, Archive, CircleHelp, TriangleAlert } from "@lucide/svelte";
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { getContext } from 'svelte';
+	import {
+		createStory as createStoryRemote,
+		getStories as getStoriesRemote
+	} from '$lib/remote/story.remote';
+	import { can } from '$lib/utils/permission';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as Table from '$lib/components/ui/table';
+	import { BookOpen, Archive, CircleHelp, TriangleAlert } from '@lucide/svelte';
 
 	let { data } = $props();
 
-	type StoryStatus = "Draft" | "Locked" | "Archived";
+	type StoryStatus = 'Draft' | 'Locked' | 'Archived';
 	type StoryRow = {
 		id: string;
 		title: string;
@@ -38,40 +41,41 @@
 
 	$effect(() => {
 		rows = structuredClone(data.rows) as StoryRow[];
-		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
+		nextCursor =
+			typeof data.nextCursor === 'string' && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
-	const access = getContext<ProjectAccess | undefined>("access");
+	const access = getContext<ProjectAccess | undefined>('access');
 	const permissions = access?.permissions;
-	const canCreateStory = can(permissions, "story", "create");
+	const canCreateStory = can(permissions, 'story', 'create');
 
-	let statusFilter = $state<StoryStatus | "All">("All");
-	let ownerFilter = $state("All");
+	let statusFilter = $state<StoryStatus | 'All'>('All');
+	let ownerFilter = $state('All');
 	let orphanOnly = $state(false);
-	let updatedFrom = $state("");
-	let updatedTo = $state("");
-	let qualityFilter = $state<"All" | "WithPainPoints" | "WithHypotheses">("All");
+	let updatedFrom = $state('');
+	let updatedTo = $state('');
+	let qualityFilter = $state<'All' | 'WithPainPoints' | 'WithHypotheses'>('All');
 
 	let createOpen = $state(false);
-	let createTitle = $state("");
-	let createError = $state("");
+	let createTitle = $state('');
+	let createError = $state('');
 	let isCreatingStory = $state(false);
 
-	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	let owners = $derived(['All', ...new Set(rows.map((row) => row.owner))]);
 
 	let stats = $derived({
 		total: rows.length,
 		withPainPoints: rows.filter((row) => row.painPointsCount > 0).length,
 		withHypotheses: rows.filter((row) => row.problemHypothesesCount > 0).length,
-		archived: rows.filter((row) => row.status === "Archived").length,
+		archived: rows.filter((row) => row.status === 'Archived').length
 	});
 
 	let filteredRows = $derived.by(() => {
 		return rows.filter((row) => {
-			if (statusFilter !== "All" && row.status !== statusFilter) return false;
-			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
+			if (statusFilter !== 'All' && row.status !== statusFilter) return false;
+			if (ownerFilter !== 'All' && row.owner !== ownerFilter) return false;
 			if (orphanOnly && !row.isOrphan) return false;
-			if (qualityFilter === "WithPainPoints" && row.painPointsCount === 0) return false;
-			if (qualityFilter === "WithHypotheses" && row.problemHypothesesCount === 0) return false;
+			if (qualityFilter === 'WithPainPoints' && row.painPointsCount === 0) return false;
+			if (qualityFilter === 'WithHypotheses' && row.problemHypothesesCount === 0) return false;
 			if (updatedFrom && row.lastUpdated < updatedFrom) return false;
 			if (updatedTo && row.lastUpdated > updatedTo) return false;
 			return true;
@@ -79,9 +83,9 @@
 	});
 
 	const statusClass = (status: StoryStatus) => {
-		if (status === "Draft") return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-		if (status === "Locked") return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-		return "bg-slate-500/10 text-slate-500 border-slate-500/20";
+		if (status === 'Draft') return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+		if (status === 'Locked') return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+		return 'bg-slate-500/10 text-slate-500 border-slate-500/20';
 	};
 
 	const mergeRows = (current: StoryRow[], incoming: StoryRow[]): StoryRow[] => {
@@ -103,46 +107,46 @@
 		isLoadingMore = true;
 		try {
 			const result = await getStoriesRemote({
-				projectId: page.params.projectId ?? "",
+				projectId: page.params.projectId ?? '',
 				cursor: nextCursor,
 				limit: 20,
-				...(statusFilter !== "All" ? { status: statusFilter } : {})
+				...(statusFilter !== 'All' ? { status: statusFilter } : {})
 			});
 			rows = mergeRows(rows, result.items as StoryRow[]);
 			nextCursor = result.nextCursor;
 		} catch (error) {
-			console.error("Failed to load more stories", error);
+			console.error('Failed to load more stories', error);
 		} finally {
 			isLoadingMore = false;
 		}
 	};
 
-	const applyStatFilter = (target: "Total" | "WithPainPoints" | "WithHypotheses" | "Archived") => {
-		if (target === "Total") {
-			statusFilter = "All";
-			qualityFilter = "All";
+	const applyStatFilter = (target: 'Total' | 'WithPainPoints' | 'WithHypotheses' | 'Archived') => {
+		if (target === 'Total') {
+			statusFilter = 'All';
+			qualityFilter = 'All';
 			return;
 		}
-		if (target === "Archived") {
-			statusFilter = "Archived";
-			qualityFilter = "All";
+		if (target === 'Archived') {
+			statusFilter = 'Archived';
+			qualityFilter = 'All';
 			return;
 		}
-		statusFilter = "All";
+		statusFilter = 'All';
 		qualityFilter = target;
 	};
 
 	const createStory = async () => {
 		if (isCreatingStory) return;
-		createError = "";
+		createError = '';
 		if (!canCreateStory) return;
 		if (!permissions) {
-			createError = "Permissions data is unavailable.";
+			createError = 'Permissions data is unavailable.';
 			return;
 		}
 		const actorId = access?.user.id;
 		if (!actorId) {
-			createError = "Active user id is missing.";
+			createError = 'Active user id is missing.';
 			return;
 		}
 		const title = createTitle.trim();
@@ -163,11 +167,11 @@
 			}
 			const created = result.data as { id: string };
 			createOpen = false;
-			createTitle = "";
+			createTitle = '';
 			await goto(`/project/${projectId}/stories/${created.id}`);
 		} catch (error) {
-			console.error("Failed to create story", error);
-			createError = "Unable to create story right now.";
+			console.error('Failed to create story', error);
+			createError = 'Unable to create story right now.';
 		} finally {
 			isCreatingStory = false;
 		}
@@ -175,16 +179,16 @@
 </script>
 
 <svelte:head>
-	<title>Stories • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
-	<meta
-		name="description"
-		content="Manage user stories and personas to understand your users."
-	/>
+	<title
+		>Stories • {((data as Record<string, unknown>).project as { name?: string } | undefined)
+			?.name ?? 'Project'} • ProjectBook</title
+	>
+	<meta name="description" content="Manage user stories and personas to understand your users." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 rounded-lg border bg-background min-h-full p-2">
+<div class="flex min-h-full flex-col gap-2 rounded-lg border bg-background p-2">
 	<header
 		class="flex h-12 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
@@ -203,7 +207,9 @@
 
 	<div class="flex flex-col gap-4 py-2 md:px-20">
 		<section class="rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Empathize - Stories Index</div>
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
+				Empathize - Stories Index
+			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="space-y-1">
 					<h1 class="text-3xl font-semibold">User Stories</h1>
@@ -213,47 +219,69 @@
 						<Dialog.Trigger>
 							<Button>Add Story</Button>
 						</Dialog.Trigger>
-					<Dialog.Content>
-						<Dialog.Header>
-							<Dialog.Title>Create Story</Dialog.Title>
-							<Dialog.Description>Minimal setup. Advanced fields can be added in the story page.</Dialog.Description>
-						</Dialog.Header>
-						<div class="grid gap-3">
-							<div class="grid gap-2">
-								<Label for="story-title">Title</Label>
-								<Input id="story-title" bind:value={createTitle} placeholder="Story title" />
+						<Dialog.Content>
+							<Dialog.Header>
+								<Dialog.Title>Create Story</Dialog.Title>
+								<Dialog.Description
+									>Minimal setup. Advanced fields can be added in the story page.</Dialog.Description
+								>
+							</Dialog.Header>
+							<div class="grid gap-3">
+								<div class="grid gap-2">
+									<Label for="story-title">Title</Label>
+									<Input id="story-title" bind:value={createTitle} placeholder="Story title" />
+								</div>
+								{#if createError}
+									<p class="text-xs text-destructive">{createError}</p>
+								{/if}
 							</div>
-							{#if createError}
-								<p class="text-xs text-destructive">{createError}</p>
-							{/if}
-						</div>
-						<Dialog.Footer>
-							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createStory} disabled={!createTitle.trim() || isCreatingStory}>
-								{isCreatingStory ? "Creating..." : "Create Story"}
-							</Button>
-						</Dialog.Footer>
-					</Dialog.Content>
+							<Dialog.Footer>
+								<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
+								<Button onclick={createStory} disabled={!createTitle.trim() || isCreatingStory}>
+									{isCreatingStory ? 'Creating...' : 'Create Story'}
+								</Button>
+							</Dialog.Footer>
+						</Dialog.Content>
 					</Dialog.Root>
 				{/if}
 			</div>
 		</section>
 
 		<section class="grid gap-3 rounded-lg bg-background p-4 md:grid-cols-4">
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("Total")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Stories</span><BookOpen class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('Total')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Total Stories</span><BookOpen class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("WithPainPoints")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Stories with Pain Points</span><TriangleAlert class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('WithPainPoints')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Stories with Pain Points</span><TriangleAlert class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-blue-700">{stats.withPainPoints}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("WithHypotheses")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Stories with Problem Hypotheses</span><CircleHelp class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('WithHypotheses')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Stories with Problem Hypotheses</span><CircleHelp class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-emerald-700">{stats.withHypotheses}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("Archived")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Archived Stories</span><Archive class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('Archived')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Archived Stories</span><Archive class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-slate-600">{stats.archived}</div>
 			</button>
 		</section>
@@ -314,71 +342,78 @@
 					{/if}
 				</div>
 			{:else}
-			<div class="border rounded-md">
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>Story Title</Table.Head>
-							<Table.Head class="text-center">Persona Name</Table.Head>
-							<Table.Head class="text-center">Pain Points Count</Table.Head>
-							<Table.Head class="text-center">Problem Hypotheses Count</Table.Head>
-							<Table.Head class="text-center">Owner</Table.Head>
-							<Table.Head class="text-center">Last Updated</Table.Head>
-							<Table.Head class="text-center">Status</Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each filteredRows as row (row.id)}
+				<div class="rounded-md border">
+					<Table.Root>
+						<Table.Header>
 							<Table.Row>
-								<Table.Cell>
-									<div class="flex flex-wrap items-center gap-2">
-										<a class="font-medium hover:underline" href={`./stories/${row.id}`}>{row.title}</a>
-										{#if row.painPointsCount === 0}
-											<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500">Warning: No Pain Points</Badge.Badge>
-										{/if}
-										{#if row.problemHypothesesCount === 0}
-											<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500">Warning: No Problem Hypotheses</Badge.Badge>
-										{/if}
-										{#if row.isOrphan}
-											<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500">Warning: Orphan</Badge.Badge>
-										{/if}
-									</div>
-								</Table.Cell>
-								<Table.Cell class="text-center">{row.personaName}</Table.Cell>
-								<Table.Cell class="text-center">{row.painPointsCount}</Table.Cell>
-								<Table.Cell class="text-center">{row.problemHypothesesCount}</Table.Cell>
-								<Table.Cell>
-									<div class="flex items-center gap-2">
-										<Avatar.Root class="h-7 w-7">
-											<Avatar.Fallback>
-												{row.owner
-													.split(" ")
-													.map((part) => part[0])
-													.join("")
-													.slice(0, 2)}
-											</Avatar.Fallback>
-										</Avatar.Root>
-										<span>{row.owner}</span>
-									</div>
-								</Table.Cell>
-								<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
-								<Table.Cell>
-									<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
-								</Table.Cell>
+								<Table.Head>Story Title</Table.Head>
+								<Table.Head class="text-center">Persona Name</Table.Head>
+								<Table.Head class="text-center">Pain Points Count</Table.Head>
+								<Table.Head class="text-center">Problem Hypotheses Count</Table.Head>
+								<Table.Head class="text-center">Owner</Table.Head>
+								<Table.Head class="text-center">Last Updated</Table.Head>
+								<Table.Head class="text-center">Status</Table.Head>
 							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
-			</div>
+						</Table.Header>
+						<Table.Body>
+							{#each filteredRows as row (row.id)}
+								<Table.Row>
+									<Table.Cell>
+										<div class="flex flex-wrap items-center gap-2">
+											<a class="font-medium hover:underline" href={`./stories/${row.id}`}
+												>{row.title}</a
+											>
+											{#if row.painPointsCount === 0}
+												<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500"
+													>Warning: No Pain Points</Badge.Badge
+												>
+											{/if}
+											{#if row.problemHypothesesCount === 0}
+												<Badge.Badge class="border-amber-500/20 bg-amber-500/10 text-amber-500"
+													>Warning: No Problem Hypotheses</Badge.Badge
+												>
+											{/if}
+											{#if row.isOrphan}
+												<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500"
+													>Warning: Orphan</Badge.Badge
+												>
+											{/if}
+										</div>
+									</Table.Cell>
+									<Table.Cell class="text-center">{row.personaName}</Table.Cell>
+									<Table.Cell class="text-center">{row.painPointsCount}</Table.Cell>
+									<Table.Cell class="text-center">{row.problemHypothesesCount}</Table.Cell>
+									<Table.Cell>
+										<div class="flex items-center gap-2">
+											<Avatar.Root class="h-7 w-7">
+												<Avatar.Fallback>
+													{row.owner
+														.split(' ')
+														.map((part) => part[0])
+														.join('')
+														.slice(0, 2)}
+												</Avatar.Fallback>
+											</Avatar.Root>
+											<span>{row.owner}</span>
+										</div>
+									</Table.Cell>
+									<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
+									<Table.Cell>
+										<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
+									</Table.Cell>
+								</Table.Row>
+							{/each}
+						</Table.Body>
+					</Table.Root>
+				</div>
 			{/if}
 			{#if nextCursor}
 				<div class="mt-3 flex justify-center">
 					<Button variant="outline" onclick={loadMoreStories} disabled={isLoadingMore}>
-						{isLoadingMore ? "Loading..." : "Load More"}
+						{isLoadingMore ? 'Loading...' : 'Load More'}
 					</Button>
 				</div>
 			{/if}
 		</section>
 	</div>
 </div>
-

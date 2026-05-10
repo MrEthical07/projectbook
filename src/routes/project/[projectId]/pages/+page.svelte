@@ -1,29 +1,33 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { getContext } from "svelte";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Button } from "$lib/components/ui/button";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import * as Table from "$lib/components/ui/table";
-	import { Check, Pencil, X, FileStack, Clock3, Link2, Archive } from "@lucide/svelte";
-	import { createPage as createPageRemote, getPages as getPagesRemote, renamePage as renamePageRemote } from "$lib/remote/page.remote";
-	import { can } from "$lib/utils/permission";
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { getContext } from 'svelte';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as Table from '$lib/components/ui/table';
+	import { Check, Pencil, X, FileStack, Clock3, Link2, Archive } from '@lucide/svelte';
+	import {
+		createPage as createPageRemote,
+		getPages as getPagesRemote,
+		renamePage as renamePageRemote
+	} from '$lib/remote/page.remote';
+	import { can } from '$lib/utils/permission';
 
 	let { data } = $props();
-	const access = getContext<ProjectAccess | undefined>("access");
+	const access = getContext<ProjectAccess | undefined>('access');
 	const permissions = access?.permissions;
-	const canCreatePage = can(permissions, "page", "create");
-	const canEditPage = can(permissions, "page", "edit");
+	const canCreatePage = can(permissions, 'page', 'create');
+	const canEditPage = can(permissions, 'page', 'edit');
 
-	type PageStatus = "Draft" | "Archived";
+	type PageStatus = 'Draft' | 'Archived';
 	type PageRow = {
 		id: string;
 		title: string;
@@ -40,26 +44,27 @@
 
 	$effect(() => {
 		rows = structuredClone(data.rows) as PageRow[];
-		nextCursor = typeof data.nextCursor === "string" && data.nextCursor.length > 0 ? data.nextCursor : null;
+		nextCursor =
+			typeof data.nextCursor === 'string' && data.nextCursor.length > 0 ? data.nextCursor : null;
 	});
 
-	let statusFilter = $state<PageStatus | "All">("All");
-	let ownerFilter = $state("All");
+	let statusFilter = $state<PageStatus | 'All'>('All');
+	let ownerFilter = $state('All');
 	let orphanOnly = $state(false);
-	let updatedFrom = $state("");
-	let updatedTo = $state("");
+	let updatedFrom = $state('');
+	let updatedTo = $state('');
 	let linkedOnly = $state(false);
 	let recentOnly = $state(false);
 
 	let createOpen = $state(false);
-	let createTitle = $state("");
+	let createTitle = $state('');
 	let isCreatingPage = $state(false);
-	let mutationError = $state("");
+	let mutationError = $state('');
 
-	let editingId = $state("");
-	let editingTitle = $state("");
+	let editingId = $state('');
+	let editingTitle = $state('');
 
-	let owners = $derived(["All", ...new Set(rows.map((row) => row.owner))]);
+	let owners = $derived(['All', ...new Set(rows.map((row) => row.owner))]);
 	const today = new Date().toISOString().slice(0, 10);
 	const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -67,13 +72,13 @@
 		total: rows.length,
 		recentlyUpdated: rows.filter((row) => row.lastEdited >= recentCutoff).length,
 		linkedPages: rows.filter((row) => row.linkedArtifactsCount > 0).length,
-		archivedPages: rows.filter((row) => row.status === "Archived").length,
+		archivedPages: rows.filter((row) => row.status === 'Archived').length
 	});
 
 	let filteredRows = $derived.by(() => {
 		return rows.filter((row) => {
-			if (statusFilter !== "All" && row.status !== statusFilter) return false;
-			if (ownerFilter !== "All" && row.owner !== ownerFilter) return false;
+			if (statusFilter !== 'All' && row.status !== statusFilter) return false;
+			if (ownerFilter !== 'All' && row.owner !== ownerFilter) return false;
 			if (orphanOnly && !row.isOrphan) return false;
 			if (linkedOnly && row.linkedArtifactsCount === 0) return false;
 			if (recentOnly && row.lastEdited < recentCutoff) return false;
@@ -84,9 +89,9 @@
 	});
 
 	const statusClass = (status: PageStatus) =>
-		status === "Draft"
-			? "bg-blue-500/10 text-blue-500 border-blue-500/20"
-			: "bg-slate-500/10 text-slate-500 border-slate-500/20";
+		status === 'Draft'
+			? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+			: 'bg-slate-500/10 text-slate-500 border-slate-500/20';
 
 	const mergeRows = (current: PageRow[], incoming: PageRow[]): PageRow[] => {
 		const seen = new Set(current.map((row) => row.id));
@@ -107,47 +112,49 @@
 		isLoadingMore = true;
 		try {
 			const result = await getPagesRemote({
-				projectId: page.params.projectId ?? "",
+				projectId: page.params.projectId ?? '',
 				cursor: nextCursor,
 				limit: 20,
-				...(statusFilter !== "All" ? { status: statusFilter } : {})
+				...(statusFilter !== 'All' ? { status: statusFilter } : {})
 			});
 			rows = mergeRows(rows, result.items as PageRow[]);
 			nextCursor = result.nextCursor;
 		} catch (error) {
-			console.error("Failed to load more pages", error);
+			console.error('Failed to load more pages', error);
 		} finally {
 			isLoadingMore = false;
 		}
 	};
 
-	const applyStatFilter = (target: "Total" | "RecentlyUpdated" | "LinkedPages" | "ArchivedPages") => {
-		statusFilter = "All";
+	const applyStatFilter = (
+		target: 'Total' | 'RecentlyUpdated' | 'LinkedPages' | 'ArchivedPages'
+	) => {
+		statusFilter = 'All';
 		recentOnly = false;
 		linkedOnly = false;
-		if (target === "RecentlyUpdated") {
+		if (target === 'RecentlyUpdated') {
 			recentOnly = true;
 			return;
 		}
-		if (target === "LinkedPages") {
+		if (target === 'LinkedPages') {
 			linkedOnly = true;
 			return;
 		}
-		if (target === "ArchivedPages") {
-			statusFilter = "Archived";
+		if (target === 'ArchivedPages') {
+			statusFilter = 'Archived';
 		}
 	};
 
 	const createPage = async () => {
 		if (isCreatingPage) return;
-		mutationError = "";
+		mutationError = '';
 		if (!permissions || !canCreatePage) {
-			mutationError = "You do not have permission to create pages.";
+			mutationError = 'You do not have permission to create pages.';
 			return;
 		}
 		const actorId = access?.user.id;
 		if (!actorId) {
-			mutationError = "Active user id is missing.";
+			mutationError = 'Active user id is missing.';
 			return;
 		}
 		const title = createTitle.trim();
@@ -167,12 +174,12 @@
 			}
 			const created = result.data;
 			rows = [created as PageRow, ...rows];
-			createTitle = "";
+			createTitle = '';
 			createOpen = false;
 			await goto(`/project/${page.params.projectId}/pages/${created.id}`);
 		} catch (error) {
-			console.error("Failed to create page", error);
-			mutationError = "Unable to create page right now.";
+			console.error('Failed to create page', error);
+			mutationError = 'Unable to create page right now.';
 		} finally {
 			isCreatingPage = false;
 		}
@@ -184,14 +191,14 @@
 	};
 
 	const cancelRename = () => {
-		editingId = "";
-		editingTitle = "";
+		editingId = '';
+		editingTitle = '';
 	};
 
 	const saveRename = async () => {
-		mutationError = "";
+		mutationError = '';
 		if (!permissions || !canEditPage) {
-			mutationError = "You do not have permission to rename pages.";
+			mutationError = 'You do not have permission to rename pages.';
 			return;
 		}
 		if (!editingId) return;
@@ -216,14 +223,17 @@
 			);
 			cancelRename();
 		} catch (error) {
-			console.error("Failed to rename page", error);
-			mutationError = "Unable to rename page right now.";
+			console.error('Failed to rename page', error);
+			mutationError = 'Unable to rename page right now.';
 		}
 	};
 </script>
 
 <svelte:head>
-	<title>Pages • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
+	<title
+		>Pages • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ??
+			'Project'} • ProjectBook</title
+	>
 	<meta
 		name="description"
 		content="Manage custom project pages and linked artifact documentation."
@@ -251,7 +261,9 @@
 
 	<div class="flex flex-col gap-4 py-2 md:px-20">
 		<section class="rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Pages - Unstructured Documentation</div>
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
+				Pages - Unstructured Documentation
+			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<h1 class="text-3xl font-semibold">Pages</h1>
 				<Dialog.Root bind:open={createOpen}>
@@ -261,7 +273,9 @@
 					<Dialog.Content>
 						<Dialog.Header>
 							<Dialog.Title>Create Page</Dialog.Title>
-							<Dialog.Description>Minimal setup. Redirects to the page editor immediately.</Dialog.Description>
+							<Dialog.Description
+								>Minimal setup. Redirects to the page editor immediately.</Dialog.Description
+							>
 						</Dialog.Header>
 						<div class="grid gap-3">
 							<div class="grid gap-2">
@@ -274,8 +288,11 @@
 						</div>
 						<Dialog.Footer>
 							<Button variant="outline" onclick={() => (createOpen = false)}>Cancel</Button>
-							<Button onclick={createPage} disabled={!canCreatePage || !createTitle.trim() || isCreatingPage}>
-								{isCreatingPage ? "Creating..." : "Create Page"}
+							<Button
+								onclick={createPage}
+								disabled={!canCreatePage || !createTitle.trim() || isCreatingPage}
+							>
+								{isCreatingPage ? 'Creating...' : 'Create Page'}
 							</Button>
 						</Dialog.Footer>
 					</Dialog.Content>
@@ -284,20 +301,40 @@
 		</section>
 
 		<section class="grid gap-3 rounded-lg bg-background p-4 md:grid-cols-4">
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("Total")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Total Pages</span><FileStack class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('Total')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Total Pages</span><FileStack class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold">{stats.total}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("RecentlyUpdated")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Recently Updated</span><Clock3 class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('RecentlyUpdated')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Recently Updated</span><Clock3 class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-blue-500">{stats.recentlyUpdated}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("LinkedPages")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Linked Pages</span><Link2 class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('LinkedPages')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Linked Pages</span><Link2 class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-emerald-500">{stats.linkedPages}</div>
 			</button>
-			<button class="rounded-md border p-3 text-left cursor-pointer" onclick={() => applyStatFilter("ArchivedPages")}>
-				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground"><span>Archived Pages</span><Archive class="size-4" /></div>
+			<button
+				class="cursor-pointer rounded-md border p-3 text-left"
+				onclick={() => applyStatFilter('ArchivedPages')}
+			>
+				<div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+					<span>Archived Pages</span><Archive class="size-4" />
+				</div>
 				<div class="text-2xl font-semibold text-slate-500">{stats.archivedPages}</div>
 			</button>
 		</section>
@@ -357,74 +394,87 @@
 					</div>
 				</div>
 			{:else}
-				<div class="border rounded-md">
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>Page Title</Table.Head>
-							<Table.Head class="text-center">Owner</Table.Head>
-							<Table.Head class="text-center">Last Edited</Table.Head>
-							<Table.Head class="text-center">Linked Artifacts Count</Table.Head>
-							<Table.Head class="text-center">Status</Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each filteredRows as row (row.id)}
+				<div class="rounded-md border">
+					<Table.Root>
+						<Table.Header>
 							<Table.Row>
-								<Table.Cell>
-									<div class="flex flex-wrap items-center gap-2">
-										{#if editingId === row.id}
-											<Input class="h-8 w-64" bind:value={editingTitle} />
-											<Button size="icon" variant="ghost" onclick={saveRename} disabled={!canEditPage}>
-												<Check class="h-4 w-4" />
-											</Button>
-											<Button size="icon" variant="ghost" onclick={cancelRename}>
-												<X class="h-4 w-4" />
-											</Button>
-										{:else}
-											<a class="font-medium hover:underline" href={`./pages/${row.id}`}>{row.title}</a>
-											<Button size="icon" variant="ghost" onclick={() => beginRename(row)} disabled={!canEditPage}>
-												<Pencil class="h-4 w-4" />
-											</Button>
-										{/if}
-										{#if row.isOrphan}
-											<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500">Warning: Orphan</Badge.Badge>
-										{/if}
-									</div>
-								</Table.Cell>
-								<Table.Cell>
-									<div class="flex items-center gap-2">
-										<Avatar.Root class="h-7 w-7">
-											<Avatar.Fallback>
-												{row.owner
-													.split(" ")
-													.map((part) => part[0])
-													.join("")
-													.slice(0, 2)}
-											</Avatar.Fallback>
-										</Avatar.Root>
-										<span>{row.owner}</span>
-									</div>
-								</Table.Cell>
-								<Table.Cell class="text-center">{row.lastEdited}</Table.Cell>
-								<Table.Cell class="text-center">{row.linkedArtifactsCount}</Table.Cell>
-								<Table.Cell class="text-center">
-									<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
-								</Table.Cell>
+								<Table.Head>Page Title</Table.Head>
+								<Table.Head class="text-center">Owner</Table.Head>
+								<Table.Head class="text-center">Last Edited</Table.Head>
+								<Table.Head class="text-center">Linked Artifacts Count</Table.Head>
+								<Table.Head class="text-center">Status</Table.Head>
 							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
+						</Table.Header>
+						<Table.Body>
+							{#each filteredRows as row (row.id)}
+								<Table.Row>
+									<Table.Cell>
+										<div class="flex flex-wrap items-center gap-2">
+											{#if editingId === row.id}
+												<Input class="h-8 w-64" bind:value={editingTitle} />
+												<Button
+													size="icon"
+													variant="ghost"
+													onclick={saveRename}
+													disabled={!canEditPage}
+												>
+													<Check class="h-4 w-4" />
+												</Button>
+												<Button size="icon" variant="ghost" onclick={cancelRename}>
+													<X class="h-4 w-4" />
+												</Button>
+											{:else}
+												<a class="font-medium hover:underline" href={`./pages/${row.id}`}
+													>{row.title}</a
+												>
+												<Button
+													size="icon"
+													variant="ghost"
+													onclick={() => beginRename(row)}
+													disabled={!canEditPage}
+												>
+													<Pencil class="h-4 w-4" />
+												</Button>
+											{/if}
+											{#if row.isOrphan}
+												<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500"
+													>Warning: Orphan</Badge.Badge
+												>
+											{/if}
+										</div>
+									</Table.Cell>
+									<Table.Cell>
+										<div class="flex items-center gap-2">
+											<Avatar.Root class="h-7 w-7">
+												<Avatar.Fallback>
+													{row.owner
+														.split(' ')
+														.map((part) => part[0])
+														.join('')
+														.slice(0, 2)}
+												</Avatar.Fallback>
+											</Avatar.Root>
+											<span>{row.owner}</span>
+										</div>
+									</Table.Cell>
+									<Table.Cell class="text-center">{row.lastEdited}</Table.Cell>
+									<Table.Cell class="text-center">{row.linkedArtifactsCount}</Table.Cell>
+									<Table.Cell class="text-center">
+										<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
+									</Table.Cell>
+								</Table.Row>
+							{/each}
+						</Table.Body>
+					</Table.Root>
 				</div>
 			{/if}
 			{#if nextCursor}
 				<div class="mt-3 flex justify-center">
 					<Button variant="outline" onclick={loadMorePages} disabled={isLoadingMore}>
-						{isLoadingMore ? "Loading..." : "Load More"}
+						{isLoadingMore ? 'Loading...' : 'Load More'}
 					</Button>
 				</div>
 			{/if}
 		</section>
 	</div>
 </div>
-

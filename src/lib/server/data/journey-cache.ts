@@ -1,4 +1,4 @@
-import { journeyDraftTemplateData } from "./journeys.data";
+import { journeyDraftTemplateData } from './journeys.data';
 
 export const journeyDetailsByKey = new Map<string, typeof journeyDraftTemplateData>();
 
