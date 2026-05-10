@@ -3,4 +3,4 @@
 	import StatusErrorCard from '$lib/components/errors/status-error-card.svelte';
 </script>
 
-<StatusErrorCard status={page.status} message={page.error?.message} homeHref="/" />
+<StatusErrorCard status={page.status} message={page.error?.message} homeHref="/dashboard" />

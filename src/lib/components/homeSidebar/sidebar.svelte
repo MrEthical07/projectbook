@@ -68,10 +68,10 @@
 		home: [
 			{
 				name: 'Dashboard',
-				url: '/',
+				url: '/dashboard',
 				icon: LayoutDashboard,
 				tooltip: 'Home Overview',
-				isActive: pathname === '/'
+				isActive: pathname === '/dashboard'
 			},
 			{
 				name: 'Notifications',
@@ -147,7 +147,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton size="lg" tooltipContent="ProjectBook">
 					{#snippet child({ props })}
-						<a href="/" {...props}>
+						<a href="/dashboard" {...props}>
 							<div
 								class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"
 							>
