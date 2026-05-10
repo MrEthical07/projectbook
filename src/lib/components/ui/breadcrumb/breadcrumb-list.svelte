@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { HTMLOlAttributes } from "svelte/elements";
-	import { cn, type WithElementRef } from "$lib/utils.js";
+	import type { HTMLOlAttributes } from 'svelte/elements';
+	import { cn, type WithElementRef } from '$lib/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -16,7 +16,7 @@
 				if (ref === node) {
 					ref = null;
 				}
-			},
+			}
 		};
 	};
 </script>
@@ -25,7 +25,7 @@
 	{@attach setRef}
 	data-slot="breadcrumb-list"
 	class={cn(
-		"text-muted-foreground flex min-w-0 max-w-full flex-row items-center gap-1.5 overflow-hidden text-sm sm:gap-2.5",
+		'flex max-w-full min-w-0 flex-row items-center gap-1.5 overflow-hidden text-sm text-muted-foreground sm:gap-2.5',
 		className
 	)}
 	{...restProps}

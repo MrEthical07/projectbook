@@ -1,8 +1,8 @@
-import { randomUUID } from "node:crypto";
-import { authStore } from "./store";
-import type { AuthEmailLog } from "./types";
+import { randomUUID } from 'node:crypto';
+import { authStore } from './store';
+import type { AuthEmailLog } from './types';
 
-const recordEmail = (entry: Omit<AuthEmailLog, "id" | "sentAt">) => {
+const recordEmail = (entry: Omit<AuthEmailLog, 'id' | 'sentAt'>) => {
 	authStore.emailLog.unshift({
 		id: randomUUID(),
 		sentAt: new Date(),
@@ -13,7 +13,7 @@ const recordEmail = (entry: Omit<AuthEmailLog, "id" | "sentAt">) => {
 export const sendVerificationEmail = async (email: string, token: string): Promise<void> => {
 	const link = `/auth/verify?token=${encodeURIComponent(token)}`;
 	recordEmail({
-		kind: "verify",
+		kind: 'verify',
 		to: email,
 		link
 	});
@@ -23,7 +23,7 @@ export const sendVerificationEmail = async (email: string, token: string): Promi
 export const sendPasswordResetEmail = async (email: string, token: string): Promise<void> => {
 	const link = `/auth/reset-password?token=${encodeURIComponent(token)}`;
 	recordEmail({
-		kind: "reset",
+		kind: 'reset',
 		to: email,
 		link
 	});

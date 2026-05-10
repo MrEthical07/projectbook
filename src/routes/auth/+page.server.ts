@@ -1,8 +1,8 @@
-import { redirect } from "@sveltejs/kit";
-import type { Actions, PageServerLoad } from "./$types";
-import { fail, superValidate } from "sveltekit-superforms";
-import { zod4 } from "sveltekit-superforms/adapters";
-import { signInSchema, signUpSchema } from "$lib/schemas/auth.schema";
+import { redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import { fail, superValidate } from 'sveltekit-superforms';
+import { zod4 } from 'sveltekit-superforms/adapters';
+import { signInSchema, signUpSchema } from '$lib/schemas/auth.schema';
 import {
 	clearApiAuthTokenCookies,
 	clearPermissionContextRevalidateCooldownCookie,
@@ -12,19 +12,19 @@ import {
 	getPermissionContextCookie,
 	setPermissionContextCookie,
 	setAuthNoticeCookie
-} from "$lib/server/auth/cookies";
-import { parsePermissionContextToken } from "$lib/server/auth/permission-context";
-import { isApiRequestError } from "$lib/server/api/error-mapping";
+} from '$lib/server/auth/cookies';
+import { parsePermissionContextToken } from '$lib/server/auth/permission-context';
+import { isApiRequestError } from '$lib/server/api/error-mapping';
 import {
 	loginRequest,
 	resendVerificationRequest,
 	sessionContextRequest,
 	signupRequest
-} from "$lib/server/api/auth";
-import { checkRateLimit, withFormError } from "$lib/server/auth/rate-limit";
+} from '$lib/server/api/auth';
+import { checkRateLimit, withFormError } from '$lib/server/auth/rate-limit';
 
-const SIGN_IN_FORM_ID = "sign-in-form";
-const SIGN_UP_FORM_ID = "sign-up-form";
+const SIGN_IN_FORM_ID = 'sign-in-form';
+const SIGN_UP_FORM_ID = 'sign-up-form';
 
 const loadForms = async () => {
 	const loginForm = await superValidate(zod4(signInSchema), { id: SIGN_IN_FORM_ID });
@@ -33,49 +33,49 @@ const loadForms = async () => {
 };
 
 const apiErrorReason = (details: unknown): string => {
-	if (!details || typeof details !== "object") {
-		return "";
+	if (!details || typeof details !== 'object') {
+		return '';
 	}
 
 	const value = (details as { reason?: unknown }).reason;
-	if (typeof value !== "string") {
-		return "";
+	if (typeof value !== 'string') {
+		return '';
 	}
 
 	return value.trim().toLowerCase();
 };
 
 const apiErrorVerificationId = (details: unknown): string => {
-	if (!details || typeof details !== "object") {
-		return "";
+	if (!details || typeof details !== 'object') {
+		return '';
 	}
 
 	const candidate = details as {
 		verificationId?: unknown;
 		verification_id?: unknown;
 	};
-	if (typeof candidate.verificationId === "string") {
+	if (typeof candidate.verificationId === 'string') {
 		return candidate.verificationId.trim();
 	}
-	if (typeof candidate.verification_id === "string") {
+	if (typeof candidate.verification_id === 'string') {
 		return candidate.verification_id.trim();
 	}
 
-	return "";
+	return '';
 };
 
-const buildVerifyRedirectPath = (email: string, verificationID = ""): string => {
+const buildVerifyRedirectPath = (email: string, verificationID = ''): string => {
 	const query = new URLSearchParams();
 	const normalizedEmail = email.trim();
 	const normalizedVerificationID = verificationID.trim();
 	if (normalizedEmail.length > 0) {
-		query.set("email", normalizedEmail);
+		query.set('email', normalizedEmail);
 	}
 	if (normalizedVerificationID.length > 0) {
-		query.set("verificationId", normalizedVerificationID);
+		query.set('verificationId', normalizedVerificationID);
 	}
 	const serialized = query.toString();
-	return serialized.length > 0 ? `/auth/verify?${serialized}` : "/auth/verify";
+	return serialized.length > 0 ? `/auth/verify?${serialized}` : '/auth/verify';
 };
 
 export const load: PageServerLoad = async (event) => {
@@ -89,7 +89,7 @@ export const load: PageServerLoad = async (event) => {
 			try {
 				const sessionContext = await sessionContextRequest(event);
 				resolvedContext = sessionContext;
-				const contextToken = sessionContext.context_token?.trim() ?? "";
+				const contextToken = sessionContext.context_token?.trim() ?? '';
 				if (contextToken.length > 0) {
 					setPermissionContextCookie(
 						event.cookies,
@@ -106,7 +106,7 @@ export const load: PageServerLoad = async (event) => {
 					clearPermissionContextCookie(event.cookies);
 					clearApiAuthTokenCookies(event.cookies);
 				} else {
-					console.error("[auth:load] session context failed", err);
+					console.error('[auth:load] session context failed', err);
 					clearPermissionContextCookie(event.cookies);
 				}
 			}
@@ -114,9 +114,9 @@ export const load: PageServerLoad = async (event) => {
 
 		if (getAccessTokenCookie(event.cookies)) {
 			if (resolvedContext?.email_verified === false) {
-				throw redirect(303, buildVerifyRedirectPath(resolvedContext.email ?? ""));
+				throw redirect(303, buildVerifyRedirectPath(resolvedContext.email ?? ''));
 			}
-			throw redirect(303, "/");
+			throw redirect(303, '/dashboard');
 		}
 	}
 
@@ -139,7 +139,7 @@ export const actions: Actions = {
 		const ip = getClientAddress();
 		const rl = checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
 		if (!rl.allowed) {
-			withFormError(loginForm, "Too many login attempts. Please try again later.");
+			withFormError(loginForm, 'Too many login attempts. Please try again later.');
 			return fail(429, { loginForm, signupForm });
 		}
 
@@ -154,7 +154,7 @@ export const actions: Actions = {
 			let contextEmail = loginForm.data.email.trim();
 			try {
 				const sessionContext = await sessionContextRequest(event);
-				const contextToken = sessionContext.context_token?.trim() ?? "";
+				const contextToken = sessionContext.context_token?.trim() ?? '';
 				if (contextToken.length > 0) {
 					setPermissionContextCookie(
 						event.cookies,
@@ -170,7 +170,7 @@ export const actions: Actions = {
 				clearPermissionContextRevalidateCooldownCookie(event.cookies);
 
 				requiresVerification = sessionContext.email_verified === false;
-				if ((sessionContext.email ?? "").trim().length > 0) {
+				if ((sessionContext.email ?? '').trim().length > 0) {
 					contextEmail = sessionContext.email!.trim();
 				}
 			} catch (err) {
@@ -178,60 +178,52 @@ export const actions: Actions = {
 					clearPermissionContextCookie(event.cookies);
 					clearApiAuthTokenCookies(event.cookies);
 				} else {
-					console.error("[auth:login] session context failed", err);
+					console.error('[auth:login] session context failed', err);
 					clearPermissionContextCookie(event.cookies);
 				}
 			}
 
 			if (requiresVerification) {
-				let verificationID = "";
+				let verificationID = '';
 				try {
 					const resend = await resendVerificationRequest(event, {
 						email: contextEmail
 					});
-					verificationID = resend.verificationId?.trim() ?? "";
+					verificationID = resend.verificationId?.trim() ?? '';
 				} catch (err) {
-					console.error("[auth:login] resend verification failed", err);
+					console.error('[auth:login] resend verification failed', err);
 				}
 
 				setAuthNoticeCookie(
 					event.cookies,
-					"You are signed in. Verify your email with the OTP to continue."
+					'You are signed in. Verify your email with the OTP to continue.'
 				);
 				throw redirect(303, buildVerifyRedirectPath(contextEmail, verificationID));
 			}
 		} catch (err) {
-			if (
-				err &&
-				typeof err === "object" &&
-				"status" in err &&
-				"location" in err
-			) {
+			if (err && typeof err === 'object' && 'status' in err && 'location' in err) {
 				throw err;
 			}
-			console.error("[auth:login] request failed", err);
+			console.error('[auth:login] request failed', err);
 			if (isApiRequestError(err)) {
 				const reason = err.reason.toLowerCase();
-				if (apiErrorReason(err.details) === "email_unverified") {
+				if (apiErrorReason(err.details) === 'email_unverified') {
 					const verificationId = apiErrorVerificationId(err.details);
 					const query = new URLSearchParams({
 						email: loginForm.data.email.trim()
 					});
 					if (verificationId.length > 0) {
-						query.set("verificationId", verificationId);
+						query.set('verificationId', verificationId);
 					}
-					setAuthNoticeCookie(
-						event.cookies,
-						"Please verify your email with the OTP to continue."
-					);
+					setAuthNoticeCookie(event.cookies, 'Please verify your email with the OTP to continue.');
 					throw redirect(303, `/auth/verify?${query.toString()}`);
 				}
 				withFormError(
 					loginForm,
-					err.statusCode === 401 || reason.includes("credential")
-						? "Invalid credentials."
-						: reason.includes("verify")
-							? "Please verify your email before signing in."
+					err.statusCode === 401 || reason.includes('credential')
+						? 'Invalid credentials.'
+						: reason.includes('verify')
+							? 'Please verify your email before signing in.'
 							: err.userMessage
 				);
 				return fail(err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 400, {
@@ -239,11 +231,11 @@ export const actions: Actions = {
 					signupForm
 				});
 			}
-			withFormError(loginForm, "Sign-in failed. Please try again.");
+			withFormError(loginForm, 'Sign-in failed. Please try again.');
 			return fail(500, { loginForm, signupForm });
 		}
 
-		throw redirect(303, "/");
+		throw redirect(303, '/dashboard');
 	},
 
 	signup: async (event) => {
@@ -258,7 +250,7 @@ export const actions: Actions = {
 		const ip = getClientAddress();
 		const rl = checkRateLimit(`signup:${ip}`, 5, 15 * 60 * 1000);
 		if (!rl.allowed) {
-			withFormError(signupForm, "Too many signup attempts. Please try again later.");
+			withFormError(signupForm, 'Too many signup attempts. Please try again later.');
 			return fail(429, { loginForm, signupForm });
 		}
 
@@ -270,13 +262,11 @@ export const actions: Actions = {
 				confirmPassword: signupForm.data.confirmPassword
 			});
 		} catch (err) {
-			console.error("[auth:signup] request failed", err);
+			console.error('[auth:signup] request failed', err);
 			if (isApiRequestError(err)) {
 				signupForm.valid = false;
 				signupForm.errors.email = [
-					err.statusCode === 409
-						? "Email is already registered. Sign in instead."
-						: err.userMessage
+					err.statusCode === 409 ? 'Email is already registered. Sign in instead.' : err.userMessage
 				];
 				return fail(err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 400, {
 					loginForm,
@@ -284,13 +274,13 @@ export const actions: Actions = {
 				});
 			}
 			signupForm.valid = false;
-			signupForm.errors._errors = ["Signup failed. Please try again."];
+			signupForm.errors._errors = ['Signup failed. Please try again.'];
 			return fail(500, { loginForm, signupForm });
 		}
 
-		signupForm.data.password = "";
-		signupForm.data.confirmPassword = "";
-		signupForm.message = "Account created. Sign in, then verify your email with the OTP.";
+		signupForm.data.password = '';
+		signupForm.data.confirmPassword = '';
+		signupForm.message = 'Account created. Sign in, then verify your email with the OTP.';
 
 		return { loginForm, signupForm };
 	}

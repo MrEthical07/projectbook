@@ -1,29 +1,29 @@
 <script lang="ts">
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Button } from "$lib/components/ui/button";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { FolderKanban, Plus } from "@lucide/svelte";
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Button } from '$lib/components/ui/button';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { FolderKanban, Plus } from '@lucide/svelte';
 
 	let { data } = $props();
 
 	type ProjectItem = {
 		id: string;
 		name: string;
-		status: "Active" | "Archived";
+		status: 'Active' | 'Archived';
 		updatedAt: string;
 		url: string;
 	};
 
 	const requiredString = (value: unknown, path: string): string => {
-		if (typeof value !== "string" || value.trim().length === 0) {
+		if (typeof value !== 'string' || value.trim().length === 0) {
 			throw new Error(`Invalid or missing '${path}' in projects payload.`);
 		}
 		return value.trim();
 	};
 
-	const requiredStatus = (value: unknown, path: string): "Active" | "Archived" => {
-		if (value !== "Active" && value !== "Archived") {
+	const requiredStatus = (value: unknown, path: string): 'Active' | 'Archived' => {
+		if (value !== 'Active' && value !== 'Archived') {
 			throw new Error(`Invalid '${path}' in projects payload. Expected Active or Archived.`);
 		}
 		return value;
@@ -32,11 +32,11 @@
 	let projects = $derived.by<ProjectItem[]>(() => {
 		const rawProjects = structuredClone(data.projects);
 		if (!Array.isArray(rawProjects)) {
-			throw new Error("Projects payload must be an array.");
+			throw new Error('Projects payload must be an array.');
 		}
 
 		return rawProjects.map((project, index) => {
-			if (!project || typeof project !== "object") {
+			if (!project || typeof project !== 'object') {
 				throw new Error(`Invalid project row at index ${index}.`);
 			}
 			const row = project as unknown as Record<string, unknown>;
@@ -54,10 +54,7 @@
 
 <svelte:head>
 	<title>Projects • ProjectBook</title>
-	<meta
-		name="description"
-		content="Browse and manage all of your projects."
-	/>
+	<meta name="description" content="Browse and manage all of your projects." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>

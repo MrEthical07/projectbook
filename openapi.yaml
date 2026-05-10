@@ -62,7 +62,6 @@ security:
   - cookieAuth: []
 
 components:
-
   # ── Security Schemes ────────────────────────────────────────────────
 
   securitySchemes:
@@ -171,7 +170,6 @@ components:
   # ── Enum Schemas ────────────────────────────────────────────────────
 
   schemas:
-
     ProjectStatus:
       type: string
       enum: [Active, Archived]
@@ -1286,10 +1284,8 @@ components:
           type: string
         message:
           type: string
-        received:
-          {}
-        expected:
-          {}
+        received: {}
+        expected: {}
 
     ErrorDetail:
       type: object
@@ -1325,8 +1321,7 @@ components:
         success:
           type: boolean
           enum: [true]
-        data:
-          {}
+        data: {}
 
     PaginatedMeta:
       type: object
@@ -1462,7 +1457,6 @@ components:
 # ════════════════════════════════════════════════════════════════════════
 
 paths:
-
   # ── Authentication ──────────────────────────────────────────────────
 
   /auth/signup:

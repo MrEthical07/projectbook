@@ -1,36 +1,31 @@
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
 
 const workspaceRoot = process.cwd();
 
 const budgetTargets = [
 	{
-		name: "home-navigation",
+		name: 'home-navigation',
 		maxCalls: 2,
-		files: [
-			"src/routes/(home)/+layout.ts",
-			"src/routes/(home)/+page.ts"
-		]
+		files: ['src/routes/(home)/+layout.ts', 'src/routes/(home)/dashboard/+page.ts']
 	},
 	{
-		name: "project-navigation",
+		name: 'project-navigation',
 		maxCalls: 3,
-		files: [
-			"src/routes/project/[projectId]/+layout.ts",
-			"src/routes/project/[projectId]/+page.ts"
-		]
+		files: ['src/routes/project/[projectId]/+layout.ts', 'src/routes/project/[projectId]/+page.ts']
 	}
 ];
 
-const remoteImportPattern = /^\s*import\s*\{([^}]*)\}\s*from\s*["']\$lib\/remote\/[^"']+["'];?\s*$/gm;
+const remoteImportPattern =
+	/^\s*import\s*\{([^}]*)\}\s*from\s*["']\$lib\/remote\/[^"']+["'];?\s*$/gm;
 
 const extractRemoteSymbols = (source) => {
 	const names = [];
 	let match;
 	while ((match = remoteImportPattern.exec(source)) !== null) {
 		const symbols = match[1]
-			.split(",")
+			.split(',')
 			.map((part) => part.trim())
 			.filter((part) => part.length > 0)
 			.map((part) => {
@@ -43,7 +38,7 @@ const extractRemoteSymbols = (source) => {
 	return [...new Set(names)];
 };
 
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const countRemoteCalls = (source) => {
 	const symbols = extractRemoteSymbols(source);
@@ -53,12 +48,12 @@ const countRemoteCalls = (source) => {
 
 	const codeWithoutImports = source
 		.split(/\r?\n/)
-		.filter((line) => !line.trim().startsWith("import "))
-		.join("\n");
+		.filter((line) => !line.trim().startsWith('import '))
+		.join('\n');
 
 	let calls = 0;
 	for (const symbol of symbols) {
-		const pattern = new RegExp(`\\b${escapeRegex(symbol)}\\s*\\(`, "g");
+		const pattern = new RegExp(`\\b${escapeRegex(symbol)}\\s*\\(`, 'g');
 		const matches = codeWithoutImports.match(pattern);
 		if (matches) {
 			calls += matches.length;
@@ -80,20 +75,18 @@ for (const target of budgetTargets) {
 			continue;
 		}
 
-		const source = fs.readFileSync(absolutePath, "utf8");
+		const source = fs.readFileSync(absolutePath, 'utf8');
 		callCount += countRemoteCalls(source);
 	}
 
 	details.push(`${target.name}: ${callCount} call(s), budget ${target.maxCalls}`);
 	if (callCount > target.maxCalls) {
-		violations.push(
-			`${target.name}: call budget exceeded (${callCount} > ${target.maxCalls})`
-		);
+		violations.push(`${target.name}: call budget exceeded (${callCount} > ${target.maxCalls})`);
 	}
 }
 
 if (violations.length > 0) {
-	console.error("Route call budget checks failed:");
+	console.error('Route call budget checks failed:');
 	for (const detail of details) {
 		console.error(`- ${detail}`);
 	}
@@ -103,7 +96,7 @@ if (violations.length > 0) {
 	process.exit(1);
 }
 
-console.log("Route call budget checks passed:");
+console.log('Route call budget checks passed:');
 for (const detail of details) {
 	console.log(`- ${detail}`);
 }

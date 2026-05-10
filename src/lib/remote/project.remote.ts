@@ -1,23 +1,16 @@
-import { command, query } from "$app/server";
-import { z } from "zod";
+import { command, query } from '$app/server';
+import { z } from 'zod';
 import {
 	encodePathSegment,
 	remoteMutationRequest,
 	remoteQueryRequest,
 	runMutation,
 	type MutationResult
-} from "$lib/server/api/remote";
-import { invalidateQueryCache } from "$lib/server/api/query-cache";
+} from '$lib/server/api/remote';
+import { invalidateQueryCache } from '$lib/server/api/query-cache';
 
-const inviteRoleSchema = z.enum([
-	"Owner",
-	"Admin",
-	"Editor",
-	"Member",
-	"Viewer",
-	"Limited Access"
-]);
-const roleSchema = z.enum(["Owner", "Admin", "Editor", "Member", "Viewer", "Limited Access"]);
+const inviteRoleSchema = z.enum(['Owner', 'Admin', 'Editor', 'Member', 'Viewer', 'Limited Access']);
+const roleSchema = z.enum(['Owner', 'Admin', 'Editor', 'Member', 'Viewer', 'Limited Access']);
 const permissionMaskSchema = z.string().regex(/^\d+$/);
 
 const createInviteSchema = z.object({
@@ -50,7 +43,7 @@ const updateProjectSettingsSchema = z.object({
 	settings: z.object({
 		projectName: z.string().min(1),
 		projectDescription: z.string().optional(),
-		projectStatus: z.enum(["Active", "Archived"]),
+		projectStatus: z.enum(['Active', 'Archived']),
 		whiteboardsEnabled: z.boolean().optional(),
 		advancedDatabasesEnabled: z.boolean().optional(),
 		calendarManualEventsEnabled: z.boolean().optional(),
@@ -60,7 +53,7 @@ const updateProjectSettingsSchema = z.object({
 		notifyArtifactLocked: z.boolean().optional(),
 		notifyFeedbackAdded: z.boolean().optional(),
 		notifyResourceUpdated: z.boolean().optional(),
-		deliveryChannel: z.enum(["In-app", "Email"]).optional()
+		deliveryChannel: z.enum(['In-app', 'Email']).optional()
 	})
 });
 
@@ -97,29 +90,29 @@ const submitGlobalFeedbackSchema = z.object({
 		projectId: z.string().trim().max(64).optional(),
 		path: z.string().trim().max(512).optional(),
 		userAgent: z.string().trim().max(512).optional(),
-		mode: z.enum(["light", "dark"]).optional(),
+		mode: z.enum(['light', 'dark']).optional(),
 		submittedAt: z.string().trim().max(64).optional()
 	})
 });
 
 const roleToPathSegment = (role: ProjectRole): string => {
 	switch (role) {
-		case "Owner":
-			return "owner";
-		case "Admin":
-			return "admin";
-		case "Editor":
-			return "editor";
-		case "Member":
-			return "member";
-		case "Viewer":
-			return "viewer";
-		case "Limited Access":
-			return "limited-access";
+		case 'Owner':
+			return 'owner';
+		case 'Admin':
+			return 'admin';
+		case 'Editor':
+			return 'editor';
+		case 'Member':
+			return 'member';
+		case 'Viewer':
+			return 'viewer';
+		case 'Limited Access':
+			return 'limited-access';
 	}
 };
 
-export const getProjectDashboard = query("unchecked", async (projectId: string) => {
+export const getProjectDashboard = query('unchecked', async (projectId: string) => {
 	const scopedProjectId = projectId.trim();
 	const basePath = `/projects/${encodePathSegment(scopedProjectId)}`;
 	const dashboard = await remoteQueryRequest<{
@@ -154,12 +147,12 @@ export const getProjectDashboard = query("unchecked", async (projectId: string) 
 		};
 	}>({
 		path: `${basePath}/dashboard`,
-		method: "GET",
+		method: 'GET',
 		cachePolicy: {
-			namespace: "project-dashboard",
+			namespace: 'project-dashboard',
 			ttlMs: 20_000,
 			keyParts: { project_id: scopedProjectId },
-			tags: [`project:${scopedProjectId}`, "project-dashboard"]
+			tags: [`project:${scopedProjectId}`, 'project-dashboard']
 		}
 	});
 
@@ -167,7 +160,7 @@ export const getProjectDashboard = query("unchecked", async (projectId: string) 
 
 	return {
 		project: dashboard.project,
-		me: myWork.focus_user ?? { id: "", name: "", initials: "" },
+		me: myWork.focus_user ?? { id: '', name: '', initials: '' },
 		summary: dashboard.summary,
 		events: Array.isArray(dashboard.events) ? dashboard.events : [],
 		activity: Array.isArray(dashboard.activity) ? dashboard.activity : [],
@@ -178,7 +171,7 @@ export const getProjectDashboard = query("unchecked", async (projectId: string) 
 	};
 });
 
-export const searchProject = query("unchecked", async (input: ProjectSearchInput) => {
+export const searchProject = query('unchecked', async (input: ProjectSearchInput) => {
 	const parsed = projectSearchSchema.safeParse(input);
 	if (!parsed.success) {
 		return {
@@ -189,76 +182,85 @@ export const searchProject = query("unchecked", async (input: ProjectSearchInput
 	const scopedProjectId = parsed.data.projectId;
 	const queryText = parsed.data.q;
 	const limit =
-		typeof parsed.data.limit === "number" && Number.isFinite(parsed.data.limit) && parsed.data.limit > 0
+		typeof parsed.data.limit === 'number' &&
+		Number.isFinite(parsed.data.limit) &&
+		parsed.data.limit > 0
 			? Math.trunc(parsed.data.limit)
 			: undefined;
 	const search = new URLSearchParams();
 	if (queryText.length > 0) {
-		search.set("q", queryText);
+		search.set('q', queryText);
 	}
-	if (typeof limit === "number") {
-		search.set("limit", String(limit));
+	if (typeof limit === 'number') {
+		search.set('limit', String(limit));
 	}
 	const queryString = search.toString();
 
 	return remoteQueryRequest<{
 		items: ProjectSearchResultItem[];
-	}>(
-		{
-			path: `/projects/${encodePathSegment(scopedProjectId)}/search${queryString ? `?${queryString}` : ""}`,
-			method: "GET",
-			cachePolicy: {
-				namespace: "project-search",
-				ttlMs: 15_000,
-				keyParts: {
-					project_id: scopedProjectId,
-					q: queryText.length > 0 ? queryText : null,
-					limit
-				},
-				tags: [`project:${scopedProjectId}`, "project-search"]
-			}
-		}
-	);
-});
-
-export const submitGlobalFeedback = command(
-	"unchecked",
-	async ({ input }: { input: unknown }): Promise<MutationResult<{ feedbackId: string; status: string; submittedAt: string }>> => {
-		const parsed = submitGlobalFeedbackSchema.safeParse(input);
-		if (!parsed.success) {
-			return { success: false, error: "Invalid feedback input" };
-		}
-
-		return remoteMutationRequest<{ feedbackId: string; status: string; submittedAt: string }>(
-			{
-				path: "/feedback",
-				method: "POST",
-				body: parsed.data
-			},
-			undefined,
-			{ tags: ["global-feedback"] }
-		);
-	}
-);
-
-export const getProjectTeamMembers = query("unchecked", async (projectId: string) => {
-	const scopedProjectId = projectId.trim();
-	return remoteQueryRequest<{
-		members: TeamMember[];
-		invites: Array<{ email: string; role: ProjectRole; sentDate: string; status: "pending" | "accepted" }>;
 	}>({
-		path: `/projects/${encodePathSegment(scopedProjectId)}/team/members`,
-		method: "GET",
+		path: `/projects/${encodePathSegment(scopedProjectId)}/search${queryString ? `?${queryString}` : ''}`,
+		method: 'GET',
 		cachePolicy: {
-			namespace: "project-team-members",
-			ttlMs: 20_000,
-			keyParts: { project_id: scopedProjectId },
-			tags: [`project:${scopedProjectId}`, "project-team"]
+			namespace: 'project-search',
+			ttlMs: 15_000,
+			keyParts: {
+				project_id: scopedProjectId,
+				q: queryText.length > 0 ? queryText : null,
+				limit
+			},
+			tags: [`project:${scopedProjectId}`, 'project-search']
 		}
 	});
 });
 
-export const getProjectTeamRoles = query("unchecked", async (projectId: string) => {
+export const submitGlobalFeedback = command(
+	'unchecked',
+	async ({
+		input
+	}: {
+		input: unknown;
+	}): Promise<MutationResult<{ feedbackId: string; status: string; submittedAt: string }>> => {
+		const parsed = submitGlobalFeedbackSchema.safeParse(input);
+		if (!parsed.success) {
+			return { success: false, error: 'Invalid feedback input' };
+		}
+
+		return remoteMutationRequest<{ feedbackId: string; status: string; submittedAt: string }>(
+			{
+				path: '/feedback',
+				method: 'POST',
+				body: parsed.data
+			},
+			undefined,
+			{ tags: ['global-feedback'] }
+		);
+	}
+);
+
+export const getProjectTeamMembers = query('unchecked', async (projectId: string) => {
+	const scopedProjectId = projectId.trim();
+	return remoteQueryRequest<{
+		members: TeamMember[];
+		invites: Array<{
+			email: string;
+			role: ProjectRole;
+			sentDate: string;
+			status: 'pending' | 'accepted';
+		}>;
+	}>({
+		path: `/projects/${encodePathSegment(scopedProjectId)}/team/members`,
+		method: 'GET',
+		cachePolicy: {
+			namespace: 'project-team-members',
+			ttlMs: 20_000,
+			keyParts: { project_id: scopedProjectId },
+			tags: [`project:${scopedProjectId}`, 'project-team']
+		}
+	});
+});
+
+export const getProjectTeamRoles = query('unchecked', async (projectId: string) => {
 	const scopedProjectId = projectId.trim();
 	const payload = await remoteQueryRequest<{
 		members: Array<{
@@ -274,32 +276,32 @@ export const getProjectTeamRoles = query("unchecked", async (projectId: string) 
 		rolePermissionMasks: Record<string, string>;
 	}>({
 		path: `/projects/${encodePathSegment(scopedProjectId)}/team/roles`,
-		method: "GET",
+		method: 'GET',
 		cachePolicy: {
-			namespace: "project-team-roles",
+			namespace: 'project-team-roles',
 			ttlMs: 20_000,
 			keyParts: { project_id: scopedProjectId },
-			tags: [`project:${scopedProjectId}`, "project-team", "project-access"]
+			tags: [`project:${scopedProjectId}`, 'project-team', 'project-access']
 		}
 	});
 
 	return {
 		members: payload.members.map((member) => ({
 			...member,
-			status: member.status.toLowerCase() === "invited" ? "invited" : "active"
+			status: member.status.toLowerCase() === 'invited' ? 'invited' : 'active'
 		})),
 		rolePermissionMasks: payload.rolePermissionMasks
 	};
 });
 
-export const getProjectSettings = query("unchecked", async (projectId: string) => {
+export const getProjectSettings = query('unchecked', async (projectId: string) => {
 	const scopedProjectId = projectId.trim();
 	const scopedProjectPathId = encodePathSegment(scopedProjectId);
 	const [settings, team] = await Promise.all([
 		remoteQueryRequest<{
 			projectName: string;
 			projectDescription: string;
-			projectStatus: "Active" | "Archived";
+			projectStatus: 'Active' | 'Archived';
 			whiteboardsEnabled: boolean;
 			advancedDatabasesEnabled: boolean;
 			calendarManualEventsEnabled: boolean;
@@ -309,25 +311,25 @@ export const getProjectSettings = query("unchecked", async (projectId: string) =
 			notifyArtifactLocked: boolean;
 			notifyFeedbackAdded: boolean;
 			notifyResourceUpdated: boolean;
-			deliveryChannel: "In-app" | "Email";
+			deliveryChannel: 'In-app' | 'Email';
 		}>({
 			path: `/projects/${scopedProjectPathId}/settings`,
-			method: "GET",
+			method: 'GET',
 			cachePolicy: {
-				namespace: "project-settings",
+				namespace: 'project-settings',
 				ttlMs: 30_000,
 				keyParts: { project_id: scopedProjectId },
-				tags: [`project:${scopedProjectId}`, "project-settings"]
+				tags: [`project:${scopedProjectId}`, 'project-settings']
 			}
 		}),
 		remoteQueryRequest<{ members: TeamMember[] }>({
 			path: `/projects/${scopedProjectPathId}/team/members`,
-			method: "GET",
+			method: 'GET',
 			cachePolicy: {
-				namespace: "project-team-members",
+				namespace: 'project-team-members',
 				ttlMs: 20_000,
 				keyParts: { project_id: scopedProjectId },
-				tags: [`project:${scopedProjectId}`, "project-team"]
+				tags: [`project:${scopedProjectId}`, 'project-team']
 			}
 		})
 	]);
@@ -339,68 +341,93 @@ export const getProjectSettings = query("unchecked", async (projectId: string) =
 });
 
 export const createProjectInvite = command(
-	"unchecked",
-	async ({ input }: { input: unknown }): Promise<MutationResult<{ email: string; role: string; sentDate: string; status: "pending" }>> => {
+	'unchecked',
+	async ({
+		input
+	}: {
+		input: unknown;
+	}): Promise<
+		MutationResult<{ email: string; role: string; sentDate: string; status: 'pending' }>
+	> => {
 		const parsed = createInviteSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
-		return remoteMutationRequest<{ email: string; role: string; sentDate: string; status: "pending" }>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/invites`,
-			method: "POST",
-			body: {
-				email: parsed.data.email,
-				role: parsed.data.role
+		return remoteMutationRequest<{
+			email: string;
+			role: string;
+			sentDate: string;
+			status: 'pending';
+		}>(
+			{
+				path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/invites`,
+				method: 'POST',
+				body: {
+					email: parsed.data.email,
+					role: parsed.data.role
+				}
+			},
+			undefined,
+			{
+				tags: [
+					`project:${parsed.data.projectId}`,
+					'project-dashboard',
+					'project-overview',
+					'project-team',
+					'project-team-members'
+				]
 			}
-		}, undefined, {
-			tags: [
-				`project:${parsed.data.projectId}`,
-				"project-dashboard",
-				"project-overview",
-				"project-team",
-				"project-team-members"
-			]
-		});
+		);
 	}
 );
 
 export const cancelProjectInvite = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<{ email: string }>> => {
 		const parsed = cancelInviteSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
-		return remoteMutationRequest<{ email: string }>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/invites/${encodePathSegment(parsed.data.email)}`,
-			method: "DELETE"
-		}, undefined, {
-			tags: [
-				`project:${parsed.data.projectId}`,
-				"project-dashboard",
-				"project-overview",
-				"project-team",
-				"project-team-members"
-			]
-		});
+		return remoteMutationRequest<{ email: string }>(
+			{
+				path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/invites/${encodePathSegment(parsed.data.email)}`,
+				method: 'DELETE'
+			},
+			undefined,
+			{
+				tags: [
+					`project:${parsed.data.projectId}`,
+					'project-dashboard',
+					'project-overview',
+					'project-team',
+					'project-team-members'
+				]
+			}
+		);
 	}
 );
 
 export const updateProjectRolePermissions = command(
-	"unchecked",
-	async ({ input }: { input: unknown }): Promise<MutationResult<{
-		role: ProjectRole;
-		permissionMask: PermissionMask;
-		customMembersUnaffected: number;
-	}>> => {
+	'unchecked',
+	async ({
+		input
+	}: {
+		input: unknown;
+	}): Promise<
+		MutationResult<{
+			role: ProjectRole;
+			permissionMask: PermissionMask;
+			customMembersUnaffected: number;
+		}>
+	> => {
 		const parsed = updateRolePermissionsSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
-		if (parsed.data.role === "Owner") {
-			return { success: false, error: "Owner permissions cannot be modified." };
+		if (parsed.data.role === 'Owner') {
+			return { success: false, error: 'Owner permissions cannot be modified.' };
 		}
 
 		return runMutation(async () => {
@@ -408,17 +435,17 @@ export const updateProjectRolePermissions = command(
 				customMembersUnaffected?: number;
 			}>({
 				path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/roles/${roleToPathSegment(parsed.data.role)}/permissions`,
-				method: "PATCH",
+				method: 'PATCH',
 				rawBody: `{"role":${JSON.stringify(parsed.data.role)},"permissionMask":${parsed.data.permissionMask}}`
 			});
 			invalidateQueryCache({
 				tags: [
 					`project:${parsed.data.projectId}`,
-					"project-access",
-					"project-dashboard",
-					"project-overview",
-					"project-team",
-					"project-team-members"
+					'project-access',
+					'project-dashboard',
+					'project-overview',
+					'project-team',
+					'project-team-members'
 				]
 			});
 
@@ -432,19 +459,25 @@ export const updateProjectRolePermissions = command(
 );
 
 export const updateProjectMemberPermissions = command(
-	"unchecked",
-	async ({ input }: { input: unknown }): Promise<MutationResult<{
-		memberId: string;
-		role: ProjectRole;
-		isCustom: boolean;
-		permissionMask: PermissionMask;
-	}>> => {
+	'unchecked',
+	async ({
+		input
+	}: {
+		input: unknown;
+	}): Promise<
+		MutationResult<{
+			memberId: string;
+			role: ProjectRole;
+			isCustom: boolean;
+			permissionMask: PermissionMask;
+		}>
+	> => {
 		const parsed = updateMemberPermissionsSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
-		if (parsed.data.role === "Owner") {
-			return { success: false, error: "Cannot assign Owner role." };
+		if (parsed.data.role === 'Owner') {
+			return { success: false, error: 'Cannot assign Owner role.' };
 		}
 
 		return runMutation(async () => {
@@ -454,17 +487,17 @@ export const updateProjectMemberPermissions = command(
 				isCustom: boolean;
 			}>({
 				path: `/projects/${encodePathSegment(parsed.data.projectId)}/team/members/${encodePathSegment(parsed.data.memberId)}/permissions`,
-				method: "PATCH",
-				rawBody: `{"role":${JSON.stringify(parsed.data.role)},"isCustom":${parsed.data.isCustom ? "true" : "false"},"permissionMask":${parsed.data.permissionMask}}`
+				method: 'PATCH',
+				rawBody: `{"role":${JSON.stringify(parsed.data.role)},"isCustom":${parsed.data.isCustom ? 'true' : 'false'},"permissionMask":${parsed.data.permissionMask}}`
 			});
 			invalidateQueryCache({
 				tags: [
 					`project:${parsed.data.projectId}`,
-					"project-access",
-					"project-dashboard",
-					"project-overview",
-					"project-team",
-					"project-team-members"
+					'project-access',
+					'project-dashboard',
+					'project-overview',
+					'project-team',
+					'project-team-members'
 				]
 			});
 
@@ -479,80 +512,100 @@ export const updateProjectMemberPermissions = command(
 );
 
 export const updateProjectSettings = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<{ projectId: string }>> => {
 		const parsed = updateProjectSettingsSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
-		return remoteMutationRequest<{ projectId: string }>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/settings`,
-			method: "PATCH",
-			body: {
-				settings: parsed.data.settings
+		return remoteMutationRequest<{ projectId: string }>(
+			{
+				path: `/projects/${encodePathSegment(parsed.data.projectId)}/settings`,
+				method: 'PATCH',
+				body: {
+					settings: parsed.data.settings
+				}
+			},
+			undefined,
+			{
+				tags: [
+					`project:${parsed.data.projectId}`,
+					'project-settings',
+					'project-dashboard',
+					'project-overview',
+					'project-access',
+					'project-team-members'
+				]
 			}
-		}, undefined, {
-			tags: [
-				`project:${parsed.data.projectId}`,
-				"project-settings",
-				"project-dashboard",
-				"project-overview",
-				"project-access",
-				"project-team-members"
-			]
-		});
+		);
 	}
 );
 
 export const archiveProject = command(
-	"unchecked",
-	async ({ input }: { input: unknown }): Promise<MutationResult<{ projectId: string; status: "Archived" }>> => {
+	'unchecked',
+	async ({
+		input
+	}: {
+		input: unknown;
+	}): Promise<MutationResult<{ projectId: string; status: 'Archived' }>> => {
 		const parsed = projectActionSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
-		return remoteMutationRequest<{ projectId: string; status: "Archived" }>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}/archive`,
-			method: "POST"
-		}, undefined, {
-			tags: [
-				`project:${parsed.data.projectId}`,
-				"project-settings",
-				"project-dashboard",
-				"project-overview",
-				"project-access",
-				"project-team-members",
-				"home-dashboard",
-				"home-projects"
-			]
-		});
+		return remoteMutationRequest<{ projectId: string; status: 'Archived' }>(
+			{
+				path: `/projects/${encodePathSegment(parsed.data.projectId)}/archive`,
+				method: 'POST'
+			},
+			undefined,
+			{
+				tags: [
+					`project:${parsed.data.projectId}`,
+					'project-settings',
+					'project-dashboard',
+					'project-overview',
+					'project-access',
+					'project-team-members',
+					'home-dashboard',
+					'home-projects'
+				]
+			}
+		);
 	}
 );
 
 export const deleteProject = command(
-	"unchecked",
-	async ({ input }: { input: unknown }): Promise<MutationResult<{ projectId: string; status: "Archived" }>> => {
+	'unchecked',
+	async ({
+		input
+	}: {
+		input: unknown;
+	}): Promise<MutationResult<{ projectId: string; status: 'Archived' }>> => {
 		const parsed = projectActionSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
-		return remoteMutationRequest<{ projectId: string; status: "Archived" }>({
-			path: `/projects/${encodePathSegment(parsed.data.projectId)}`,
-			method: "DELETE"
-		}, undefined, {
-			tags: [
-				`project:${parsed.data.projectId}`,
-				"project-settings",
-				"project-dashboard",
-				"project-overview",
-				"project-access",
-				"project-team-members",
-				"home-dashboard",
-				"home-projects"
-			]
-		});
+		return remoteMutationRequest<{ projectId: string; status: 'Archived' }>(
+			{
+				path: `/projects/${encodePathSegment(parsed.data.projectId)}`,
+				method: 'DELETE'
+			},
+			undefined,
+			{
+				tags: [
+					`project:${parsed.data.projectId}`,
+					'project-settings',
+					'project-dashboard',
+					'project-overview',
+					'project-access',
+					'project-team-members',
+					'home-dashboard',
+					'home-projects'
+				]
+			}
+		);
 	}
 );

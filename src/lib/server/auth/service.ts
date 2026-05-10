@@ -1,15 +1,15 @@
-import { randomUUID } from "node:crypto";
-import { dev } from "$app/environment";
+import { randomUUID } from 'node:crypto';
+import { dev } from '$app/environment';
 import {
 	DEFAULT_SESSION_TTL_MS,
 	PASSWORD_RESET_TOKEN_TTL_MS,
 	REMEMBER_SESSION_TTL_MS,
 	VERIFICATION_TOKEN_TTL_MS
-} from "./constants";
-import { generateSecureToken, hashToken } from "./crypto";
-import { sendPasswordResetEmail, sendVerificationEmail } from "./email";
-import { hashPassword, verifyPassword } from "./password";
-import { authStore } from "./store";
+} from './constants';
+import { generateSecureToken, hashToken } from './crypto';
+import { sendPasswordResetEmail, sendVerificationEmail } from './email';
+import { hashPassword, verifyPassword } from './password';
+import { authStore } from './store';
 import type {
 	AuthSession,
 	AuthUser,
@@ -21,13 +21,13 @@ import type {
 	ResendVerificationResult,
 	SignUpResult,
 	VerificationResult
-} from "./types";
+} from './types';
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
-const DEV_ADMIN_NAME = "Dev Admin";
-const DEV_ADMIN_EMAIL = "admin@projectbook.local";
-const DEV_ADMIN_PASSWORD = "DevAdmin#2026";
+const DEV_ADMIN_NAME = 'Dev Admin';
+const DEV_ADMIN_EMAIL = 'admin@projectbook.local';
+const DEV_ADMIN_PASSWORD = 'DevAdmin#2026';
 
 let devAdminSeeded = false;
 let devAdminSeedPromise: Promise<void> | null = null;
@@ -166,7 +166,7 @@ export const authService = {
 		const normalizedEmail = normalizeEmail(email);
 		const existingUser = authStore.users.find((user) => user.email === normalizedEmail);
 		if (existingUser) {
-			return { ok: false, reason: "email_taken" };
+			return { ok: false, reason: 'email_taken' };
 		}
 
 		const createdAt = new Date();
@@ -191,16 +191,16 @@ export const authService = {
 		await ensureDevAdminSeeded();
 		const user = findUserByEmail(email);
 		if (!user) {
-			return { ok: false, reason: "invalid_credentials" };
+			return { ok: false, reason: 'invalid_credentials' };
 		}
 
 		const isPasswordValid = await verifyPassword(user.passwordHash, password);
 		if (!isPasswordValid) {
-			return { ok: false, reason: "invalid_credentials" };
+			return { ok: false, reason: 'invalid_credentials' };
 		}
 
 		if (!user.isEmailVerified) {
-			return { ok: false, reason: "email_unverified" };
+			return { ok: false, reason: 'email_unverified' };
 		}
 
 		const now = new Date();
@@ -254,7 +254,7 @@ export const authService = {
 
 	async verifyEmailToken(token: string | null): Promise<VerificationResult> {
 		if (!token) {
-			return { status: "missing" };
+			return { status: 'missing' };
 		}
 
 		const tokenHash = hashToken(token);
@@ -263,12 +263,12 @@ export const authService = {
 		);
 
 		if (!verificationToken || verificationToken.usedAt || isExpired(verificationToken.expiresAt)) {
-			return { status: "failed" };
+			return { status: 'failed' };
 		}
 
 		const user = authStore.users.find((entry) => entry.id === verificationToken.userId);
 		if (!user) {
-			return { status: "failed" };
+			return { status: 'failed' };
 		}
 
 		const now = new Date();
@@ -276,22 +276,22 @@ export const authService = {
 		user.isEmailVerified = true;
 		user.updatedAt = now;
 
-		return { status: "success", email: user.email };
+		return { status: 'success', email: user.email };
 	},
 
 	async resendVerificationEmail(email: string): Promise<ResendVerificationResult> {
 		await ensureDevAdminSeeded();
 		const user = findUserByEmail(email);
 		if (!user) {
-			return { status: "not_found" };
+			return { status: 'not_found' };
 		}
 
 		if (user.isEmailVerified) {
-			return { status: "already_verified" };
+			return { status: 'already_verified' };
 		}
 
 		await createVerificationTokenForUser(user);
-		return { status: "sent" };
+		return { status: 'sent' };
 	},
 
 	async requestPasswordReset(email: string): Promise<void> {
@@ -326,12 +326,12 @@ export const authService = {
 		await ensureDevAdminSeeded();
 		const resetToken = findValidResetToken(token);
 		if (!resetToken) {
-			return { ok: false, reason: "invalid_or_expired_token" };
+			return { ok: false, reason: 'invalid_or_expired_token' };
 		}
 
 		const user = authStore.users.find((entry) => entry.id === resetToken.userId);
 		if (!user) {
-			return { ok: false, reason: "invalid_or_expired_token" };
+			return { ok: false, reason: 'invalid_or_expired_token' };
 		}
 
 		const now = new Date();

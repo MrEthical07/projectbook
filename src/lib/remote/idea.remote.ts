@@ -1,11 +1,11 @@
-import { command, query } from "$app/server";
-import { z } from "zod";
+import { command, query } from '$app/server';
+import { z } from 'zod';
 import {
 	encodePathSegment,
 	remoteMutationRequest,
 	remoteQueryRequest,
 	type MutationResult
-} from "$lib/server/api/remote";
+} from '$lib/server/api/remote';
 
 type IdeaPageInput = {
 	projectId: string;
@@ -14,7 +14,7 @@ type IdeaPageInput = {
 
 type IdeaListInput = {
 	projectId: string;
-	status?: "Considered" | "Selected" | "Rejected" | "Archived";
+	status?: 'Considered' | 'Selected' | 'Rejected' | 'Archived';
 	cursor?: string;
 	limit?: number;
 };
@@ -27,15 +27,15 @@ type IdeaListResult = {
 type ProblemOption = {
 	id: string;
 	title: string;
-	phase: "Define";
+	phase: 'Define';
 	href: string;
-	status: "Draft" | "Locked" | "Archived";
+	status: 'Draft' | 'Locked' | 'Archived';
 };
 
 type LinkedStory = {
 	id: string;
 	title: string;
-	phase: "Empathize";
+	phase: 'Empathize';
 	href: string;
 };
 
@@ -52,7 +52,7 @@ const selectIdeaSchema = z.object({
 const updateIdeaStatusSchema = z.object({
 	projectId: z.string().min(1),
 	ideaId: z.string().min(1),
-	status: z.enum(["Considered", "Selected", "Rejected", "Archived"])
+	status: z.enum(['Considered', 'Selected', 'Rejected', 'Archived'])
 });
 
 const updateIdeaSchema = z.object({
@@ -62,33 +62,33 @@ const updateIdeaSchema = z.object({
 });
 
 const asRecord = (value: unknown): Record<string, unknown> =>
-	value && typeof value === "object" && !Array.isArray(value)
+	value && typeof value === 'object' && !Array.isArray(value)
 		? (value as Record<string, unknown>)
 		: {};
 
-const asString = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+const asString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
 const asStringArray = (value: unknown): string[] => {
 	if (!Array.isArray(value)) {
 		return [];
 	}
 	return value
-		.map((item) => (typeof item === "string" ? item.trim() : ""))
+		.map((item) => (typeof item === 'string' ? item.trim() : ''))
 		.filter((item) => item.length > 0);
 };
 
 const normalizeIdeaStatus = (value: string): IdeaStatus => {
-	if (value === "Selected" || value === "Rejected" || value === "Archived") {
+	if (value === 'Selected' || value === 'Rejected' || value === 'Archived') {
 		return value;
 	}
-	return "Considered";
+	return 'Considered';
 };
 
-const normalizeIdeaPageStatus = (value: IdeaStatus): "Considered" | "Selected" | "Rejected" => {
-	if (value === "Selected" || value === "Rejected") {
+const normalizeIdeaPageStatus = (value: IdeaStatus): 'Considered' | 'Selected' | 'Rejected' => {
+	if (value === 'Selected' || value === 'Rejected') {
 		return value;
 	}
-	return "Considered";
+	return 'Considered';
 };
 
 const mapProblemOption = (value: unknown): ProblemOption | null => {
@@ -101,13 +101,13 @@ const mapProblemOption = (value: unknown): ProblemOption | null => {
 	}
 
 	const statusRaw = asString(row.status);
-	const status: ProblemOption["status"] =
-		statusRaw === "Locked" || statusRaw === "Archived" ? statusRaw : "Draft";
+	const status: ProblemOption['status'] =
+		statusRaw === 'Locked' || statusRaw === 'Archived' ? statusRaw : 'Draft';
 
 	return {
 		id,
 		title,
-		phase: "Define",
+		phase: 'Define',
 		href,
 		status
 	};
@@ -124,7 +124,7 @@ const mapLinkedStory = (value: unknown): LinkedStory | null => {
 	return {
 		id,
 		title,
-		phase: "Empathize",
+		phase: 'Empathize',
 		href
 	};
 };
@@ -132,52 +132,55 @@ const mapLinkedStory = (value: unknown): LinkedStory | null => {
 const buildIdeasPath = (input: IdeaListInput): string => {
 	const search = new URLSearchParams();
 	if (input.status) {
-		search.set("filter.status", input.status);
+		search.set('filter.status', input.status);
 	}
-	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const cursor = typeof input.cursor === 'string' ? input.cursor.trim() : '';
 	if (cursor) {
-		search.set("pagination.cursor", cursor);
+		search.set('pagination.cursor', cursor);
 	}
-	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
-		search.set("pagination.limit", String(Math.trunc(input.limit)));
+	if (typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set('pagination.limit', String(Math.trunc(input.limit)));
 	}
 	const query = search.toString();
 	const basePath = `/projects/${encodePathSegment(input.projectId)}/ideas`;
 	return query ? `${basePath}?${query}` : basePath;
 };
 
-export const getIdeas = query("unchecked", async (input: IdeaListInput): Promise<IdeaListResult> => {
-	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
-	const limit =
-		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
-			? Math.trunc(input.limit)
-			: 20;
-	const payload = await remoteQueryRequest<{ items?: IdeaRow[]; next_cursor?: string | null }>({
-		path: buildIdeasPath(input),
-		method: "GET",
-		cachePolicy: {
-			namespace: "ideas-list",
-			ttlMs: 20_000,
-			keyParts: {
-				project_id: input.projectId,
-				status: input.status ?? null,
-				cursor_present: cursor.length > 0,
-				limit,
-				sort: "last_updated_desc"
-			},
-			tags: ["ideas-list", `ideas-list:${input.projectId}`]
-		}
-	});
-	return {
-		items: Array.isArray(payload.items) ? payload.items : [],
-		nextCursor:
-			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
-				? payload.next_cursor
-				: null
-	};
-});
+export const getIdeas = query(
+	'unchecked',
+	async (input: IdeaListInput): Promise<IdeaListResult> => {
+		const cursor = typeof input.cursor === 'string' ? input.cursor.trim() : '';
+		const limit =
+			typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit > 0
+				? Math.trunc(input.limit)
+				: 20;
+		const payload = await remoteQueryRequest<{ items?: IdeaRow[]; next_cursor?: string | null }>({
+			path: buildIdeasPath(input),
+			method: 'GET',
+			cachePolicy: {
+				namespace: 'ideas-list',
+				ttlMs: 20_000,
+				keyParts: {
+					project_id: input.projectId,
+					status: input.status ?? null,
+					cursor_present: cursor.length > 0,
+					limit,
+					sort: 'last_updated_desc'
+				},
+				tags: ['ideas-list', `ideas-list:${input.projectId}`]
+			}
+		});
+		return {
+			items: Array.isArray(payload.items) ? payload.items : [],
+			nextCursor:
+				typeof payload.next_cursor === 'string' && payload.next_cursor.trim().length > 0
+					? payload.next_cursor
+					: null
+		};
+	}
+);
 
-export const getIdeaPageData = query("unchecked", async (input: IdeaPageInput) => {
+export const getIdeaPageData = query('unchecked', async (input: IdeaPageInput) => {
 	const payload = await remoteQueryRequest<{
 		idea?: {
 			id?: string;
@@ -194,7 +197,7 @@ export const getIdeaPageData = query("unchecked", async (input: IdeaPageInput) =
 		};
 	}>({
 		path: `/projects/${encodePathSegment(input.projectId)}/ideas/${encodePathSegment(input.ideaId)}`,
-		method: "GET"
+		method: 'GET'
 	});
 
 	const idea = asRecord(payload.idea);
@@ -231,23 +234,23 @@ export const getIdeaPageData = query("unchecked", async (input: IdeaPageInput) =
 			assumptions: asString(moduleContent.assumptions)
 		},
 		notesText: asString(detail.notesText) || asString(detail.notes),
-		isArchived: rawStatus === "Archived",
+		isArchived: rawStatus === 'Archived',
 		summaryTitle: asString(detail.summaryTitle),
 		summaryDescription: asString(detail.summaryDescription)
 	};
 });
 
 export const createIdea = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<IdeaRow>> => {
 		const parsed = createIdeaSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<IdeaRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas`,
-			method: "POST",
+			method: 'POST',
 			body: {
 				title: parsed.data.title
 			}
@@ -256,16 +259,16 @@ export const createIdea = command(
 );
 
 export const updateIdea = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<IdeaRow>> => {
 		const parsed = updateIdeaSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<IdeaRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas/${encodePathSegment(parsed.data.ideaId)}`,
-			method: "PATCH",
+			method: 'PATCH',
 			body: {
 				state: parsed.data.state
 			}
@@ -274,19 +277,19 @@ export const updateIdea = command(
 );
 
 export const selectIdea = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<IdeaRow>> => {
 		const parsed = selectIdeaSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<IdeaRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas/${encodePathSegment(parsed.data.ideaId)}`,
-			method: "PATCH",
+			method: 'PATCH',
 			body: {
 				state: {
-					status: "Selected"
+					status: 'Selected'
 				}
 			}
 		});
@@ -294,16 +297,16 @@ export const selectIdea = command(
 );
 
 export const updateIdeaStatus = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<IdeaRow>> => {
 		const parsed = updateIdeaStatusSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<IdeaRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/ideas/${encodePathSegment(parsed.data.ideaId)}`,
-			method: "PATCH",
+			method: 'PATCH',
 			body: {
 				state: {
 					status: parsed.data.status

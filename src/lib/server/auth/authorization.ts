@@ -1,17 +1,17 @@
-import { getRequestEvent } from "$app/server";
-import { error } from "@sveltejs/kit";
-import { datastore } from "$lib/server/data/datastore";
+import { getRequestEvent } from '$app/server';
+import { error } from '@sveltejs/kit';
+import { datastore } from '$lib/server/data/datastore';
 import {
 	defaultRolePermissionMasks,
 	getDefaultRolePermissionMasks,
 	projectRoleOrder
-} from "$lib/server/data/default-role-permissions";
+} from '$lib/server/data/default-role-permissions';
 import {
 	EMPTY_PERMISSION_MASK,
 	maskToPermissions,
 	normalizePermissionMask,
 	validatePermissionMaskValue
-} from "$lib/utils/permission";
+} from '$lib/utils/permission';
 
 const resolveRoleFromTeam = (actorId: string, projectId: string): ProjectRole | null => {
 	const member = datastore.team.members.find(
@@ -33,15 +33,13 @@ const validateStoredRoleMask = (
 	if (!validation.valid) {
 		error(
 			500,
-			`Invalid stored permission mask for role '${role}' in project '${projectId}': ${validation.errors.join("; ")}`
+			`Invalid stored permission mask for role '${role}' in project '${projectId}': ${validation.errors.join('; ')}`
 		);
 	}
 	return normalized;
 };
 
-export const ensureProjectRolePermissionMasks = (
-	projectId: string
-): RolePermissionMaskMap => {
+export const ensureProjectRolePermissionMasks = (projectId: string): RolePermissionMaskMap => {
 	if (!datastore.team.rolePermissions[projectId]) {
 		datastore.team.rolePermissions[projectId] = getDefaultRolePermissionMasks();
 	}
@@ -51,11 +49,7 @@ export const ensureProjectRolePermissionMasks = (
 		if (!rolePermissionMasks[role]) {
 			rolePermissionMasks[role] = defaultRolePermissionMasks[role];
 		}
-		rolePermissionMasks[role] = validateStoredRoleMask(
-			projectId,
-			role,
-			rolePermissionMasks[role]
-		);
+		rolePermissionMasks[role] = validateStoredRoleMask(projectId, role, rolePermissionMasks[role]);
 	}
 
 	return rolePermissionMasks;
@@ -64,20 +58,18 @@ export const ensureProjectRolePermissionMasks = (
 const projectExists = (projectId: string) =>
 	datastore.projects.some((item) => item.id === projectId);
 
-export const getAuthenticatedRequestUser = (): ProjectAccess["user"] => {
+export const getAuthenticatedRequestUser = (): ProjectAccess['user'] => {
 	const event = getRequestEvent();
 	if (!event.locals.user?.id) {
-		error(401, "Authentication required.");
+		error(401, 'Authentication required.');
 	}
 	const authenticatedUserId = event.locals.user.id;
-	const fallbackMember = datastore.team.members.find(
-		(item) => item.id === authenticatedUserId
-	);
+	const fallbackMember = datastore.team.members.find((item) => item.id === authenticatedUserId);
 
 	const authenticatedUser = {
 		id: authenticatedUserId,
-		name: event.locals.user.name ?? fallbackMember?.name ?? "User",
-		email: event.locals.user.email ?? fallbackMember?.email ?? ""
+		name: event.locals.user.name ?? fallbackMember?.name ?? 'User',
+		email: event.locals.user.email ?? fallbackMember?.email ?? ''
 	};
 
 	return authenticatedUser;
@@ -86,18 +78,18 @@ export const getAuthenticatedRequestUser = (): ProjectAccess["user"] => {
 export const resolveProjectAccessForRequest = (projectId: string): ProjectAccess => {
 	const scopedProjectId = projectId?.trim();
 	if (!scopedProjectId) {
-		error(400, "Project id is required.");
+		error(400, 'Project id is required.');
 	}
 
 	if (!projectExists(scopedProjectId)) {
-		error(404, "Project not found.");
+		error(404, 'Project not found.');
 	}
 
 	const actor = getAuthenticatedRequestUser();
 	const member = resolveMemberFromTeam(actor.id, scopedProjectId);
 	const role = resolveRoleFromTeam(actor.id, scopedProjectId);
 	if (!role) {
-		error(403, "No project membership was found for the active user.");
+		error(403, 'No project membership was found for the active user.');
 	}
 
 	const rolePermissions = ensureProjectRolePermissionMasks(scopedProjectId);
@@ -115,7 +107,7 @@ export const resolveProjectAccessForRequest = (projectId: string): ProjectAccess
 	if (!effectiveValidation.valid) {
 		error(
 			500,
-			`Invalid effective permission mask for user '${actor.id}' in project '${scopedProjectId}': ${effectiveValidation.errors.join("; ")}`
+			`Invalid effective permission mask for user '${actor.id}' in project '${scopedProjectId}': ${effectiveValidation.errors.join('; ')}`
 		);
 	}
 
@@ -128,12 +120,12 @@ export const resolveProjectAccessForRequest = (projectId: string): ProjectAccess
 };
 
 export const getTrustedProjectPermissionMask = (input: unknown): PermissionMask => {
-	if (!input || typeof input !== "object") {
+	if (!input || typeof input !== 'object') {
 		return EMPTY_PERMISSION_MASK;
 	}
 
 	const rawProjectId = (input as Record<string, unknown>).projectId;
-	if (typeof rawProjectId !== "string" || rawProjectId.trim().length === 0) {
+	if (typeof rawProjectId !== 'string' || rawProjectId.trim().length === 0) {
 		return EMPTY_PERMISSION_MASK;
 	}
 

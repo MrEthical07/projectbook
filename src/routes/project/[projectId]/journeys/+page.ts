@@ -1,4 +1,4 @@
-import { getJourneys } from "$lib/remote/journey.remote";
+import { getJourneys } from '$lib/remote/journey.remote';
 
 export async function load({ params }: { params: { projectId: string } }) {
 	const result = await getJourneys({ projectId: params.projectId, limit: 20 });

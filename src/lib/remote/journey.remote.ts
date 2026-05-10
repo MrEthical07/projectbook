@@ -1,11 +1,11 @@
-import { command, query } from "$app/server";
-import { z } from "zod";
+import { command, query } from '$app/server';
+import { z } from 'zod';
 import {
 	encodePathSegment,
 	remoteMutationRequest,
 	remoteQueryRequest,
 	type MutationResult
-} from "$lib/server/api/remote";
+} from '$lib/server/api/remote';
 
 type JourneyPageInput = {
 	projectId: string;
@@ -14,7 +14,7 @@ type JourneyPageInput = {
 
 type JourneyListInput = {
 	projectId: string;
-	status?: "Draft" | "Locked" | "Archived";
+	status?: 'Draft' | 'Locked' | 'Archived';
 	cursor?: string;
 	limit?: number;
 };
@@ -45,46 +45,45 @@ const updateJourneySchema = z.object({
 });
 
 const defaultJourneyDraft = {
-	title: "",
-	description: "",
-	status: "draft",
+	title: '',
+	description: '',
+	status: 'draft',
 	persona: {
-		name: "",
-		bio: "",
-		role: "",
+		name: '',
+		bio: '',
+		role: '',
 		age: 0,
-		job: "",
-		edu: ""
+		job: '',
+		edu: ''
 	},
-	context: "",
+	context: '',
 	stages: [],
-	notes: ""
+	notes: ''
 };
 
-const asString = (value: unknown): string =>
-	typeof value === "string" ? value.trim() : "";
+const asString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
-const normalizeJourneyStatus = (value: unknown): "draft" | "locked" | "archived" => {
+const normalizeJourneyStatus = (value: unknown): 'draft' | 'locked' | 'archived' => {
 	const normalized = asString(value).toLowerCase();
-	if (normalized === "locked") {
-		return "locked";
+	if (normalized === 'locked') {
+		return 'locked';
 	}
-	if (normalized === "archived") {
-		return "archived";
+	if (normalized === 'archived') {
+		return 'archived';
 	}
-	return "draft";
+	return 'draft';
 };
 
-const toApiJourneyStatus = (value: unknown): "Draft" | "Locked" | "Archived" | null => {
+const toApiJourneyStatus = (value: unknown): 'Draft' | 'Locked' | 'Archived' | null => {
 	const normalized = asString(value).toLowerCase();
-	if (normalized === "draft") {
-		return "Draft";
+	if (normalized === 'draft') {
+		return 'Draft';
 	}
-	if (normalized === "locked") {
-		return "Locked";
+	if (normalized === 'locked') {
+		return 'Locked';
 	}
-	if (normalized === "archived") {
-		return "Archived";
+	if (normalized === 'archived') {
+		return 'Archived';
 	}
 	return null;
 };
@@ -97,10 +96,8 @@ const mapJourneyMetadata = (
 	const createdBy = asString(payload.createdBy) || owner;
 	const createdAt = asString(payload.createdAt);
 	const lastEditedBy = asString(payload.lastEditedBy) || owner;
-	const lastEditedAt =
-		asString(payload.lastEditedAt) || asString(journeyPayload.lastUpdated);
-	const lastUpdated =
-		asString(payload.lastUpdated) || asString(journeyPayload.lastUpdated);
+	const lastEditedAt = asString(payload.lastEditedAt) || asString(journeyPayload.lastUpdated);
+	const lastUpdated = asString(payload.lastUpdated) || asString(journeyPayload.lastUpdated);
 
 	return {
 		owner,
@@ -115,52 +112,57 @@ const mapJourneyMetadata = (
 const buildJourneysPath = (input: JourneyListInput): string => {
 	const search = new URLSearchParams();
 	if (input.status) {
-		search.set("filter.status", input.status);
+		search.set('filter.status', input.status);
 	}
-	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
+	const cursor = typeof input.cursor === 'string' ? input.cursor.trim() : '';
 	if (cursor) {
-		search.set("pagination.cursor", cursor);
+		search.set('pagination.cursor', cursor);
 	}
-	if (typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0) {
-		search.set("pagination.limit", String(Math.trunc(input.limit)));
+	if (typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit > 0) {
+		search.set('pagination.limit', String(Math.trunc(input.limit)));
 	}
 	const query = search.toString();
 	const basePath = `/projects/${encodePathSegment(input.projectId)}/journeys`;
 	return query ? `${basePath}?${query}` : basePath;
 };
 
-export const getJourneys = query("unchecked", async (input: JourneyListInput): Promise<JourneyListResult> => {
-	const cursor = typeof input.cursor === "string" ? input.cursor.trim() : "";
-	const limit =
-		typeof input.limit === "number" && Number.isFinite(input.limit) && input.limit > 0
-			? Math.trunc(input.limit)
-			: 20;
-	const payload = await remoteQueryRequest<{ items?: JourneyRow[]; next_cursor?: string | null }>({
-		path: buildJourneysPath(input),
-		method: "GET",
-		cachePolicy: {
-			namespace: "journeys-list",
-			ttlMs: 20_000,
-			keyParts: {
-				project_id: input.projectId,
-				status: input.status ?? null,
-				cursor_present: cursor.length > 0,
-				limit,
-				sort: "last_updated_desc"
-			},
-			tags: ["journeys-list", `journeys-list:${input.projectId}`]
-		}
-	});
-	return {
-		items: Array.isArray(payload.items) ? payload.items : [],
-		nextCursor:
-			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
-				? payload.next_cursor
-				: null
-	};
-});
+export const getJourneys = query(
+	'unchecked',
+	async (input: JourneyListInput): Promise<JourneyListResult> => {
+		const cursor = typeof input.cursor === 'string' ? input.cursor.trim() : '';
+		const limit =
+			typeof input.limit === 'number' && Number.isFinite(input.limit) && input.limit > 0
+				? Math.trunc(input.limit)
+				: 20;
+		const payload = await remoteQueryRequest<{ items?: JourneyRow[]; next_cursor?: string | null }>(
+			{
+				path: buildJourneysPath(input),
+				method: 'GET',
+				cachePolicy: {
+					namespace: 'journeys-list',
+					ttlMs: 20_000,
+					keyParts: {
+						project_id: input.projectId,
+						status: input.status ?? null,
+						cursor_present: cursor.length > 0,
+						limit,
+						sort: 'last_updated_desc'
+					},
+					tags: ['journeys-list', `journeys-list:${input.projectId}`]
+				}
+			}
+		);
+		return {
+			items: Array.isArray(payload.items) ? payload.items : [],
+			nextCursor:
+				typeof payload.next_cursor === 'string' && payload.next_cursor.trim().length > 0
+					? payload.next_cursor
+					: null
+		};
+	}
+);
 
-export const getJourneyPageData = query("unchecked", async (input: JourneyPageInput) => {
+export const getJourneyPageData = query('unchecked', async (input: JourneyPageInput) => {
 	const payload = await remoteQueryRequest<{
 		journey?: { title?: string; status?: string; owner?: string; lastUpdated?: string };
 		metadata?: Record<string, unknown>;
@@ -168,21 +170,21 @@ export const getJourneyPageData = query("unchecked", async (input: JourneyPageIn
 		emotionOptions?: string[];
 	}>({
 		path: `/projects/${encodePathSegment(input.projectId)}/journeys/${encodePathSegment(input.journeyId)}`,
-		method: "GET"
+		method: 'GET'
 	});
 
 	const detail = payload.detail ?? {};
 	const metadataPayload =
-		payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
+		payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {};
 	const journey = {
 		...defaultJourneyDraft,
 		...detail,
 		title:
-			typeof payload.journey?.title === "string"
+			typeof payload.journey?.title === 'string'
 				? payload.journey.title
-				: (detail.title as string | undefined) ?? defaultJourneyDraft.title,
+				: ((detail.title as string | undefined) ?? defaultJourneyDraft.title),
 		status: normalizeJourneyStatus(
-			(detail.status as string | undefined) ?? payload.journey?.status ?? "Draft"
+			(detail.status as string | undefined) ?? payload.journey?.status ?? 'Draft'
 		)
 	};
 
@@ -194,16 +196,16 @@ export const getJourneyPageData = query("unchecked", async (input: JourneyPageIn
 });
 
 export const createJourney = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<JourneyRow>> => {
 		const parsed = createJourneySchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<JourneyRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/journeys`,
-			method: "POST",
+			method: 'POST',
 			body: {
 				title: parsed.data.title
 			}
@@ -212,11 +214,11 @@ export const createJourney = command(
 );
 
 export const updateJourney = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<JourneyRow>> => {
 		const parsed = updateJourneySchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 		const journeyPayload = structuredClone(parsed.data.journey) as Record<string, unknown>;
 		const canonicalStatus = toApiJourneyStatus(journeyPayload.status);
@@ -226,7 +228,7 @@ export const updateJourney = command(
 
 		return remoteMutationRequest<JourneyRow>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/journeys/${encodePathSegment(parsed.data.journeyId)}`,
-			method: "PATCH",
+			method: 'PATCH',
 			body: {
 				journey: journeyPayload
 			}

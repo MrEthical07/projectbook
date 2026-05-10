@@ -1,13 +1,13 @@
-import { redirect } from "@sveltejs/kit";
-import type { PageServerLoad } from "./$types";
-import { logoutRequest } from "$lib/server/api/auth";
-import { isApiRequestError } from "$lib/server/api/error-mapping";
+import { redirect } from '@sveltejs/kit';
+import type { PageServerLoad } from './$types';
+import { logoutRequest } from '$lib/server/api/auth';
+import { isApiRequestError } from '$lib/server/api/error-mapping';
 import {
 	clearApiAuthTokenCookies,
 	clearSessionCookie,
 	getAccessTokenCookie,
 	getSessionCookie
-} from "$lib/server/auth/cookies";
+} from '$lib/server/auth/cookies';
 
 export const load: PageServerLoad = async (event) => {
 	const accessToken = getAccessTokenCookie(event.cookies);
@@ -15,7 +15,7 @@ export const load: PageServerLoad = async (event) => {
 		try {
 			await logoutRequest(event);
 		} catch (err) {
-			console.error("[auth:logout] request failed", err);
+			console.error('[auth:logout] request failed', err);
 			if (!isApiRequestError(err) || err.statusCode >= 500) {
 				// Ignore backend logout errors and continue clearing local auth state.
 			}
@@ -26,5 +26,5 @@ export const load: PageServerLoad = async (event) => {
 		clearSessionCookie(event.cookies);
 	}
 	clearApiAuthTokenCookies(event.cookies);
-	redirect(303, "/auth");
+	redirect(303, '/auth');
 };

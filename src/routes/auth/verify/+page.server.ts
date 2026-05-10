@@ -1,32 +1,28 @@
-import { redirect } from "@sveltejs/kit";
-import type { Actions, PageServerLoad } from "./$types";
-import { fail, superValidate } from "sveltekit-superforms";
-import { zod4 } from "sveltekit-superforms/adapters";
-import { resendVerificationSchema, verifyEmailSchema } from "$lib/schemas/auth.schema";
-import {
-	resendVerificationRequest,
-	verifyEmailRequest
-} from "$lib/server/api/auth";
-import { isApiRequestError } from "$lib/server/api/error-mapping";
+import { redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import { fail, superValidate } from 'sveltekit-superforms';
+import { zod4 } from 'sveltekit-superforms/adapters';
+import { resendVerificationSchema, verifyEmailSchema } from '$lib/schemas/auth.schema';
+import { resendVerificationRequest, verifyEmailRequest } from '$lib/server/api/auth';
+import { isApiRequestError } from '$lib/server/api/error-mapping';
 import {
 	clearPermissionContextCookie,
 	clearPermissionContextRevalidateCooldownCookie,
 	setAuthNoticeCookie
-} from "$lib/server/auth/cookies";
+} from '$lib/server/auth/cookies';
 
-const VERIFY_FORM_ID = "verify-email-form";
-const RESEND_FORM_ID = "resend-verification-form";
+const VERIFY_FORM_ID = 'verify-email-form';
+const RESEND_FORM_ID = 'resend-verification-form';
 
 const verificationIdFromURL = (url: URL): string =>
-	url.searchParams.get("verificationId")?.trim() ?? "";
+	url.searchParams.get('verificationId')?.trim() ?? '';
 
-const emailFromURL = (url: URL): string =>
-	url.searchParams.get("email")?.trim() ?? "";
+const emailFromURL = (url: URL): string => url.searchParams.get('email')?.trim() ?? '';
 
 export const load: PageServerLoad = async (event) => {
 	const { url } = event;
 	const verifyForm = await superValidate(
-		{ verificationId: verificationIdFromURL(url), code: "" },
+		{ verificationId: verificationIdFromURL(url), code: '' },
 		zod4(verifyEmailSchema),
 		{ id: VERIFY_FORM_ID }
 	);
@@ -64,13 +60,13 @@ export const actions: Actions = {
 				code: verifyForm.data.code
 			});
 		} catch (err) {
-			console.error("[auth:verify-email] verify failed", err);
+			console.error('[auth:verify-email] verify failed', err);
 			if (isApiRequestError(err)) {
 				verifyForm.valid = false;
 				if (err.statusCode === 400) {
-					verifyForm.errors._errors = ["Invalid or expired verification code."];
+					verifyForm.errors._errors = ['Invalid or expired verification code.'];
 				} else if (err.statusCode === 429) {
-					verifyForm.errors._errors = ["Too many attempts. Please request a new code."];
+					verifyForm.errors._errors = ['Too many attempts. Please request a new code.'];
 				} else {
 					verifyForm.errors._errors = [err.userMessage];
 				}
@@ -81,20 +77,20 @@ export const actions: Actions = {
 			}
 
 			verifyForm.valid = false;
-			verifyForm.errors._errors = ["Could not verify your account right now."];
+			verifyForm.errors._errors = ['Could not verify your account right now.'];
 			return fail(500, { verifyForm, resendForm });
 		}
 
 		clearPermissionContextCookie(cookies);
 		clearPermissionContextRevalidateCooldownCookie(cookies);
-		setAuthNoticeCookie(cookies, "Email verified successfully. Welcome back.");
-		throw redirect(303, "/");
+		setAuthNoticeCookie(cookies, 'Email verified successfully. Welcome back.');
+		throw redirect(303, '/dashboard');
 	},
 
 	resend: async (event) => {
 		const { request, url } = event;
 		const verifyForm = await superValidate(
-			{ verificationId: verificationIdFromURL(url), code: "" },
+			{ verificationId: verificationIdFromURL(url), code: '' },
 			zod4(verifyEmailSchema),
 			{ id: VERIFY_FORM_ID }
 		);
@@ -108,16 +104,16 @@ export const actions: Actions = {
 
 		try {
 			const resend = await resendVerificationRequest(event, { email: form.data.email });
-			if (typeof resend.verificationId === "string" && resend.verificationId.trim().length > 0) {
+			if (typeof resend.verificationId === 'string' && resend.verificationId.trim().length > 0) {
 				verifyForm.data.verificationId = resend.verificationId;
-				verifyForm.data.code = "";
+				verifyForm.data.code = '';
 			}
 		} catch (err) {
-			console.error("[auth:verify-email] resend failed", err);
+			console.error('[auth:verify-email] resend failed', err);
 			if (isApiRequestError(err)) {
 				form.valid = false;
 				if (err.statusCode === 429) {
-					form.errors.email = ["Too many requests. Please try again later."];
+					form.errors.email = ['Too many requests. Please try again later.'];
 				} else {
 					form.errors.email = [err.userMessage];
 				}
@@ -127,11 +123,11 @@ export const actions: Actions = {
 				});
 			}
 			form.valid = false;
-			form.errors.email = ["Could not resend verification email right now."];
+			form.errors.email = ['Could not resend verification email right now.'];
 			return fail(500, { verifyForm, resendForm: form });
 		}
 
-		form.message = "Verification code sent. Check your inbox.";
+		form.message = 'Verification code sent. Check your inbox.';
 
 		return {
 			verifyForm,

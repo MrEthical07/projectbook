@@ -1,18 +1,18 @@
 <script lang="ts">
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import { Button } from "$lib/components/ui/button";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Label } from "$lib/components/ui/label";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { ChevronLeft, ChevronRight, ListFilter } from "@lucide/svelte";
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { ChevronLeft, ChevronRight, ListFilter } from '@lucide/svelte';
 
 	let { data } = $props();
 
-	type ActivityType = "Artifacts" | "Tasks" | "Feedback" | "Comments";
-	type DateFilter = "All time" | "Today" | "Last 7 days" | "Last 30 days";
+	type ActivityType = 'Artifacts' | 'Tasks' | 'Feedback' | 'Comments';
+	type DateFilter = 'All time' | 'Today' | 'Last 7 days' | 'Last 30 days';
 
 	type ActivityItem = {
 		id: string;
@@ -37,9 +37,9 @@
 		currentPage = 1;
 	});
 
-	let projectFilter = $state("All Projects");
-	let typeFilter = $state<"All" | ActivityType>("All");
-	let dateFilter = $state<DateFilter>("All time");
+	let projectFilter = $state('All Projects');
+	let typeFilter = $state<'All' | ActivityType>('All');
+	let dateFilter = $state<DateFilter>('All time');
 	let currentPage = $state(1);
 
 	const toEpoch = (value: string) => {
@@ -54,7 +54,7 @@
 	};
 
 	let projectOptions = $derived([
-		"All Projects",
+		'All Projects',
 		...Array.from(new Set(activities.map((item) => item.projectName))).sort((a, b) =>
 			a.localeCompare(b)
 		)
@@ -63,21 +63,21 @@
 	let filteredActivities = $derived.by(() => {
 		let items = [...activities];
 
-		if (projectFilter !== "All Projects") {
+		if (projectFilter !== 'All Projects') {
 			items = items.filter((item) => item.projectName === projectFilter);
 		}
 
-		if (typeFilter !== "All") {
+		if (typeFilter !== 'All') {
 			items = items.filter((item) => item.type === typeFilter);
 		}
 
 		const now = Date.now();
 		const startOfToday = new Date(new Date().toDateString()).getTime();
-		if (dateFilter === "Today") {
+		if (dateFilter === 'Today') {
 			items = items.filter((item) => toEpoch(item.occurredAt) >= startOfToday);
-		} else if (dateFilter === "Last 7 days") {
+		} else if (dateFilter === 'Last 7 days') {
 			items = items.filter((item) => toEpoch(item.occurredAt) >= now - 7 * 24 * 60 * 60 * 1000);
-		} else if (dateFilter === "Last 30 days") {
+		} else if (dateFilter === 'Last 30 days') {
 			items = items.filter((item) => toEpoch(item.occurredAt) >= now - 30 * 24 * 60 * 60 * 1000);
 		}
 
@@ -102,10 +102,7 @@
 
 <svelte:head>
 	<title>Activity • ProjectBook</title>
-	<meta
-		name="description"
-		content="Review home activity across projects and recent updates."
-	/>
+	<meta name="description" content="Review home activity across projects and recent updates." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
@@ -129,7 +126,7 @@
 
 	<div class="flex flex-col gap-5 py-2 md:px-20">
 		<section class="rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Home activity</div>
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">Home activity</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="grid gap-1">
 					<h1 class="text-3xl font-semibold">Home Activity</h1>
@@ -188,7 +185,9 @@
 		<section class="rounded-lg bg-background p-4">
 			<div class="mb-4 text-sm font-medium">Activity Feed</div>
 			{#if pageActivities.length === 0}
-				<div class="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+				<div
+					class="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground"
+				>
 					No activity found for the selected filters.
 				</div>
 			{:else}
@@ -231,7 +230,12 @@
 					<ChevronLeft class="mr-1 h-4 w-4" />
 					Previous
 				</Button>
-				<Button size="sm" variant="outline" onclick={nextPage} disabled={safeCurrentPage === totalPages}>
+				<Button
+					size="sm"
+					variant="outline"
+					onclick={nextPage}
+					disabled={safeCurrentPage === totalPages}
+				>
 					Next
 					<ChevronRight class="ml-1 h-4 w-4" />
 				</Button>

@@ -1,4 +1,4 @@
-import { getFeedbackPageData } from "$lib/remote/feedback.remote";
+import { getFeedbackPageData } from '$lib/remote/feedback.remote';
 
 export async function load({ params }: { params: { projectId: string; feedbackId: string } }) {
 	return {

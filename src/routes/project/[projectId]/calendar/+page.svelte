@@ -1,53 +1,52 @@
 <script lang="ts">
-	import { getContext, onMount } from "svelte";
-	import { page } from "$app/state";
-	import { Calendar as CalendarPicker } from "$lib/components/ui/calendar";
-	import { SvelteDate } from "svelte/reactivity";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import { Badge } from "$lib/components/ui/badge";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import * as Popover from "$lib/components/ui/popover";
-	import * as Select from "$lib/components/ui/select";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import * as Tooltip from "$lib/components/ui/tooltip";
-	import { Textarea } from "$lib/components/ui/textarea";
-	import { parseDate, type CalendarDate } from "@internationalized/date";
+	import { getContext, onMount } from 'svelte';
+	import { page } from '$app/state';
+	import { Calendar as CalendarPicker } from '$lib/components/ui/calendar';
+	import { SvelteDate } from 'svelte/reactivity';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import * as Popover from '$lib/components/ui/popover';
+	import * as Select from '$lib/components/ui/select';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { parseDate, type CalendarDate } from '@internationalized/date';
 	import {
 		Calendar as CalendarIcon,
 		CalendarDays,
 		CalendarRange,
 		ChevronLeft,
 		ChevronRight,
-		Plus,
-	} from "@lucide/svelte";
-	import { createCalendarEvent, getCalendarData } from "$lib/remote/calendar.remote";
-	import { can } from "$lib/utils/permission";
+		Plus
+	} from '@lucide/svelte';
+	import { createCalendarEvent, getCalendarData } from '$lib/remote/calendar.remote';
+	import { can } from '$lib/utils/permission';
 
 	let { data } = $props();
-	const access = getContext<ProjectAccess | undefined>("access");
+	const access = getContext<ProjectAccess | undefined>('access');
 	const permissions = access?.permissions;
-	const canCreateEvent = can(permissions, "calendar", "create");
+	const canCreateEvent = can(permissions, 'calendar', 'create');
 
-	type CalendarView = "Month" | "Week";
-	type EventSourceType = "Derived" | "Manual";
-	type ArtifactType = "Task" | "Feedback" | "Manual";
-	type Phase = "Empathize" | "Define" | "Ideate" | "Prototype" | "Test";
-	type PhaseOption = Phase | "None";
-	type ManualEventKind = "Workshop" | "Review" | "Testing Session" | "Meeting" | "Other";
+	type CalendarView = 'Month' | 'Week';
+	type EventSourceType = 'Derived' | 'Manual';
+	type ArtifactType = 'Task' | 'Feedback' | 'Manual';
+	type Phase = 'Empathize' | 'Define' | 'Ideate' | 'Prototype' | 'Test';
+	type PhaseOption = Phase | 'None';
+	type ManualEventKind = 'Workshop' | 'Review' | 'Testing Session' | 'Meeting' | 'Other';
 
-	
 	type LinkedArtifact = {
 		id: string;
 		title: string;
-		type: "task" | "idea" | "problem";
-		phase: "Prototype" | "Ideate" | "Define";
+		type: 'task' | 'idea' | 'problem';
+		phase: 'Prototype' | 'Ideate' | 'Define';
 		href: string;
-		status: "Active" | "Archived";
+		status: 'Active' | 'Archived';
 	};
 
 	type CalendarEvent = {
@@ -81,72 +80,73 @@
 		() => structuredClone(data.reference.linkedArtifactOptions) as LinkedArtifact[]
 	);
 
-	const today = new Date().toISOString().split("T")[0];
+	const today = new Date().toISOString().split('T')[0];
 	const addDays = (date: string, amount: number) => {
 		const base = new SvelteDate(date);
 		base.setDate(base.getDate() + amount);
 		return base.toISOString().slice(0, 10);
 	};
-	let view = $state<CalendarView>("Month");
+	let view = $state<CalendarView>('Month');
 	let currentMonth = $state(today);
 	let selectedDay = $state(today);
 	let weekStart = $state(today);
-	let filterArtifact = $state<ArtifactType | "All">("All");
-	let filterOwner = $state<string | "All">("All");
-	let filterPhase = $state<PhaseOption | "All">("All");
+	let filterArtifact = $state<ArtifactType | 'All'>('All');
+	let filterOwner = $state<string | 'All'>('All');
+	let filterPhase = $state<PhaseOption | 'All'>('All');
 	let nextCursor = $state<string | null>(null);
 	let isLoadingMore = $state(false);
-	let loadMoreError = $state("");
+	let loadMoreError = $state('');
 
 	let events = $state<CalendarEvent[]>([]);
 
 	$effect(() => {
 		events = structuredClone(data.events) as CalendarEvent[];
 		const initialCursor = (data as { nextCursor?: string | null }).nextCursor;
-		nextCursor = typeof initialCursor === "string" && initialCursor.trim().length > 0
-			? initialCursor
-			: null;
+		nextCursor =
+			typeof initialCursor === 'string' && initialCursor.trim().length > 0 ? initialCursor : null;
 		isLoadingMore = false;
-		loadMoreError = "";
+		loadMoreError = '';
 	});
 
 	let addEventOpen = $state(false);
 	let eventDetailsOpen = $state(false);
 	let selectedEventId = $state<string | null>(null);
 
-	let newTitle = $state("");
+	let newTitle = $state('');
 	let newDateValue = $state<CalendarDate>(parseDate(today));
-	let newStartTime = $state("10:00");
-	let newEndTime = $state("11:00");
+	let newStartTime = $state('10:00');
+	let newEndTime = $state('11:00');
 	let newAllDay = $state(false);
-	let newOwner = $state("Unassigned");
-	let newPhase = $state<PhaseOption>("None");
-	let newKind = $state<ManualEventKind>("Meeting");
-	let newCustomKind = $state("");
-	let newDescription = $state("");
-	let newLocation = $state("");
-	let newTags = $state("");
-	let createError = $state("");
+	let newOwner = $state('Unassigned');
+	let newPhase = $state<PhaseOption>('None');
+	let newKind = $state<ManualEventKind>('Meeting');
+	let newCustomKind = $state('');
+	let newDescription = $state('');
+	let newLocation = $state('');
+	let newTags = $state('');
+	let createError = $state('');
 	let isCreatingEvent = $state(false);
 	let selectedArtifactIds: string[] = $state([]);
 
-	let newLinked = $derived<LinkedArtifact[]>(linkedArtifactOptions.filter((option) => selectedArtifactIds.includes(option.id)));
+	let newLinked = $derived<LinkedArtifact[]>(
+		linkedArtifactOptions.filter((option) => selectedArtifactIds.includes(option.id))
+	);
 	let filteredEvents = $derived(
 		events.filter((event) => {
-			if (filterArtifact !== "All" && event.artifactType !== filterArtifact) {
+			if (filterArtifact !== 'All' && event.artifactType !== filterArtifact) {
 				return false;
 			}
-			if (filterOwner !== "All" && event.owner !== filterOwner) {
+			if (filterOwner !== 'All' && event.owner !== filterOwner) {
 				return false;
 			}
-			if (filterPhase !== "All" && event.phase !== filterPhase) {
+			if (filterPhase !== 'All' && event.phase !== filterPhase) {
 				return false;
 			}
 			return true;
 		})
 	);
 	let projectId = $derived(
-		(page.params.projectId ?? (data as { projectId?: string }).projectId ?? "").trim()
+		(page.params.projectId ?? (data as { projectId?: string }).projectId ?? '').trim()
 	);
 	let ownerOptions = $derived.by(() => {
 		const list = Array.from(new Set(events.map((event) => event.owner))).filter(Boolean);
@@ -162,15 +162,15 @@
 		Array.from(new Set(events.map((event) => event.phase))).filter(Boolean)
 	);
 	let selectedEvent = $derived(
-		selectedEventId ? events.find((event) => event.id === selectedEventId) ?? null : null
+		selectedEventId ? (events.find((event) => event.id === selectedEventId) ?? null) : null
 	);
 	let newDateLabel = $derived.by(() => {
-		if (!newDateValue) return "";
+		if (!newDateValue) return '';
 		const date = new SvelteDate(newDateValue.toString());
-		return date.toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
-			year: "numeric",
+		return date.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
 		});
 	});
 
@@ -182,7 +182,7 @@
 
 	let monthLabel = $derived.by(() => {
 		const date = new SvelteDate(currentMonth);
-		return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+		return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 	});
 
 	let monthDays = $derived.by(() => {
@@ -196,20 +196,18 @@
 			return {
 				label: String(date.getDate()),
 				date: date.toISOString().slice(0, 10),
-				inMonth: date.getMonth() === first.getMonth(),
+				inMonth: date.getMonth() === first.getMonth()
 			};
 		});
 	});
 
-	let weekDates = $derived(
-		Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
-	);
+	let weekDates = $derived(Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)));
 
 	let weekLabel = $derived.by(() => {
 		const start = new SvelteDate(weekStart);
 		const end = new SvelteDate(addDays(weekStart, 6));
-		const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-		const endLabel = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+		const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 		return `${startLabel} - ${endLabel}`;
 	});
 
@@ -224,42 +222,40 @@
 		}, {})
 	);
 
-	let eventsToday = $derived(
-		filteredEvents.filter((event) => event.start === today).length
-	);
+	let eventsToday = $derived(filteredEvents.filter((event) => event.start === today).length);
 	let eventsLate = $derived(
-		filteredEvents.filter((event) => event.start < today && event.type === "Manual").length
+		filteredEvents.filter((event) => event.start < today && event.type === 'Manual').length
 	);
 	let upcomingDeadlines = $derived(
-		filteredEvents.filter((event) => event.start > today && event.type === "Derived").length
+		filteredEvents.filter((event) => event.start > today && event.type === 'Derived').length
 	);
 
 	const eventTypeBadge = (value: EventSourceType) =>
-		value === "Derived"
-			? "bg-slate-100 text-slate-700 border-slate-200"
-			: "bg-emerald-100 text-emerald-700 border-emerald-200";
-	const phaseLabel = (value: PhaseOption) => (value === "None" ? "No phase" : value);
+		value === 'Derived'
+			? 'bg-slate-100 text-slate-700 border-slate-200'
+			: 'bg-emerald-100 text-emerald-700 border-emerald-200';
+	const phaseLabel = (value: PhaseOption) => (value === 'None' ? 'No phase' : value);
 	const parseTags = (value: string) =>
 		value
-			.split(",")
+			.split(',')
 			.map((tag) => tag.trim())
 			.filter(Boolean);
 
 	const openAddEvent = () => {
-		createError = "";
-		newTitle = "";
+		createError = '';
+		newTitle = '';
 		newDateValue = parseDate(today);
-		newStartTime = "10:00";
-		newEndTime = "11:00";
+		newStartTime = '10:00';
+		newEndTime = '11:00';
 		newAllDay = false;
-		newOwner = ownerOptions[0] ?? "";
-		newPhase = "None";
-		newKind = "Meeting";
-		newCustomKind = "";
-		newDescription = "";
-		newLocation = "";
+		newOwner = ownerOptions[0] ?? '';
+		newPhase = 'None';
+		newKind = 'Meeting';
+		newCustomKind = '';
+		newDescription = '';
+		newLocation = '';
 		newLinked = [];
-		newTags = "";
+		newTags = '';
 		addEventOpen = true;
 	};
 
@@ -270,33 +266,33 @@
 
 	const createEvent = async () => {
 		if (isCreatingEvent) return;
-		createError = "";
+		createError = '';
 		if (!projectId) {
-			createError = "Project id is missing.";
+			createError = 'Project id is missing.';
 			return;
 		}
 		if (!permissions || !canCreateEvent) {
-			createError = "You do not have permission to create events.";
+			createError = 'You do not have permission to create events.';
 			return;
 		}
 		const actorId = access?.user.id;
 		if (!actorId) {
-			createError = "Active user id is missing.";
+			createError = 'Active user id is missing.';
 			return;
 		}
 		if (!newTitle.trim()) {
-			createError = "Event title is required.";
+			createError = 'Event title is required.';
 			return;
 		}
 		if (!newOwner.trim()) {
-			createError = "Event owner is required.";
+			createError = 'Event owner is required.';
 			return;
 		}
-		if (newKind === "Other" && !newCustomKind.trim()) {
-			createError = "Custom event type is required when selecting Other.";
+		if (newKind === 'Other' && !newCustomKind.trim()) {
+			createError = 'Custom event type is required when selecting Other.';
 			return;
 		}
-		const eventKind = newKind === "Other" ? newCustomKind.trim() : newKind;
+		const eventKind = newKind === 'Other' ? newCustomKind.trim() : newKind;
 		const tags = parseTags(newTags);
 		isCreatingEvent = true;
 		try {
@@ -327,8 +323,8 @@
 			events = [...events, created];
 			addEventOpen = false;
 		} catch (error) {
-			console.error("Failed to create calendar event", error);
-			createError = "Unable to create event right now.";
+			console.error('Failed to create calendar event', error);
+			createError = 'Unable to create event right now.';
 		} finally {
 			isCreatingEvent = false;
 		}
@@ -340,7 +336,7 @@
 		}
 
 		isLoadingMore = true;
-		loadMoreError = "";
+		loadMoreError = '';
 		try {
 			const result = await getCalendarData({
 				projectId,
@@ -354,7 +350,7 @@
 			events = [...deduped.values()];
 			nextCursor = result.nextCursor;
 		} catch {
-			loadMoreError = "Failed to load more calendar events. Please try again.";
+			loadMoreError = 'Failed to load more calendar events. Please try again.';
 		} finally {
 			isLoadingMore = false;
 		}
@@ -401,20 +397,20 @@
 </script>
 
 <svelte:head>
-	<title>Calendar • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
-	<meta
-		name="description"
-		content="Plan project milestones, deadlines, and validation events."
-	/>
+	<title
+		>Calendar • {((data as Record<string, unknown>).project as { name?: string } | undefined)
+			?.name ?? 'Project'} • ProjectBook</title
+	>
+	<meta name="description" content="Plan project milestones, deadlines, and validation events." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg">
+<div class="flex flex-col gap-2 rounded-lg border bg-background p-2">
 	<header
-		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+		class="flex h-12 w-full shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
-		<div class="flex items-center gap-2 px-4 w-full">
+		<div class="flex w-full items-center gap-2 px-4">
 			<Sidebar.Trigger class="-ms-1" />
 			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 			<Breadcrumb.Root>
@@ -429,7 +425,7 @@
 
 	<div class="flex flex-col gap-4 py-2 md:px-20">
 		<div class="flex flex-col gap-2 rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
 				Calendar - Project reminders and key dates
 			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
@@ -451,34 +447,44 @@
 					<Button
 						variant="outline"
 						size="icon"
-						onclick={() => (view === "Month" ? goPrevMonth() : goPrevWeek())}
+						onclick={() => (view === 'Month' ? goPrevMonth() : goPrevWeek())}
 					>
 						<ChevronLeft class="h-4 w-4" />
 					</Button>
 					<div class="flex items-center gap-2 text-sm font-medium">
 						<CalendarIcon class="h-4 w-4 text-muted-foreground" />
-						<span>{view === "Month" ? monthLabel : weekLabel}</span>
+						<span>{view === 'Month' ? monthLabel : weekLabel}</span>
 					</div>
 					<Button
 						variant="outline"
 						size="icon"
-						onclick={() => (view === "Month" ? goNextMonth() : goNextWeek())}
+						onclick={() => (view === 'Month' ? goNextMonth() : goNextWeek())}
 					>
 						<ChevronRight class="h-4 w-4" />
 					</Button>
-					<Button variant="outline" size="sm" onclick={goToday}>
-						Today
-					</Button>
+					<Button variant="outline" size="sm" onclick={goToday}>Today</Button>
 				</div>
 				<div class="flex flex-wrap items-center gap-2">
 					<Tooltip.Root>
-						<Tooltip.Trigger class={buttonVariants({ variant: view === "Month" ? "default" : "outline", size: "icon" })} onclick={() => (view = "Month")}>
+						<Tooltip.Trigger
+							class={buttonVariants({
+								variant: view === 'Month' ? 'default' : 'outline',
+								size: 'icon'
+							})}
+							onclick={() => (view = 'Month')}
+						>
 							<CalendarDays class="h-4 w-4" />
 						</Tooltip.Trigger>
 						<Tooltip.Content>Change to calendar view</Tooltip.Content>
 					</Tooltip.Root>
 					<Tooltip.Root>
-						<Tooltip.Trigger class={buttonVariants({ variant: view === "Week" ? "default" : "outline", size: "icon" })} onclick={() => (view = "Week")}>
+						<Tooltip.Trigger
+							class={buttonVariants({
+								variant: view === 'Week' ? 'default' : 'outline',
+								size: 'icon'
+							})}
+							onclick={() => (view = 'Week')}
+						>
 							<CalendarRange class="h-4 w-4" />
 						</Tooltip.Trigger>
 						<Tooltip.Content>Change to week view</Tooltip.Content>
@@ -506,7 +512,9 @@
 						<Select.Content>
 							<Select.Item value="All" label="All">All</Select.Item>
 							{#each phaseOptions as phase (phase)}
-								<Select.Item value={phase} label={phaseLabel(phase)}>{phaseLabel(phase)}</Select.Item>
+								<Select.Item value={phase} label={phaseLabel(phase)}
+									>{phaseLabel(phase)}</Select.Item
+								>
 							{/each}
 						</Select.Content>
 					</Select.Root>
@@ -531,7 +539,7 @@
 			<div class="grid gap-3">
 				<div class="rounded-lg border border-border p-4">
 					<div class="text-sm font-medium">Calendar view - {view}</div>
-					{#if view === "Month"}
+					{#if view === 'Month'}
 						<div class="mt-4 grid grid-cols-7 gap-2 text-sm text-muted-foreground">
 							<span>Mon</span>
 							<span>Tue</span>
@@ -546,9 +554,9 @@
 								<Popover.Root>
 									<Popover.Trigger
 										class={`flex h-28 flex-col gap-2 rounded-md border border-border p-2 text-left hover:bg-muted/40 ${
-											selectedDay === day.date ? "bg-muted/50" : ""
-										} ${day.inMonth ? "" : "text-muted-foreground/60"} ${
-											day.date === today ? "border-primary/40 bg-primary/5" : ""
+											selectedDay === day.date ? 'bg-muted/50' : ''
+										} ${day.inMonth ? '' : 'text-muted-foreground/60'} ${
+											day.date === today ? 'border-primary/40 bg-primary/5' : ''
 										}`}
 										onclick={() => {
 											selectedDay = day.date;
@@ -558,7 +566,9 @@
 										<div class="text-sm font-medium">{day.label}</div>
 										<div class="flex flex-col gap-1">
 											{#each eventsByDay[day.date] ?? [] as event (event.id)}
-												<div class="truncate rounded-sm bg-muted/50 px-1 py-0.5 text-[10px] text-muted-foreground">
+												<div
+													class="truncate rounded-sm bg-muted/50 px-1 py-0.5 text-[10px] text-muted-foreground"
+												>
 													{event.title}
 												</div>
 											{/each}
@@ -576,16 +586,18 @@
 														<div class="flex flex-col gap-1">
 															<span class="font-medium">{event.title}</span>
 															<span class="text-[10px] text-muted-foreground">
-																{event.allDay ? "All day" : `${event.startTime ?? ""} - ${event.endTime ?? ""}`}
+																{event.allDay
+																	? 'All day'
+																	: `${event.startTime ?? ''} - ${event.endTime ?? ''}`}
 															</span>
 														</div>
 														<div class="flex items-center gap-2 text-[10px] text-muted-foreground">
 															<Avatar.Root class="h-5 w-5">
 																<Avatar.Fallback class="text-[10px]">
 																	{event.owner
-																		.split(" ")
+																		.split(' ')
 																		.map((part) => part[0])
-																		.join("")
+																		.join('')
 																		.slice(0, 2)}
 																</Avatar.Fallback>
 															</Avatar.Root>
@@ -604,16 +616,22 @@
 						</div>
 					{:else}
 						<div class="mt-4 max-h-130 overflow-auto">
-							<div class="min-w-245 grid grid-cols-[72px_repeat(7,minmax(0,1fr))] gap-x-3 gap-y-0 text-xs">
+							<div
+								class="grid min-w-245 grid-cols-[72px_repeat(7,minmax(0,1fr))] gap-x-3 gap-y-0 text-xs"
+							>
 								<span></span>
 								{#each weekDates as date (date)}
-									<span class={`text-muted-foreground ${date === today ? "bg-primary/5 rounded-md px-1" : ""}`}>
+									<span
+										class={`text-muted-foreground ${date === today ? 'rounded-md bg-primary/5 px-1' : ''}`}
+									>
 										{date}
 									</span>
 								{/each}
-								<div class="text-muted-foreground border-b border-border/60 py-2">All day</div>
+								<div class="border-b border-border/60 py-2 text-muted-foreground">All day</div>
 								{#each weekDates as date (date)}
-									<div class={`min-h-12 border-b border-border/60 p-2 text-left ${date === today ? "bg-primary/5" : ""}`}>
+									<div
+										class={`min-h-12 border-b border-border/60 p-2 text-left ${date === today ? 'bg-primary/5' : ''}`}
+									>
 										{#each filteredEvents.filter((event) => event.start === date && event.allDay) as event (event.id)}
 											<button
 												type="button"
@@ -627,9 +645,11 @@
 									</div>
 								{/each}
 								{#each timeSlots as slot (slot)}
-									<div class="text-muted-foreground border-b border-border/60 py-3">{slot}</div>
+									<div class="border-b border-border/60 py-3 text-muted-foreground">{slot}</div>
 									{#each weekDates as date (date)}
-										<div class={`min-h-16 border-b border-border/60 p-2 text-left ${date === today ? "bg-primary/5" : ""}`}>
+										<div
+											class={`min-h-16 border-b border-border/60 p-2 text-left ${date === today ? 'bg-primary/5' : ''}`}
+										>
 											{#each filteredEvents.filter((event) => event.start === date && event.startTime === slot) as event (event.id)}
 												<button
 													type="button"
@@ -655,7 +675,7 @@
 				<div class="flex flex-col items-start gap-2">
 					{#if nextCursor}
 						<Button variant="outline" size="sm" onclick={loadMoreEvents} disabled={isLoadingMore}>
-							{isLoadingMore ? "Loading..." : "Load more events"}
+							{isLoadingMore ? 'Loading...' : 'Load more events'}
 						</Button>
 					{/if}
 					{#if loadMoreError}
@@ -681,7 +701,7 @@
 			<div class="grid gap-2">
 				<Label>Date</Label>
 				<Popover.Root>
-					<Popover.Trigger class={buttonVariants({ variant: "outline" })}>
+					<Popover.Trigger class={buttonVariants({ variant: 'outline' })}>
 						{newDateLabel}
 					</Popover.Trigger>
 					<Popover.Content class="p-0">
@@ -733,7 +753,7 @@
 						{/each}
 					</Select.Content>
 				</Select.Root>
-				{#if newKind === "Other"}
+				{#if newKind === 'Other'}
 					<Input bind:value={newCustomKind} placeholder="Custom event type" />
 				{/if}
 			</div>
@@ -770,12 +790,16 @@
 				</div>
 				<Select.Root type="multiple" bind:value={selectedArtifactIds}>
 					<Select.Trigger class="w-full">
-						{selectedArtifactIds.length ? "Selected artifacts" : "Link artifact"}
+						{selectedArtifactIds.length ? 'Selected artifacts' : 'Link artifact'}
 					</Select.Trigger>
 
 					<Select.Content>
 						{#each linkedArtifactOptions as option (option.id)}
-							<Select.Item value={option.id} label={option.title} class="flex flex-row items-center justify-between">
+							<Select.Item
+								value={option.id}
+								label={option.title}
+								class="flex flex-row items-center justify-between"
+							>
 								<span>{option.title}</span>
 								<span class="text-xs text-muted-foreground">{option.type.toLocaleUpperCase()}</span>
 							</Select.Item>
@@ -788,9 +812,13 @@
 			{/if}
 		</div>
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button class={buttonVariants()} onclick={createEvent} disabled={!canCreateEvent || !newTitle.trim() || isCreatingEvent}>
-				{isCreatingEvent ? "Creating..." : "Add event"}
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
+			<Button
+				class={buttonVariants()}
+				onclick={createEvent}
+				disabled={!canCreateEvent || !newTitle.trim() || isCreatingEvent}
+			>
+				{isCreatingEvent ? 'Creating...' : 'Add event'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -810,8 +838,8 @@
 					<span>{selectedEvent.start}</span>
 					<span>
 						{selectedEvent.allDay
-							? "All day"
-							: `${selectedEvent.startTime ?? ""} - ${selectedEvent.endTime ?? ""}`}
+							? 'All day'
+							: `${selectedEvent.startTime ?? ''} - ${selectedEvent.endTime ?? ''}`}
 					</span>
 				</div>
 				<div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -825,9 +853,9 @@
 					<Avatar.Root class="h-6 w-6">
 						<Avatar.Fallback class="text-[10px]">
 							{selectedEvent.owner
-								.split(" ")
+								.split(' ')
 								.map((part) => part[0])
-								.join("")
+								.join('')
 								.slice(0, 2)}
 						</Avatar.Fallback>
 					</Avatar.Root>
@@ -876,12 +904,9 @@
 			</div>
 		{/if}
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Close</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Close</Dialog.Close>
 			{#if selectedEvent}
-				<a
-					class={buttonVariants()}
-					href={`/project/${projectId}/calendar/${selectedEvent.id}`}
-				>
+				<a class={buttonVariants()} href={`/project/${projectId}/calendar/${selectedEvent.id}`}>
 					Open event page
 				</a>
 			{/if}

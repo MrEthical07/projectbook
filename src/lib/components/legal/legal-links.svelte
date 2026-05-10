@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { cn } from "$lib/utils.js";
+	import { cn } from '$lib/utils.js';
 
-	type LegalLinksTone = "muted" | "sidebar";
+	type LegalLinksTone = 'muted' | 'sidebar';
 
 	let {
-		tone = "muted",
+		tone = 'muted',
 		class: className
 	}: {
 		tone?: LegalLinksTone;
@@ -13,21 +13,19 @@
 
 	let containerClass = $derived(
 		cn(
-			"flex flex-wrap items-center gap-x-2 gap-y-1 text-xs",
-			tone === "sidebar" ? "text-sidebar-foreground/70" : "text-muted-foreground",
+			'flex flex-wrap items-center gap-x-2 gap-y-1 text-xs',
+			tone === 'sidebar' ? 'text-sidebar-foreground/70' : 'text-muted-foreground',
 			className
 		)
 	);
 
 	let linkClass = $derived(
-		tone === "sidebar"
-			? "underline-offset-4 transition hover:text-sidebar-foreground hover:underline"
-			: "underline-offset-4 transition hover:text-foreground hover:underline"
+		tone === 'sidebar'
+			? 'underline-offset-4 transition hover:text-sidebar-foreground hover:underline'
+			: 'underline-offset-4 transition hover:text-foreground hover:underline'
 	);
 
-	let separatorClass = $derived(
-		tone === "sidebar" ? "text-sidebar-foreground/40" : "text-border"
-	);
+	let separatorClass = $derived(tone === 'sidebar' ? 'text-sidebar-foreground/40' : 'text-border');
 </script>
 
 <nav aria-label="Legal links" class={containerClass}>

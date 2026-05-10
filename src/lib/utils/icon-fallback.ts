@@ -1,24 +1,19 @@
-import type { Component } from "svelte";
+import type { Component } from 'svelte';
 
 const isRenderableComponent = (value: unknown): value is Component => {
-	if (typeof value === "function") {
+	if (typeof value === 'function') {
 		return true;
 	}
-	if (!value || typeof value !== "object") {
+	if (!value || typeof value !== 'object') {
 		return false;
 	}
-	return "$$render" in value || "render" in value;
+	return '$$render' in value || 'render' in value;
 };
 
-export const resolveOptionalIconComponent = (
-	candidate: unknown
-): Component | null => {
+export const resolveOptionalIconComponent = (candidate: unknown): Component | null => {
 	return isRenderableComponent(candidate) ? candidate : null;
 };
 
-export const resolveIconComponent = (
-	candidate: unknown,
-	fallback: Component
-): Component => {
+export const resolveIconComponent = (candidate: unknown, fallback: Component): Component => {
 	return resolveOptionalIconComponent(candidate) ?? fallback;
 };

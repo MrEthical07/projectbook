@@ -1,4 +1,3 @@
-
 export interface DataStore {
 	home: {
 		user: HomeUser;
@@ -27,13 +26,19 @@ export interface DataStore {
 	activity: Array<ProjectActivityItem | HomeActivityItem>;
 	team: {
 		members: TeamMember[];
-		invites: Array<{ email: string; role: "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access"; sentDate: string; status: "pending" | "accepted"; projectId?: string }>;
+		invites: Array<{
+			email: string;
+			role: 'Owner' | 'Admin' | 'Editor' | 'Viewer' | 'Limited Access';
+			sentDate: string;
+			status: 'pending' | 'accepted';
+			projectId?: string;
+		}>;
 		rolePermissions: Record<string, RolePermissionMaskMap>;
 	};
 	settings: {
 		projectName: string;
 		projectDescription: string;
-		projectStatus: "Active" | "Archived";
+		projectStatus: 'Active' | 'Archived';
 		whiteboardsEnabled?: boolean;
 		advancedDatabasesEnabled?: boolean;
 		calendarManualEventsEnabled?: boolean;
@@ -43,13 +48,13 @@ export interface DataStore {
 		notifyArtifactLocked?: boolean;
 		notifyFeedbackAdded?: boolean;
 		notifyResourceUpdated?: boolean;
-		deliveryChannel?: "In-app" | "Email";
+		deliveryChannel?: 'In-app' | 'Email';
 	};
 }
 
 export const datastore: DataStore = {
 	home: {
-		user: { id: "u-1", name: "ProjectBook User", email: "user@example.com" },
+		user: { id: 'u-1', name: 'ProjectBook User', email: 'user@example.com' },
 		projects: [],
 		invites: [],
 		notifications: [],
@@ -57,8 +62,8 @@ export const datastore: DataStore = {
 	},
 	projects: [],
 	projectDashboard: {
-		project: { id: "atlas-2026", name: "Sample Project", status: "Active" },
-		me: { id: "u-1", name: "ProjectBook User", initials: "PU" },
+		project: { id: 'atlas-2026', name: 'Sample Project', status: 'Active' },
+		me: { id: 'u-1', name: 'ProjectBook User', initials: 'PU' },
 		events: [],
 		activity: [],
 		recentEdits: []
@@ -79,9 +84,9 @@ export const datastore: DataStore = {
 		rolePermissions: {}
 	},
 	settings: {
-		projectName: "Sample Project",
-		projectDescription: "Minimal neutral sample project.",
-		projectStatus: "Active",
+		projectName: 'Sample Project',
+		projectDescription: 'Minimal neutral sample project.',
+		projectStatus: 'Active',
 		whiteboardsEnabled: true,
 		advancedDatabasesEnabled: true,
 		calendarManualEventsEnabled: true,
@@ -91,6 +96,6 @@ export const datastore: DataStore = {
 		notifyArtifactLocked: true,
 		notifyFeedbackAdded: true,
 		notifyResourceUpdated: true,
-		deliveryChannel: "In-app"
+		deliveryChannel: 'In-app'
 	}
 };

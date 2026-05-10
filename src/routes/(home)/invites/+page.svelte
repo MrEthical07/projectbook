@@ -1,23 +1,20 @@
 <script lang="ts">
-	import { invalidate } from "$app/navigation";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import {
-		acceptProjectInvite,
-		declineProjectInvite
-	} from "$lib/remote/user-home.remote";
-	import { Check, Inbox, Trash2 } from "@lucide/svelte";
+	import { invalidate } from '$app/navigation';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { acceptProjectInvite, declineProjectInvite } from '$lib/remote/user-home.remote';
+	import { Check, Inbox, Trash2 } from '@lucide/svelte';
 
 	let { data } = $props();
-	let actionError = $state("");
-	let inviteActionInFlight = $state<"accept" | "decline" | null>(null);
+	let actionError = $state('');
+	let inviteActionInFlight = $state<'accept' | 'decline' | null>(null);
 
-	type InviteStatus = "Active" | "Archived";
+	type InviteStatus = 'Active' | 'Archived';
 	type Invite = {
 		id: string;
 		projectName: string;
@@ -25,9 +22,9 @@
 		projectStatus: InviteStatus;
 		projectId?: string;
 		inviterName: string;
-		inviterRole: "Owner" | "Admin";
+		inviterRole: 'Owner' | 'Admin';
 		inviterEmail?: string;
-		assignedRole: "Member" | "Viewer" | "Limited Access";
+		assignedRole: 'Member' | 'Viewer' | 'Limited Access';
 		sentAt: string;
 		expiresAt?: string;
 		expired?: boolean;
@@ -57,10 +54,10 @@
 
 	const acceptInvite = async () => {
 		if (inviteActionInFlight) return;
-		actionError = "";
+		actionError = '';
 		const target = acceptTarget;
 		if (!target || target.expired) return;
-		inviteActionInFlight = "accept";
+		inviteActionInFlight = 'accept';
 		try {
 			const result = await acceptProjectInvite({ inviteId: target.id });
 			if (!result.success) {
@@ -69,10 +66,10 @@
 			}
 			acceptOpen = false;
 			acceptTarget = null;
-			await invalidate((url) => url.pathname === "/invites" || url.pathname === "/");
+			await invalidate((url) => url.pathname === '/invites' || url.pathname === '/');
 		} catch (error) {
-			console.error("Failed to accept invite", error);
-			actionError = "Unable to accept invitation right now.";
+			console.error('Failed to accept invite', error);
+			actionError = 'Unable to accept invitation right now.';
 		} finally {
 			inviteActionInFlight = null;
 		}
@@ -80,10 +77,10 @@
 
 	const declineInvite = async () => {
 		if (inviteActionInFlight) return;
-		actionError = "";
+		actionError = '';
 		const target = declineTarget;
 		if (!target) return;
-		inviteActionInFlight = "decline";
+		inviteActionInFlight = 'decline';
 		try {
 			const result = await declineProjectInvite({ inviteId: target.id });
 			if (!result.success) {
@@ -92,10 +89,10 @@
 			}
 			declineOpen = false;
 			declineTarget = null;
-			await invalidate((url) => url.pathname === "/invites" || url.pathname === "/");
+			await invalidate((url) => url.pathname === '/invites' || url.pathname === '/');
 		} catch (error) {
-			console.error("Failed to decline invite", error);
-			actionError = "Unable to decline invitation right now.";
+			console.error('Failed to decline invite', error);
+			actionError = 'Unable to decline invitation right now.';
 		} finally {
 			inviteActionInFlight = null;
 		}
@@ -104,19 +101,16 @@
 
 <svelte:head>
 	<title>Invites • ProjectBook</title>
-	<meta
-		name="description"
-		content="Review and respond to project invitations."
-	/>
+	<meta name="description" content="Review and respond to project invitations." />
 	<meta name="robots" content="noindex, nofollow" />
 	<meta name="googlebot" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg">
+<div class="flex flex-col gap-2 rounded-lg border bg-background p-2">
 	<header
-		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+		class="flex h-12 w-full shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
 	>
-		<div class="flex items-center gap-2 px-4 w-full">
+		<div class="flex w-full items-center gap-2 px-4">
 			<Sidebar.Trigger class="-ms-1" />
 			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 			<Breadcrumb.Root>
@@ -131,7 +125,7 @@
 
 	<div class="flex flex-col gap-5 py-2 md:px-20">
 		<div class="flex flex-col gap-2 rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">Invites - Inbox</div>
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">Invites - Inbox</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
 				<div class="flex flex-wrap items-center gap-3">
 					<h1 class="text-3xl font-semibold">Invites</h1>
@@ -143,7 +137,9 @@
 		<section class="flex flex-col gap-4 rounded-lg bg-background p-4">
 			<div class="text-sm font-medium">Pending Invitations</div>
 			{#if invites.length === 0}
-				<div class="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border p-10 text-center">
+				<div
+					class="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border p-10 text-center"
+				>
 					<Inbox class="h-6 w-6 text-muted-foreground" />
 					<div class="text-sm font-medium">No pending invitations</div>
 					<div class="text-xs text-muted-foreground">
@@ -155,7 +151,7 @@
 					{#each invites as invite (invite.id)}
 						<div
 							class={`flex flex-col gap-4 rounded-md border p-4 ${
-								invite.expired ? "border-amber-200 bg-amber-50/50" : "border-border"
+								invite.expired ? 'border-amber-200 bg-amber-50/50' : 'border-border'
 							}`}
 						>
 							<div class="flex flex-wrap items-start justify-between gap-3">
@@ -185,14 +181,14 @@
 
 							<div class="grid gap-3 md:grid-cols-2">
 								<div class="grid gap-1">
-									<div class="text-xs uppercase tracking-wide text-muted-foreground">Inviter</div>
+									<div class="text-xs tracking-wide text-muted-foreground uppercase">Inviter</div>
 									<div class="flex items-center gap-2 text-sm font-medium">
 										<Avatar.Root class="h-7 w-7">
 											<Avatar.Fallback class="text-[10px]">
 												{invite.inviterName
-													.split(" ")
+													.split(' ')
 													.map((part) => part[0])
-													.join("")
+													.join('')
 													.slice(0, 2)}
 											</Avatar.Fallback>
 										</Avatar.Root>
@@ -206,7 +202,7 @@
 									</div>
 								</div>
 								<div class="grid gap-1">
-									<div class="text-xs uppercase tracking-wide text-muted-foreground">
+									<div class="text-xs tracking-wide text-muted-foreground uppercase">
 										Invitation Details
 									</div>
 									<div class="text-sm font-medium">Role - {invite.assignedRole}</div>
@@ -255,10 +251,10 @@
 			<p class="text-xs text-destructive">{actionError}</p>
 		{/if}
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 			<Button onclick={acceptInvite} disabled={inviteActionInFlight !== null}>
 				<Check class="mr-2 h-4 w-4" />
-				{inviteActionInFlight === "accept" ? "Accepting..." : "Accept invitation"}
+				{inviteActionInFlight === 'accept' ? 'Accepting...' : 'Accept invitation'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
@@ -272,17 +268,23 @@
 				Declining removes this invite permanently. You won't be able to recover it.
 			</Dialog.Description>
 		</Dialog.Header>
-		<div class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+		<div
+			class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+		>
 			This action cannot be undone.
 		</div>
 		{#if actionError}
 			<p class="text-xs text-destructive">{actionError}</p>
 		{/if}
 		<Dialog.Footer>
-			<Dialog.Close class={buttonVariants({ variant: "outline" })}>Cancel</Dialog.Close>
-			<Button variant="destructive" onclick={declineInvite} disabled={inviteActionInFlight !== null}>
+			<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
+			<Button
+				variant="destructive"
+				onclick={declineInvite}
+				disabled={inviteActionInFlight !== null}
+			>
 				<Trash2 class="mr-2 h-4 w-4" />
-				{inviteActionInFlight === "decline" ? "Declining..." : "Decline invitation"}
+				{inviteActionInFlight === 'decline' ? 'Declining...' : 'Decline invitation'}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

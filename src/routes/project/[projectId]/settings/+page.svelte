@@ -1,29 +1,29 @@
 <script lang="ts">
-	import { invalidate } from "$app/navigation";
-	import * as Avatar from "$lib/components/ui/avatar";
-	import * as Badge from "$lib/components/ui/badge";
-	import { Button, buttonVariants } from "$lib/components/ui/button";
-	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { Switch } from "$lib/components/ui/switch";
-	import { Textarea } from "$lib/components/ui/textarea";
-	import { getContext, onMount } from "svelte";
-	import { page } from "$app/state";
+	import { invalidate } from '$app/navigation';
+	import * as Avatar from '$lib/components/ui/avatar';
+	import * as Badge from '$lib/components/ui/badge';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { Switch } from '$lib/components/ui/switch';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import { getContext, onMount } from 'svelte';
+	import { page } from '$app/state';
 	import {
 		archiveProject as archiveProjectRemote,
 		deleteProject as deleteProjectRemote,
 		updateProjectSettings as updateProjectSettingsRemote
-	} from "$lib/remote/project.remote";
-	import { can } from "$lib/utils/permission";
-	import { Archive, Trash2 } from "@lucide/svelte";
-	import * as Select from "$lib/components/ui/select";
+	} from '$lib/remote/project.remote';
+	import { can } from '$lib/utils/permission';
+	import { Archive, Trash2 } from '@lucide/svelte';
+	import * as Select from '$lib/components/ui/select';
 
-	type Role = "Owner" | "Admin" | "Editor" | "Viewer" | "Limited Access";
-	type Status = "Active" | "Invited";
+	type Role = 'Owner' | 'Admin' | 'Editor' | 'Viewer' | 'Limited Access';
+	type Status = 'Active' | 'Invited';
 
 	type Member = {
 		id: string;
@@ -34,10 +34,10 @@
 		joinedAt: string;
 	};
 
-	const roleValues: Role[] = ["Owner", "Admin", "Editor", "Viewer", "Limited Access"];
+	const roleValues: Role[] = ['Owner', 'Admin', 'Editor', 'Viewer', 'Limited Access'];
 
 	const requiredString = (value: unknown, path: string): string => {
-		if (typeof value !== "string" || value.trim().length === 0) {
+		if (typeof value !== 'string' || value.trim().length === 0) {
 			throw new Error(`Invalid or missing '${path}'.`);
 		}
 		return value.trim();
@@ -51,25 +51,25 @@
 	};
 
 	const requiredStatus = (value: unknown, path: string): Status => {
-		if (typeof value !== "string") {
+		if (typeof value !== 'string') {
 			throw new Error(`Invalid '${path}'.`);
 		}
 		const normalized = value.trim().toLowerCase();
-		if (normalized === "active") return "Active";
-		if (normalized === "invited") return "Invited";
+		if (normalized === 'active') return 'Active';
+		if (normalized === 'invited') return 'Invited';
 		throw new Error(`Invalid '${path}'. Expected Active or Invited.`);
 	};
 
 	let { data } = $props();
-	const access = getContext<ProjectAccess | undefined>("access");
+	const access = getContext<ProjectAccess | undefined>('access');
 	const permissions = access?.permissions;
 	if (!access?.role) {
-		throw new Error("Project access role is missing.");
+		throw new Error('Project access role is missing.');
 	}
-	let currentRole: Role = requiredRole(access.role, "access.role");
-	const canEdit = can(permissions, "project", "edit");
-	const canDelete = can(permissions, "project", "delete");
-	const canArchiveProject = can(permissions, "project", "archive");
+	let currentRole: Role = requiredRole(access.role, 'access.role');
+	const canEdit = can(permissions, 'project', 'edit');
+	const canDelete = can(permissions, 'project', 'delete');
+	const canArchiveProject = can(permissions, 'project', 'archive');
 	const initialSettings = () => data.settings;
 	const toMembers = (settings: typeof data.settings): Member[] => {
 		const rawMembers = structuredClone(settings.members);
@@ -77,7 +77,7 @@
 			throw new Error("Invalid 'settings.members' payload.");
 		}
 		return rawMembers.map((member, index) => {
-			if (!member || typeof member !== "object") {
+			if (!member || typeof member !== 'object') {
 				throw new Error(`Invalid 'settings.members[${index}]'.`);
 			}
 			const row = member as unknown as Record<string, unknown>;
@@ -96,11 +96,11 @@
 	let projectId = $derived.by(() => {
 		const routeProjectId = page.params.projectId?.trim();
 		if (!routeProjectId) {
-			throw new Error("Missing project id in route.");
+			throw new Error('Missing project id in route.');
 		}
 		return routeProjectId;
 	});
-	let projectStatus = $state<"Active" | "Archived">(initialSettings().projectStatus);
+	let projectStatus = $state<'Active' | 'Archived'>(initialSettings().projectStatus);
 	let projectDescription = $state(initialSettings().projectDescription);
 
 	let whiteboardsEnabled = $state(initialSettings().whiteboardsEnabled);
@@ -113,20 +113,20 @@
 	let notifyArtifactLocked = $state(initialSettings().notifyArtifactLocked);
 	let notifyFeedbackAdded = $state(initialSettings().notifyFeedbackAdded);
 	let notifyResourceUpdated = $state(initialSettings().notifyResourceUpdated);
-	let deliveryChannel = $state<"In-app" | "Email">(initialSettings().deliveryChannel);
+	let deliveryChannel = $state<'In-app' | 'Email'>(initialSettings().deliveryChannel);
 
 	let members = $state<Member[]>(toMembers(initialSettings()));
 
 	let archiveOpen = $state(false);
 	let deleteOpen = $state(false);
-	let deleteConfirmText = $state("");
+	let deleteConfirmText = $state('');
 
-	type SavePhase = "idle" | "saving" | "saved";
-	let savePhase = $state<SavePhase>("idle");
-	let savedSignature = $state("");
+	type SavePhase = 'idle' | 'saving' | 'saved';
+	let savePhase = $state<SavePhase>('idle');
+	let savedSignature = $state('');
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
-	let actionError = $state("");
+	let actionError = $state('');
 
 	let currentSignature = $derived(
 		JSON.stringify({
@@ -149,26 +149,26 @@
 	let deletePhrase = $derived(`${projectName.toUpperCase()} DELETE CONFIRM`);
 	let canConfirmDelete = $derived(deleteConfirmText === deletePhrase);
 	let saveIndicator = $derived.by(() => {
-		if (savePhase === "saving") return "saving";
-		if (isDirty) return "edited";
-		if (savePhase === "saved") return "saved";
-		return "idle";
+		if (savePhase === 'saving') return 'saving';
+		if (isDirty) return 'edited';
+		if (savePhase === 'saved') return 'saved';
+		return 'idle';
 	});
 
 	const triggerSave = async () => {
 		if (!permissions) {
-			actionError = "Permissions context is unavailable.";
+			actionError = 'Permissions context is unavailable.';
 			return;
 		}
 		if (!canEdit) {
-			actionError = "You do not have permission to edit project settings.";
+			actionError = 'You do not have permission to edit project settings.';
 			return;
 		}
-		if (savePhase === "saving" || !isDirty) return;
-		actionError = "";
+		if (savePhase === 'saving' || !isDirty) return;
+		actionError = '';
 		if (saveTimer) clearTimeout(saveTimer);
 		if (savedBadgeTimer) clearTimeout(savedBadgeTimer);
-		savePhase = "saving";
+		savePhase = 'saving';
 		try {
 			const result = await updateProjectSettingsRemote({
 				input: {
@@ -191,19 +191,19 @@
 				}
 			});
 			if (!result.success) {
-				savePhase = "idle";
+				savePhase = 'idle';
 				actionError = result.error;
 				return;
 			}
 			savedSignature = currentSignature;
-			savePhase = "saved";
+			savePhase = 'saved';
 			savedBadgeTimer = setTimeout(() => {
-				if (!isDirty) savePhase = "idle";
+				if (!isDirty) savePhase = 'idle';
 			}, 1400);
 		} catch (error) {
-			console.error("Failed to save project settings", error);
-			savePhase = "idle";
-			actionError = "Unable to save settings right now.";
+			console.error('Failed to save project settings', error);
+			savePhase = 'idle';
+			actionError = 'Unable to save settings right now.';
 		}
 	};
 
@@ -213,7 +213,7 @@
 
 	const archiveProject = async () => {
 		if (!permissions) {
-			actionError = "Permissions context is unavailable.";
+			actionError = 'Permissions context is unavailable.';
 			return;
 		}
 		try {
@@ -226,18 +226,18 @@
 				actionError = result.error;
 				return;
 			}
-			actionError = "";
+			actionError = '';
 			archiveOpen = false;
 			await invalidate((url) => url.pathname === page.url.pathname);
 		} catch (error) {
-			console.error("Failed to archive project", error);
-			actionError = "Unable to archive project right now.";
+			console.error('Failed to archive project', error);
+			actionError = 'Unable to archive project right now.';
 		}
 	};
 
 	const deleteProject = async () => {
 		if (!permissions) {
-			actionError = "Permissions context is unavailable.";
+			actionError = 'Permissions context is unavailable.';
 			return;
 		}
 		try {
@@ -250,32 +250,34 @@
 				actionError = result.error;
 				return;
 			}
-			actionError = "";
+			actionError = '';
 			deleteOpen = false;
 			await invalidate((url) => url.pathname === page.url.pathname);
 		} catch (error) {
-			console.error("Failed to delete project", error);
-			actionError = "Unable to delete project right now.";
+			console.error('Failed to delete project', error);
+			actionError = 'Unable to delete project right now.';
 		}
 	};
-
 </script>
 
-	<svelte:head>
-		<title>Settings • {((data as Record<string, unknown>).project as { name?: string } | undefined)?.name ?? "Project"} • ProjectBook</title>
-		<meta
-			name="description"
-			content="Manage project settings, feature flags, and lifecycle controls."
-		/>
-		<meta name="robots" content="noindex, nofollow" />
-		<meta name="googlebot" content="noindex, nofollow" />
-	</svelte:head>
-
-<div class="flex flex-col gap-2 p-2 bg-background border rounded-lg">
-	<header
-		class="flex h-12 shrink-0 w-full items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+<svelte:head>
+	<title
+		>Settings • {((data as Record<string, unknown>).project as { name?: string } | undefined)
+			?.name ?? 'Project'} • ProjectBook</title
 	>
-		<div class="flex items-center gap-2 px-4 w-full">
+	<meta
+		name="description"
+		content="Manage project settings, feature flags, and lifecycle controls."
+	/>
+	<meta name="robots" content="noindex, nofollow" />
+	<meta name="googlebot" content="noindex, nofollow" />
+</svelte:head>
+
+<div class="flex flex-col gap-2 rounded-lg border bg-background p-2">
+	<header
+		class="flex h-12 w-full shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+	>
+		<div class="flex w-full items-center gap-2 px-4">
 			<Sidebar.Trigger class="-ms-1" />
 			<Separator orientation="vertical" class="me-2 data-[orientation=vertical]:h-4" />
 			<Breadcrumb.Root>
@@ -290,7 +292,7 @@
 
 	<div class="flex flex-col gap-5 py-2 md:px-20">
 		<div class="flex flex-col gap-2 rounded-lg bg-background p-2">
-			<div class="px-3 text-xs uppercase tracking-wide text-muted-foreground">
+			<div class="px-3 text-xs tracking-wide text-muted-foreground uppercase">
 				Project settings - Admin controls
 			</div>
 			<div class="flex flex-wrap items-center justify-between gap-3 px-3">
@@ -299,20 +301,27 @@
 					<Badge.Badge variant="outline">{projectStatus}</Badge.Badge>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="flex flex-col items-end text-xs text-muted-foreground leading-tight min-h-6">
-						{#if saveIndicator === "edited"}
+					<div class="flex min-h-6 flex-col items-end text-xs leading-tight text-muted-foreground">
+						{#if saveIndicator === 'edited'}
 							<span class="text-amber-600">Edited</span>
-						{:else if saveIndicator === "saving"}
+						{:else if saveIndicator === 'saving'}
 							<span class="text-blue-600">Saving...</span>
-						{:else if saveIndicator === "saved"}
+						{:else if saveIndicator === 'saved'}
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
-					<Button size="sm" onclick={triggerSave} disabled={!canEdit || !isDirty || savePhase === "saving"}>
-						{savePhase === "saving" ? "Saving..." : "Save changes"}
+					<Button
+						size="sm"
+						onclick={triggerSave}
+						disabled={!canEdit || !isDirty || savePhase === 'saving'}
+					>
+						{savePhase === 'saving' ? 'Saving...' : 'Save changes'}
 					</Button>
 					<Dialog.Root bind:open={archiveOpen}>
-						<Dialog.Trigger class={buttonVariants({ variant: "outline", size: "sm" })} disabled={!canArchiveProject}>
+						<Dialog.Trigger
+							class={buttonVariants({ variant: 'outline', size: 'sm' })}
+							disabled={!canArchiveProject}
+						>
 							<Archive class="mr-2 h-4 w-4" />
 							Archive Project
 						</Dialog.Trigger>
@@ -324,12 +333,8 @@
 								</Dialog.Description>
 							</Dialog.Header>
 							<Dialog.Footer>
-								<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-									Cancel
-								</Dialog.Close>
-								<Button onclick={archiveProject}>
-									Archive
-								</Button>
+								<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
+								<Button onclick={archiveProject}>Archive</Button>
 							</Dialog.Footer>
 						</Dialog.Content>
 					</Dialog.Root>
@@ -337,10 +342,10 @@
 						<Dialog.Root
 							bind:open={deleteOpen}
 							onOpenChange={(open) => {
-								if (open) deleteConfirmText = "";
+								if (open) deleteConfirmText = '';
 							}}
 						>
-							<Dialog.Trigger class={buttonVariants({ variant: "destructive", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: 'destructive', size: 'sm' })}>
 								<Trash2 class="mr-2 h-4 w-4" />
 								Delete Project
 							</Dialog.Trigger>
@@ -352,7 +357,9 @@
 									</Dialog.Description>
 								</Dialog.Header>
 								<div class="grid gap-3 py-2">
-									<div class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+									<div
+										class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+									>
 										{deletePhrase}
 									</div>
 									<div class="grid gap-2">
@@ -361,11 +368,9 @@
 									</div>
 								</div>
 								<Dialog.Footer>
-									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-										Cancel
-									</Dialog.Close>
+									<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 									<Dialog.Close
-										class={buttonVariants({ variant: "destructive" })}
+										class={buttonVariants({ variant: 'destructive' })}
 										disabled={!canConfirmDelete}
 										onclick={deleteProject}
 									>
@@ -417,14 +422,14 @@
 				</div>
 				<Separator />
 				{#each members as member (member.id)}
-					<div class="grid grid-cols-[1.4fr_1.6fr_0.7fr_0.8fr] gap-3 items-center text-sm">
+					<div class="grid grid-cols-[1.4fr_1.6fr_0.7fr_0.8fr] items-center gap-3 text-sm">
 						<div class="flex items-center gap-2">
 							<Avatar.Root class="h-7 w-7">
 								<Avatar.Fallback class="text-[10px]">
 									{member.name
-										.split(" ")
+										.split(' ')
 										.map((part) => part[0])
-										.join("")
+										.join('')
 										.slice(0, 2)}
 								</Avatar.Fallback>
 							</Avatar.Root>
@@ -534,18 +539,12 @@
 					<div class="text-xs text-muted-foreground">
 						Download a read-only snapshot of this project.
 					</div>
-					<Button class="mt-3" size="sm" variant="outline">
-						Export data
-					</Button>
+					<Button class="mt-3" size="sm" variant="outline">Export data</Button>
 				</div>
 				<div class="rounded-md border border-border p-3">
 					<div class="text-sm font-medium">Export resources</div>
-					<div class="text-xs text-muted-foreground">
-						Download all uploaded files as a package.
-					</div>
-					<Button class="mt-3" size="sm" variant="outline">
-						Export files
-					</Button>
+					<div class="text-xs text-muted-foreground">Download all uploaded files as a package.</div>
+					<Button class="mt-3" size="sm" variant="outline">Export files</Button>
 				</div>
 				<div class="rounded-md border border-border p-3">
 					<div class="text-sm font-medium">Audit log</div>
@@ -562,16 +561,21 @@
 						Archive or delete this project with confirmation.
 					</div>
 					<div class="mt-3 flex flex-wrap gap-2">
-						<Button size="sm" variant="outline" onclick={() => (archiveOpen = true)} disabled={!canArchiveProject}>
+						<Button
+							size="sm"
+							variant="outline"
+							onclick={() => (archiveOpen = true)}
+							disabled={!canArchiveProject}
+						>
 							Archive project
 						</Button>
 						<Dialog.Root
 							bind:open={deleteOpen}
 							onOpenChange={(open) => {
-								if (open) deleteConfirmText = "";
+								if (open) deleteConfirmText = '';
 							}}
 						>
-							<Dialog.Trigger class={buttonVariants({ variant: "destructive", size: "sm" })}>
+							<Dialog.Trigger class={buttonVariants({ variant: 'destructive', size: 'sm' })}>
 								Delete Project
 							</Dialog.Trigger>
 							<Dialog.Content>
@@ -582,7 +586,9 @@
 									</Dialog.Description>
 								</Dialog.Header>
 								<div class="grid gap-3 py-2">
-									<div class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+									<div
+										class="rounded-md border border-dashed border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+									>
 										{deletePhrase}
 									</div>
 									<div class="grid gap-2">
@@ -591,11 +597,9 @@
 									</div>
 								</div>
 								<Dialog.Footer>
-									<Dialog.Close class={buttonVariants({ variant: "outline" })}>
-										Cancel
-									</Dialog.Close>
+									<Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
 									<Dialog.Close
-										class={buttonVariants({ variant: "destructive" })}
+										class={buttonVariants({ variant: 'destructive' })}
 										disabled={!canConfirmDelete}
 										onclick={deleteProject}
 									>

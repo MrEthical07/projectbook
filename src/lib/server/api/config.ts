@@ -1,8 +1,8 @@
-import { env } from "$env/dynamic/private";
+import { env } from '$env/dynamic/private';
 
-const API_VERSION_PREFIX = "/api/v1";
+const API_VERSION_PREFIX = '/api/v1';
 
-const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
+const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
 
 const ensureVersionPrefix = (baseUrl: string): string => {
 	const normalizedBase = trimTrailingSlash(baseUrl);
@@ -16,9 +16,7 @@ const ensureVersionPrefix = (baseUrl: string): string => {
 };
 
 export const resolveBackendApiBaseUrl = (origin: string): string => {
-	const configured =
-		env.PROJECTBOOK_API_BASE_URL?.trim() ||
-		env.API_URL?.trim();
+	const configured = env.PROJECTBOOK_API_BASE_URL?.trim() || env.API_URL?.trim();
 	if (configured && configured.length > 0) {
 		return ensureVersionPrefix(configured);
 	}
@@ -29,6 +27,6 @@ export const buildApiUrl = (baseUrl: string, path: string): string => {
 	if (/^https?:\/\//i.test(path)) {
 		return path;
 	}
-	const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+	const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 	return `${trimTrailingSlash(baseUrl)}${normalizedPath}`;
 };

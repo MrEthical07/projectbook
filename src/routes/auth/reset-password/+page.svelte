@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { Button } from "$lib/components/ui/button";
-	import * as Card from "$lib/components/ui/card";
-	import { Input } from "$lib/components/ui/input";
-	import { Label } from "$lib/components/ui/label";
-	import { AlertTriangle, LoaderCircle, MailCheck, ShieldCheck } from "@lucide/svelte";
-	import { superForm } from "sveltekit-superforms";
-	import { zod4Client } from "sveltekit-superforms/adapters";
+	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { AlertTriangle, LoaderCircle, MailCheck, ShieldCheck } from '@lucide/svelte';
+	import { superForm } from 'sveltekit-superforms';
+	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import {
 		forgotPasswordSchema,
 		resetPasswordOtpSchema,
 		resetPasswordSchema
-	} from "$lib/schemas/auth.schema";
-	import type { ActionData, PageProps } from "./$types";
+	} from '$lib/schemas/auth.schema';
+	import type { ActionData, PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	const resolveOtpFormState = () => (form as ActionData | null)?.otpForm ?? data.otpForm;
@@ -19,7 +19,7 @@
 	const resolveResendFormState = () => (form as ActionData | null)?.resendForm ?? data.resendForm;
 
 	const otpResetPasswordForm = superForm(resolveOtpFormState(), {
-		id: "reset-password-otp-form",
+		id: 'reset-password-otp-form',
 		validators: zod4Client(resetPasswordOtpSchema)
 	});
 	const {
@@ -30,7 +30,7 @@
 	} = otpResetPasswordForm;
 
 	const tokenResetPasswordForm = superForm(resolveTokenFormState(), {
-		id: "reset-password-token-form",
+		id: 'reset-password-token-form',
 		validators: zod4Client(resetPasswordSchema)
 	});
 	const {
@@ -41,7 +41,7 @@
 	} = tokenResetPasswordForm;
 
 	const resendResetForm = superForm(resolveResendFormState(), {
-		id: "reset-password-resend-form",
+		id: 'reset-password-resend-form',
 		validators: zod4Client(forgotPasswordSchema)
 	});
 	const {
@@ -81,7 +81,9 @@
 				<Card.Title>Reset Password</Card.Title>
 				<Card.Description>Legacy reset link detected. Set your new password.</Card.Description>
 			{:else}
-				<div class="mx-auto flex size-12 items-center justify-center rounded-full bg-destructive/15">
+				<div
+					class="mx-auto flex size-12 items-center justify-center rounded-full bg-destructive/15"
+				>
 					<AlertTriangle class="size-6 text-destructive" />
 				</div>
 				<Card.Title>Invalid or expired token</Card.Title>
@@ -111,7 +113,7 @@
 							maxlength={6}
 							placeholder="Enter 6-digit code"
 							bind:value={$otpForm.code}
-							aria-invalid={$otpErrors.code?.length ? "true" : "false"}
+							aria-invalid={$otpErrors.code?.length ? 'true' : 'false'}
 						/>
 						{#if $otpErrors.code?.length}
 							<p class="text-xs text-destructive">{$otpErrors.code[0]}</p>
@@ -126,7 +128,7 @@
 							type="password"
 							placeholder="Min 10 chars with upper, lower, number, special"
 							bind:value={$otpForm.password}
-							aria-invalid={$otpErrors.password?.length ? "true" : "false"}
+							aria-invalid={$otpErrors.password?.length ? 'true' : 'false'}
 						/>
 						{#if $otpErrors.password?.length}
 							<p class="text-xs text-destructive">{$otpErrors.password[0]}</p>
@@ -141,7 +143,7 @@
 							type="password"
 							placeholder="Re-enter new password"
 							bind:value={$otpForm.confirmPassword}
-							aria-invalid={$otpErrors.confirmPassword?.length ? "true" : "false"}
+							aria-invalid={$otpErrors.confirmPassword?.length ? 'true' : 'false'}
 						/>
 						{#if $otpErrors.confirmPassword?.length}
 							<p class="text-xs text-destructive">{$otpErrors.confirmPassword[0]}</p>
@@ -149,7 +151,9 @@
 					</div>
 
 					{#if !challengeContextAvailable}
-						<div class="rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground">
+						<div
+							class="rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground"
+						>
 							Reset challenge is missing. Request a new code below.
 						</div>
 					{/if}
@@ -174,13 +178,7 @@
 
 				<div class="h-px w-full bg-border/70"></div>
 
-				<form
-					method="POST"
-					action="?/resend"
-					class="space-y-3"
-					use:enhanceResendForm
-					novalidate
-				>
+				<form method="POST" action="?/resend" class="space-y-3" use:enhanceResendForm novalidate>
 					<div class="space-y-2">
 						<Label for="reset-email">Email</Label>
 						<Input
@@ -189,7 +187,7 @@
 							type="email"
 							placeholder="name@company.com"
 							bind:value={$resendForm.email}
-							aria-invalid={$resendErrors.email?.length ? "true" : "false"}
+							aria-invalid={$resendErrors.email?.length ? 'true' : 'false'}
 						/>
 						{#if $resendErrors.email?.length}
 							<p class="text-xs text-destructive">{$resendErrors.email[0]}</p>
@@ -229,7 +227,7 @@
 							type="password"
 							placeholder="Min 10 chars with upper, lower, number, special"
 							bind:value={$tokenForm.password}
-							aria-invalid={$tokenErrors.password?.length ? "true" : "false"}
+							aria-invalid={$tokenErrors.password?.length ? 'true' : 'false'}
 						/>
 						{#if $tokenErrors.password?.length}
 							<p class="text-xs text-destructive">{$tokenErrors.password[0]}</p>
@@ -244,7 +242,7 @@
 							type="password"
 							placeholder="Re-enter new password"
 							bind:value={$tokenForm.confirmPassword}
-							aria-invalid={$tokenErrors.confirmPassword?.length ? "true" : "false"}
+							aria-invalid={$tokenErrors.confirmPassword?.length ? 'true' : 'false'}
 						/>
 						{#if $tokenErrors.confirmPassword?.length}
 							<p class="text-xs text-destructive">{$tokenErrors.confirmPassword[0]}</p>

@@ -1,11 +1,11 @@
-import { command, query } from "$app/server";
-import { z } from "zod";
+import { command, query } from '$app/server';
+import { z } from 'zod';
 import {
 	encodePathSegment,
 	remoteMutationRequest,
 	remoteQueryRequest,
 	type MutationResult
-} from "$lib/server/api/remote";
+} from '$lib/server/api/remote';
 
 type CalendarEventInput = {
 	projectId: string;
@@ -21,16 +21,16 @@ type CalendarListInput = {
 type LinkedArtifact = {
 	id: string;
 	title: string;
-	type: "task" | "idea" | "problem";
-	phase: "Prototype" | "Ideate" | "Define";
+	type: 'task' | 'idea' | 'problem';
+	phase: 'Prototype' | 'Ideate' | 'Define';
 	href: string;
-	status: "Active" | "Archived";
+	status: 'Active' | 'Archived';
 };
 
 type CalendarEventDetail = {
 	id: string;
 	title: string;
-	type: "Derived" | "Manual";
+	type: 'Derived' | 'Manual';
 	date: string;
 	allDay: boolean;
 	owner: string;
@@ -49,10 +49,10 @@ type CalendarEventDetail = {
 const linkedArtifactSchema = z.object({
 	id: z.string().min(1),
 	title: z.string().min(1),
-	type: z.enum(["task", "idea", "problem"]),
-	phase: z.enum(["Prototype", "Ideate", "Define"]),
+	type: z.enum(['task', 'idea', 'problem']),
+	phase: z.enum(['Prototype', 'Ideate', 'Define']),
 	href: z.string().min(1),
-	status: z.enum(["Active", "Archived"])
+	status: z.enum(['Active', 'Archived'])
 });
 
 const createEventSchema = z.object({
@@ -64,7 +64,7 @@ const createEventSchema = z.object({
 	startTime: z.string().trim().optional(),
 	endTime: z.string().trim().optional(),
 	owner: z.string().trim().min(1),
-	phase: z.enum(["Empathize", "Define", "Ideate", "Prototype", "Test", "None"]),
+	phase: z.enum(['Empathize', 'Define', 'Ideate', 'Prototype', 'Test', 'None']),
 	description: z.string(),
 	location: z.string(),
 	eventKind: z.string().trim().min(1),
@@ -84,11 +84,11 @@ const deleteEventSchema = z.object({
 });
 
 const asRecord = (value: unknown): Record<string, unknown> =>
-	value && typeof value === "object" && !Array.isArray(value)
+	value && typeof value === 'object' && !Array.isArray(value)
 		? (value as Record<string, unknown>)
 		: {};
 
-const asString = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+const asString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
@@ -98,20 +98,26 @@ const asStringArray = (value: unknown): string[] =>
 		.filter((item) => item.length > 0);
 
 const normalizeEventType = (value: string): CalendarEventType =>
-	value === "Derived" ? "Derived" : "Manual";
+	value === 'Derived' ? 'Derived' : 'Manual';
 
-const normalizeArtifactType = (value: string): CalendarEvent["artifactType"] => {
-	if (value === "Task" || value === "Feedback") {
+const normalizeArtifactType = (value: string): CalendarEvent['artifactType'] => {
+	if (value === 'Task' || value === 'Feedback') {
 		return value;
 	}
-	return "Manual";
+	return 'Manual';
 };
 
-const normalizePhase = (value: string): CalendarEvent["phase"] => {
-	if (value === "Empathize" || value === "Define" || value === "Ideate" || value === "Prototype" || value === "Test") {
+const normalizePhase = (value: string): CalendarEvent['phase'] => {
+	if (
+		value === 'Empathize' ||
+		value === 'Define' ||
+		value === 'Ideate' ||
+		value === 'Prototype' ||
+		value === 'Test'
+	) {
 		return value;
 	}
-	return "None";
+	return 'None';
 };
 
 const mapListEvent = (value: unknown): CalendarEvent | null => {
@@ -124,7 +130,7 @@ const mapListEvent = (value: unknown): CalendarEvent | null => {
 	}
 
 	const createdAt = asString(row.createdAt) || start;
-	const allDay = typeof row.allDay === "boolean" ? row.allDay : true;
+	const allDay = typeof row.allDay === 'boolean' ? row.allDay : true;
 
 	const event: CalendarEvent = {
 		id,
@@ -162,7 +168,7 @@ const mapDetailEvent = (value: unknown): CalendarEventDetail | null => {
 		return null;
 	}
 
-	const allDay = typeof row.allDay === "boolean" ? row.allDay : true;
+	const allDay = typeof row.allDay === 'boolean' ? row.allDay : true;
 	const event: CalendarEventDetail = {
 		id,
 		title,
@@ -188,8 +194,8 @@ const mapDetailEvent = (value: unknown): CalendarEventDetail | null => {
 	return event;
 };
 
-const mapPhaseChoices = (value: unknown): CalendarEvent["phase"][] => {
-	const output: CalendarEvent["phase"][] = [];
+const mapPhaseChoices = (value: unknown): CalendarEvent['phase'][] => {
+	const output: CalendarEvent['phase'][] = [];
 	for (const item of asArray(value)) {
 		const phase = normalizePhase(asString(item));
 		if (!output.includes(phase)) {
@@ -197,7 +203,7 @@ const mapPhaseChoices = (value: unknown): CalendarEvent["phase"][] => {
 		}
 	}
 	if (output.length === 0) {
-		return ["None", "Empathize", "Define", "Ideate", "Prototype", "Test"];
+		return ['None', 'Empathize', 'Define', 'Ideate', 'Prototype', 'Test'];
 	}
 	return output;
 };
@@ -220,23 +226,20 @@ const mapLinkedArtifact = (value: unknown): LinkedArtifact | null => {
 	}
 
 	const typeRaw = asString(row.type).trim().toLowerCase();
-	if (!["task", "idea", "problem"].includes(typeRaw)) {
+	if (!['task', 'idea', 'problem'].includes(typeRaw)) {
 		return null;
 	}
 
 	const phaseRaw = asString(row.phase);
-	const phase =
-		phaseRaw === "Ideate" || phaseRaw === "Define"
-			? phaseRaw
-			: "Prototype";
+	const phase = phaseRaw === 'Ideate' || phaseRaw === 'Define' ? phaseRaw : 'Prototype';
 
 	const statusRaw = asString(row.status);
-	const status = statusRaw === "Archived" ? "Archived" : "Active";
+	const status = statusRaw === 'Archived' ? 'Archived' : 'Active';
 
 	return {
 		id,
 		title,
-		type: typeRaw as LinkedArtifact["type"],
+		type: typeRaw as LinkedArtifact['type'],
 		phase,
 		href,
 		status
@@ -252,19 +255,19 @@ const normalizeUpdateState = (value: unknown): Record<string, unknown> => {
 	}
 	delete state.date;
 
-	if (typeof state.title === "string") {
+	if (typeof state.title === 'string') {
 		state.title = state.title.trim();
 	}
-	if (typeof state.eventKind === "string") {
+	if (typeof state.eventKind === 'string') {
 		state.eventKind = state.eventKind.trim();
 	}
-	if (typeof state.location === "string") {
+	if (typeof state.location === 'string') {
 		state.location = state.location.trim();
 	}
-	if (typeof state.startTime === "string") {
+	if (typeof state.startTime === 'string') {
 		state.startTime = state.startTime.trim();
 	}
-	if (typeof state.endTime === "string") {
+	if (typeof state.endTime === 'string') {
 		state.endTime = state.endTime.trim();
 	}
 	if (Array.isArray(state.linkedArtifacts)) {
@@ -279,17 +282,17 @@ const normalizeUpdateState = (value: unknown): Record<string, unknown> => {
 
 const appendPaginationQuery = (path: string, limit?: number, cursor?: string): string => {
 	const params = new URLSearchParams();
-	if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
-		params.set("pagination.limit", String(Math.trunc(limit)));
+	if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
+		params.set('pagination.limit', String(Math.trunc(limit)));
 	}
-	if (typeof cursor === "string" && cursor.trim().length > 0) {
-		params.set("pagination.cursor", cursor.trim());
+	if (typeof cursor === 'string' && cursor.trim().length > 0) {
+		params.set('pagination.cursor', cursor.trim());
 	}
 	const queryString = params.toString();
 	return queryString.length > 0 ? `${path}?${queryString}` : path;
 };
 
-export const getCalendarData = query("unchecked", async (input: CalendarListInput) => {
+export const getCalendarData = query('unchecked', async (input: CalendarListInput) => {
 	const payload = await remoteQueryRequest<{
 		items?: unknown[];
 		next_cursor?: string | null;
@@ -304,16 +307,16 @@ export const getCalendarData = query("unchecked", async (input: CalendarListInpu
 			input.limit,
 			input.cursor
 		),
-		method: "GET",
+		method: 'GET',
 		cachePolicy: {
-			namespace: "project-calendar",
+			namespace: 'project-calendar',
 			ttlMs: 15_000,
 			keyParts: {
 				project_id: input.projectId,
-				cursor_present: typeof input.cursor === "string" && input.cursor.trim().length > 0,
-				limit: typeof input.limit === "number" ? Math.trunc(input.limit) : undefined
+				cursor_present: typeof input.cursor === 'string' && input.cursor.trim().length > 0,
+				limit: typeof input.limit === 'number' ? Math.trunc(input.limit) : undefined
 			},
-			tags: [`project:${input.projectId}`, "project-calendar"]
+			tags: [`project:${input.projectId}`, 'project-calendar']
 		}
 	});
 
@@ -324,7 +327,7 @@ export const getCalendarData = query("unchecked", async (input: CalendarListInpu
 			.map(mapListEvent)
 			.filter((item): item is CalendarEvent => item !== null),
 		nextCursor:
-			typeof payload.next_cursor === "string" && payload.next_cursor.trim().length > 0
+			typeof payload.next_cursor === 'string' && payload.next_cursor.trim().length > 0
 				? payload.next_cursor
 				: null,
 		reference: {
@@ -335,7 +338,7 @@ export const getCalendarData = query("unchecked", async (input: CalendarListInpu
 	};
 });
 
-export const getCalendarEventData = query("unchecked", async (input: CalendarEventInput) => {
+export const getCalendarEventData = query('unchecked', async (input: CalendarEventInput) => {
 	const payload = await remoteQueryRequest<{
 		event?: unknown;
 		reference?: {
@@ -345,13 +348,13 @@ export const getCalendarEventData = query("unchecked", async (input: CalendarEve
 		};
 	}>({
 		path: `/projects/${encodePathSegment(input.projectId)}/calendar/${encodePathSegment(input.eventId)}`,
-		method: "GET"
+		method: 'GET'
 	});
 
 	const reference = asRecord(payload.reference);
 	const event = mapDetailEvent(payload.event);
 	if (!event) {
-		throw new Error("Calendar event payload is invalid");
+		throw new Error('Calendar event payload is invalid');
 	}
 
 	return {
@@ -365,16 +368,16 @@ export const getCalendarEventData = query("unchecked", async (input: CalendarEve
 });
 
 export const createCalendarEvent = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<CalendarEvent>> => {
 		const parsed = createEventSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		const result = await remoteMutationRequest<Record<string, unknown>>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/calendar`,
-			method: "POST",
+			method: 'POST',
 			body: {
 				title: parsed.data.title,
 				start: parsed.data.start,
@@ -399,15 +402,15 @@ export const createCalendarEvent = command(
 		const merged = {
 			id: asString(result.data.id),
 			title: asString(result.data.title) || parsed.data.title,
-			type: asString(result.data.type) || "Manual",
+			type: asString(result.data.type) || 'Manual',
 			start: asString(result.data.start) || parsed.data.start,
 			end: asString(result.data.end) || parsed.data.end,
-			allDay: typeof result.data.allDay === "boolean" ? result.data.allDay : parsed.data.allDay,
+			allDay: typeof result.data.allDay === 'boolean' ? result.data.allDay : parsed.data.allDay,
 			startTime: asString(result.data.startTime) || parsed.data.startTime,
 			endTime: asString(result.data.endTime) || parsed.data.endTime,
 			owner: asString(result.data.owner) || parsed.data.owner,
 			phase: asString(result.data.phase) || parsed.data.phase,
-			artifactType: asString(result.data.artifactType) || "Manual",
+			artifactType: asString(result.data.artifactType) || 'Manual',
 			description: asString(result.data.description) || parsed.data.description,
 			location: asString(result.data.location) || parsed.data.location,
 			eventKind: asString(result.data.eventKind) || parsed.data.eventKind,
@@ -418,24 +421,28 @@ export const createCalendarEvent = command(
 
 		const mapped = mapListEvent(merged);
 		if (!mapped) {
-			return { success: false, error: "Invalid event payload" };
+			return { success: false, error: 'Invalid event payload' };
 		}
 		return { success: true, data: mapped };
 	}
 );
 
 export const updateCalendarEvent = command(
-	"unchecked",
-	async ({ input }: { input: unknown }): Promise<MutationResult<{ id: string; title: string; lastEdited: string }>> => {
+	'unchecked',
+	async ({
+		input
+	}: {
+		input: unknown;
+	}): Promise<MutationResult<{ id: string; title: string; lastEdited: string }>> => {
 		const parsed = updateEventSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		const state = normalizeUpdateState(parsed.data.state);
 		return remoteMutationRequest<{ id: string; title: string; lastEdited: string }>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/calendar/${encodePathSegment(parsed.data.eventId)}`,
-			method: "PATCH",
+			method: 'PATCH',
 			body: {
 				state
 			}
@@ -444,16 +451,16 @@ export const updateCalendarEvent = command(
 );
 
 export const deleteCalendarEvent = command(
-	"unchecked",
+	'unchecked',
 	async ({ input }: { input: unknown }): Promise<MutationResult<{ eventId: string }>> => {
 		const parsed = deleteEventSchema.safeParse(input);
 		if (!parsed.success) {
-			return { success: false, error: "Invalid input" };
+			return { success: false, error: 'Invalid input' };
 		}
 
 		return remoteMutationRequest<{ eventId: string }>({
 			path: `/projects/${encodePathSegment(parsed.data.projectId)}/calendar/${encodePathSegment(parsed.data.eventId)}`,
-			method: "DELETE"
+			method: 'DELETE'
 		});
 	}
 );

@@ -1,23 +1,22 @@
-import { query } from "$app/server";
-import { z } from "zod";
+import { query } from '$app/server';
+import { z } from 'zod';
 import {
 	defaultProjectIconKey,
 	projectIconKeys,
 	type ProjectIconKey
-} from "$lib/constants/project-icons";
-import { isApiRequestError } from "$lib/server/api/error-mapping";
-import { encodePathSegment, remoteQueryRequest } from "$lib/server/api/remote";
+} from '$lib/constants/project-icons';
+import { isApiRequestError } from '$lib/server/api/error-mapping';
+import { encodePathSegment, remoteQueryRequest } from '$lib/server/api/remote';
 
 const asObject = (value: unknown): Record<string, unknown> =>
-	value && typeof value === "object" && !Array.isArray(value)
+	value && typeof value === 'object' && !Array.isArray(value)
 		? (value as Record<string, unknown>)
 		: {};
 
-const asTrimmedString = (value: unknown): string =>
-	typeof value === "string" ? value.trim() : "";
+const asTrimmedString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
 const normalizeProjectIcon = (value: unknown): ProjectIconKey => {
-	if (typeof value === "string" && projectIconKeys.includes(value as ProjectIconKey)) {
+	if (typeof value === 'string' && projectIconKeys.includes(value as ProjectIconKey)) {
 		return value as ProjectIconKey;
 	}
 	return defaultProjectIconKey;
@@ -42,7 +41,7 @@ export type ProjectNavigationData = {
 };
 
 export const getProjectNavigationData = query(
-	"unchecked",
+	'unchecked',
 	async (projectId: string): Promise<ProjectNavigationData> => {
 		const parsedProjectId = z.string().trim().min(1).parse(projectId);
 		const scopedPathId = encodePathSegment(parsedProjectId);
@@ -51,12 +50,12 @@ export const getProjectNavigationData = query(
 		try {
 			overviewPayload = await remoteQueryRequest<unknown>({
 				path: `/projects/${scopedPathId}/overview`,
-				method: "GET",
+				method: 'GET',
 				cachePolicy: {
-					namespace: "project-overview",
+					namespace: 'project-overview',
 					ttlMs: 20_000,
 					keyParts: { project_id: parsedProjectId },
-					tags: [`project:${parsedProjectId}`, "project-overview", "project-dashboard"]
+					tags: [`project:${parsedProjectId}`, 'project-overview', 'project-dashboard']
 				}
 			});
 		} catch (err) {
@@ -66,12 +65,12 @@ export const getProjectNavigationData = query(
 
 			overviewPayload = await remoteQueryRequest<unknown>({
 				path: `/projects/${scopedPathId}/dashboard`,
-				method: "GET",
+				method: 'GET',
 				cachePolicy: {
-					namespace: "project-dashboard",
+					namespace: 'project-dashboard',
 					ttlMs: 20_000,
 					keyParts: { project_id: parsedProjectId },
-					tags: [`project:${parsedProjectId}`, "project-dashboard"]
+					tags: [`project:${parsedProjectId}`, 'project-dashboard']
 				}
 			});
 		}
@@ -79,12 +78,12 @@ export const getProjectNavigationData = query(
 		let homeProjects: unknown[] = [];
 		try {
 			homeProjects = await remoteQueryRequest<unknown[]>({
-				path: "/home/projects",
-				method: "GET",
+				path: '/home/projects',
+				method: 'GET',
 				cachePolicy: {
-					namespace: "home-projects",
+					namespace: 'home-projects',
 					ttlMs: 30_000,
-					tags: ["home", "home-projects"]
+					tags: ['home', 'home-projects']
 				}
 			});
 		} catch (err) {
@@ -105,7 +104,7 @@ export const getProjectNavigationData = query(
 			asTrimmedString(matchingHomeProject?.id) ||
 			parsedProjectId;
 		if (resolvedCurrentId.length === 0) {
-			throw new Error("Current project is unavailable.");
+			throw new Error('Current project is unavailable.');
 		}
 
 		const currentProject: ProjectNavigationCurrentProject = {
@@ -113,12 +112,12 @@ export const getProjectNavigationData = query(
 			name:
 				asTrimmedString(overviewProject.name) ||
 				asTrimmedString(matchingHomeProject?.name) ||
-				"Project",
+				'Project',
 			status:
 				asTrimmedString(overviewProject.status) ||
 				asTrimmedString(matchingHomeProject?.status) ||
-				"Active",
-			role: asTrimmedString(matchingHomeProject?.role) || "Member"
+				'Active',
+			role: asTrimmedString(matchingHomeProject?.role) || 'Member'
 		};
 
 		const projectList = (Array.isArray(homeProjects) ? homeProjects : []).flatMap((value) => {
@@ -130,7 +129,7 @@ export const getProjectNavigationData = query(
 			return [
 				{
 					id,
-					name: asTrimmedString(candidate.name) || "Project",
+					name: asTrimmedString(candidate.name) || 'Project',
 					icon: normalizeProjectIcon(candidate.icon)
 				}
 			];

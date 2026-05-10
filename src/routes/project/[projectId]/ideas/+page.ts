@@ -1,4 +1,4 @@
-import { getIdeas } from "$lib/remote/idea.remote";
+import { getIdeas } from '$lib/remote/idea.remote';
 
 export async function load({ params }: { params: { projectId: string } }) {
 	const result = await getIdeas({ projectId: params.projectId, limit: 20 });

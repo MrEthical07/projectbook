@@ -4,7 +4,7 @@ import type {
 	AuthUser,
 	EmailVerificationToken,
 	PasswordResetToken
-} from "./types";
+} from './types';
 
 export interface AuthDataStore {
 	users: AuthUser[];
