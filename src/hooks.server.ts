@@ -26,7 +26,11 @@ const PUBLIC_PATHS = [
 	'/healthz',
 	'/readyz',
 	'/privacy-policy',
-	'/terms-and-conditions'
+	'/terms-and-conditions',
+	'/',
+	'/artifacts',
+	'/workflow',
+	'/collaboration'
 ];
 
 const UNVERIFIED_ALLOWED_PATHS = ['/auth/verify', '/logout'];
