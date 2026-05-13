@@ -33,10 +33,20 @@ const config = {
 			directives: {
 				'script-src': ['self']
 			},
-			reportOnly: {
+			 reportOnly: {
+				'default-src': ['self'],
 				'script-src': ['self'],
-				'report-uri': ['/']
-			}
+				'style-src': ['self', 'unsafe-inline'],
+				'img-src': ['self', 'data:', 'blob:'],
+				'font-src': ['self', 'data:'],
+				'connect-src': ['self', 'https://api.projectbook.dev'],
+				'object-src': ['none'],
+				'base-uri': ['self'],
+				'form-action': ['self'],
+				'frame-ancestors': ['none'],
+				'report-uri': ['/csp-report']
+			},
+			mode: 'auto',
 		}
 	}
 };
