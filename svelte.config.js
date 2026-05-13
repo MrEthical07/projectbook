@@ -28,6 +28,15 @@ const config = {
 		adapter: resolveAdapter(),
 		experimental: {
 			remoteFunctions: true
+		},
+		csp: {
+			directives: {
+				'script-src': ['self']
+			},
+			reportOnly: {
+				'script-src': ['self'],
+				'report-uri': ['/']
+			}
 		}
 	}
 };
