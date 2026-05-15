@@ -7,7 +7,7 @@
 
 <Navbar />
 
-<main class="bg-[#07070f]/95">
+<main class="bg-white">
 	{@render children()}
 </main>
 
