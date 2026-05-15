@@ -13,7 +13,7 @@ env:
   NODE_VERSION: '22'
   PNPM_VERSION: '9.15.4'
   DOCKER_IMAGE: projectbook07/projectbook-frontend
-  PUBLIC_PROJECTBOOK_SITE_URL: ${{ vars.PUBLIC_PROJECTBOOK_SITE_URL }}
+  PUBLIC_PROJECTBOOK_SITE_URL: ${{ secrets.PUBLIC_PROJECTBOOK_SITE_URL }}
 
 jobs:
   release:
