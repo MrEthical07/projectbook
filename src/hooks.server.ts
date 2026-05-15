@@ -262,7 +262,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 	response.headers.set('X-Frame-Options', 'DENY');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
-	response.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
 	if (!dev) {
 		response.headers.set(
 			'Strict-Transport-Security',
