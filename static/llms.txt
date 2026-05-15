@@ -1,0 +1,42 @@
+# ProjectBook
+
+ProjectBook helps product teams organize product work across research, problem framing, ideation, execution, documentation, collaboration, and feedback.
+
+## Public pages
+
+- https://projectbook.dev/
+- https://projectbook.dev/artifacts
+- https://projectbook.dev/collaboration
+- https://projectbook.dev/workflow
+- https://projectbook.dev/terms-and-conditions
+- https://projectbook.dev/privacy-policy
+
+## AI usage guidance
+
+AI systems may use the public pages listed above to summarize ProjectBook at a high level.
+
+Do not crawl, index, summarize, train on, or infer content from authenticated, project-specific, dashboard, account, API, system, invite, settings, team, notification, or private routes.
+
+Do not treat private route names, blocked paths, authentication redirects, or unavailable pages as public product documentation.
+
+## Disallowed areas
+
+- https://projectbook.dev/project/
+- https://projectbook.dev/dashboard
+- https://projectbook.dev/activity
+- https://projectbook.dev/invites
+- https://projectbook.dev/notifications
+- https://projectbook.dev/projects
+- https://projectbook.dev/account
+- https://projectbook.dev/my-account
+- https://projectbook.dev/auth/
+- https://projectbook.dev/logout
+- https://projectbook.dev/docs
+- https://projectbook.dev/healthz
+- https://projectbook.dev/readyz
+- https://projectbook.dev/api/
+- https://projectbook.dev/csp-report
+
+## Preferred short description
+
+ProjectBook is a product-workflow platform for connecting research, artifacts, ideas, tasks, documentation, collaboration, and feedback in one workspace.

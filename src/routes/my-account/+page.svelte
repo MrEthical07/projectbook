@@ -133,8 +133,8 @@
 		name="description"
 		content="Manage your personal account settings and session preferences."
 	/>
-	<meta name="robots" content="noindex, nofollow" />
-	<meta name="googlebot" content="noindex, nofollow" />
+	<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+	<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
 </svelte:head>
 
 <div class="flex flex-col gap-2 rounded-lg border bg-background p-2">

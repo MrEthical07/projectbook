@@ -2,8 +2,14 @@
 	let { children } = $props();
 </script>
 
+<svelte:head>
+	<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+	<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+	<meta name="description" content="Design Thinking project hub for people-centric teams." />
+</svelte:head>
+
 <div
-	class="relative min-h-screen overflow-hidden bg-gradient-to-br from-primary/10 via-background to-muted"
+	class="relative min-h-screen overflow-hidden bg-linear-to-br from-primary/10 via-background to-muted"
 >
 	<div
 		class="pointer-events-none absolute inset-0 opacity-50"

@@ -1,0 +1,51 @@
+{
+  "publicPages": [
+    {
+      "path": "/",
+      "title": "ProjectBook - Structured Product Execution",
+      "description": "ProjectBook helps product teams turn research, ideas, tasks, documents, and feedback into a connected product workflow."
+    },
+    {
+      "path": "/artifacts",
+      "title": "Artifact System - ProjectBook",
+      "description": "Explore how ProjectBook connects stories, journeys, problem statements, ideas, tasks, feedback, resources, and pages into one product workflow."
+    },
+    {
+      "path": "/collaboration",
+      "title": "Structured Collaboration - ProjectBook",
+      "description": "See how ProjectBook helps teams coordinate product work, project context, artifacts, roles, and feedback in one shared workspace."
+    },
+    {
+      "path": "/workflow",
+      "title": "Execution Flow - ProjectBook",
+      "description": "Learn how ProjectBook supports a structured product workflow from research and problem framing to execution and validation."
+    },
+    {
+      "path": "/terms-and-conditions",
+      "title": "Terms and Conditions - ProjectBook",
+      "description": "Read the ProjectBook terms and conditions for using the product and related services."
+    },
+    {
+      "path": "/privacy-policy",
+      "title": "Privacy Policy - ProjectBook",
+      "description": "Read the ProjectBook privacy policy to understand how information is handled when using the product."
+    }
+  ],
+  "disallowPaths": [
+    "/project/",
+    "/dashboard",
+    "/activity",
+    "/invites",
+    "/notifications",
+    "/projects",
+    "/account",
+    "/my-account",
+    "/auth/",
+    "/logout",
+    "/docs",
+    "/healthz",
+    "/readyz",
+    "/api/"
+  ],
+  "ogImagePath": "/asset/logo.png"
+}

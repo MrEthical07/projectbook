@@ -16,6 +16,9 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 
+ARG PUBLIC_PROJECTBOOK_SITE_URL
+ENV PUBLIC_PROJECTBOOK_SITE_URL=$PUBLIC_PROJECTBOOK_SITE_URL
+
 COPY . .
 RUN pnpm run build:node
 

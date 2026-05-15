@@ -10,8 +10,8 @@
 		name="description"
 		content="Reference documentation for workflows, artifacts, and platform usage."
 	/>
-	<meta name="robots" content="noindex, nofollow" />
-	<meta name="googlebot" content="noindex, nofollow" />
+	<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+	<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
 </svelte:head>
 
 <main class="min-h-screen bg-background p-4 sm:p-8">

@@ -1,0 +1,157 @@
+name: Frontend Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.15.4'
+  DOCKER_IMAGE: projectbook07/projectbook-frontend
+  PUBLIC_PROJECTBOOK_SITE_URL: ${{ vars.PUBLIC_PROJECTBOOK_SITE_URL }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.semantic.outputs.new_release_version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # ---------------------------
+      # Setup Node + pnpm
+      # ---------------------------
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ---------------------------
+      # Validate required env
+      # ---------------------------
+      - name: Validate release env
+        run: |
+          test -n "$PUBLIC_PROJECTBOOK_SITE_URL" || {
+            echo "PUBLIC_PROJECTBOOK_SITE_URL GitHub Actions variable is missing"
+            exit 1
+          }
+
+          test -n "${{ secrets.DOCKERHUB_USERNAME }}" || {
+            echo "DOCKERHUB_USERNAME GitHub Actions secret is missing"
+            exit 1
+          }
+
+          test -n "${{ secrets.DOCKERHUB_TOKEN }}" || {
+            echo "DOCKERHUB_TOKEN GitHub Actions secret is missing"
+            exit 1
+          }
+
+      # ---------------------------
+      # Quality gates
+      # ---------------------------
+      - name: Secret lint
+        run: pnpm run lint:secrets
+
+      - name: Route budget + type checks
+        run: pnpm run check
+
+      - name: Build Node adapter
+        run: pnpm run build:node
+
+      # ---------------------------
+      # Install semantic-release
+      # ---------------------------
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            @semantic-release/github \
+            conventional-changelog-conventionalcommits
+
+      # ---------------------------
+      # Run semantic-release
+      # ---------------------------
+      - name: Semantic Release
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx semantic-release | tee release.log
+
+          VERSION=$(grep -oP 'Published release \K[0-9]+\.[0-9]+\.[0-9]+' release.log || true)
+
+          echo "Detected version: $VERSION"
+          echo "new_release_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # ---------------------------
+      # Stop if no release
+      # ---------------------------
+      - name: Check release
+        if: steps.semantic.outputs.new_release_version == ''
+        run: |
+          echo "No release created. Skipping Docker build/push."
+
+      # ---------------------------
+      # Docker setup
+      # ---------------------------
+      - name: Set up Docker Buildx
+        if: steps.semantic.outputs.new_release_version != ''
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: steps.semantic.outputs.new_release_version != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ---------------------------
+      # Build + Push
+      # ---------------------------
+      - name: Build and Push Docker image
+        if: steps.semantic.outputs.new_release_version != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            PUBLIC_PROJECTBOOK_SITE_URL=${{ vars.PUBLIC_PROJECTBOOK_SITE_URL }}
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:v${{ steps.semantic.outputs.new_release_version }}
+            ${{ env.DOCKER_IMAGE }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---------------------------
+      # Promote to stable after successful push
+      # ---------------------------
+      - name: Tag stable
+        if: success() && steps.semantic.outputs.new_release_version != ''
+        run: |
+          docker pull ${{ env.DOCKER_IMAGE }}:v${{ steps.semantic.outputs.new_release_version }}
+          docker tag ${{ env.DOCKER_IMAGE }}:v${{ steps.semantic.outputs.new_release_version }} ${{ env.DOCKER_IMAGE }}:stable
+          docker push ${{ env.DOCKER_IMAGE }}:stable

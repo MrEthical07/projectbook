@@ -6,6 +6,12 @@
 	let { data, children }: LayoutProps = $props();
 </script>
 
+<svelte:head>
+	<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+	<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+	<meta name="description" content="Design Thinking project hub for people-centric teams." />
+</svelte:head>
+
 <Sidebar.Provider>
 	<AppSidebar homeSidebarData={data.homeSidebarData} />
 	<Sidebar.Inset>
