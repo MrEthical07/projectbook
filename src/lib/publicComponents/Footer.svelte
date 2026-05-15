@@ -17,11 +17,11 @@
 		<div class="flex flex-col items-center justify-between gap-8 md:flex-row">
 			<!-- Logo -->
 			<a href="/" class="flex items-center gap-2">
-				<div class="flex h-8 w-8 items-center justify-center rounded-md bg-violet-600">
+				<div class="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
 					<BookOpen size={16} class="text-white" />
 				</div>
 				<span class="text-[0.9rem] font-semibold text-black">
-					Project<span class="text-violet-400">Book</span>
+					Project<span class="text-primary">Book</span>
 				</span>
 			</a>
 

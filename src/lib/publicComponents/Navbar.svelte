@@ -39,11 +39,11 @@
 		<div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6">
 			<!-- Logo -->
 			<a href="/" class="flex shrink-0 items-center gap-2">
-				<div class="flex h-8 w-8 items-center justify-center rounded-md bg-violet-600">
+				<div class="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
 					<BookOpen size={14} class="text-white" />
 				</div>
 				<span class="font-semibold tracking-tight text-gray-600">
-					Project<span class="text-violet-400">Book</span>
+					Project<span class="text-primary">Book</span>
 				</span>
 			</a>
 
