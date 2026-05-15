@@ -1,5 +1,4 @@
 name: Frontend CI
-
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -19,6 +18,7 @@ concurrency:
 env:
   NODE_VERSION: '22'
   PNPM_VERSION: '9'
+  PUBLIC_PROJECTBOOK_SITE_URL: ${{ vars.PUBLIC_PROJECTBOOK_SITE_URL }}
 
 jobs:
   dependency-review:
