@@ -12,6 +12,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check:contracts": "node scripts/check-api-contracts.mjs",
 		"check:call-budgets": "node scripts/check-route-call-budgets.mjs",
+		"check:seo": "node scripts/check-seo.mjs",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"lint:secrets": "node scripts/lint-secrets.mjs",

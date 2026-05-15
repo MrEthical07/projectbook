@@ -320,6 +320,12 @@
 	});
 </script>
 
+<svelte:head>
+	<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+	<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+	<meta name="description" content="Design Thinking project hub for people-centric teams." />
+</svelte:head>
+
 <svelte:document onkeydown={handleKeydown} />
 
 <Sidebar.Provider onOpenChange={toggleSidebar} open={sidebarState}>

@@ -14,7 +14,8 @@ export const GET: RequestHandler = async () => {
 		{
 			status: 200,
 			headers: {
-				'Cache-Control': 'no-store'
+				'Cache-Control': 'no-store',
+				'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet'
 			}
 		}
 	);

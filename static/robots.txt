@@ -1,3 +1,27 @@
-# allow crawling everything by default
 User-agent: *
-Disallow:
+Allow: /
+Allow: /artifacts
+Allow: /collaboration
+Allow: /workflow
+Allow: /terms-and-conditions
+Allow: /privacy-policy
+Allow: /robots.txt
+Allow: /sitemap.xml
+Allow: /llms.txt
+
+Disallow: /project/
+Disallow: /dashboard
+Disallow: /activity
+Disallow: /invites
+Disallow: /csp-report
+Disallow: /notifications
+Disallow: /projects
+Disallow: /account
+Disallow: /my-account
+Disallow: /auth/
+Disallow: /logout
+Disallow: /docs
+Disallow: /healthz
+Disallow: /readyz
+Disallow: /api/
+Sitemap: https://projectbook.dev/sitemap.xml

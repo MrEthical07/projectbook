@@ -7,5 +7,11 @@ export async function POST({ request }) {
     // ignore malformed reports
   }
 
-  return new Response(null, { status: 204 });
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet'
+    }
+  });
 }

@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Handle, RequestEvent } from '@sveltejs/kit';
+import { dev } from '$app/environment';
+import { isIndexablePath } from '$lib/seo/site';
 import {
 	sessionContextRequest,
 	type SessionContextProjectPermission,
@@ -25,7 +27,11 @@ const PUBLIC_PATHS = [
 	'/auth/reset-password',
 	'/healthz',
 	'/readyz',
+	'/robots.txt',
+	'/sitemap.xml',
+	'/llms.txt',
 	'/privacy-policy',
+	'/csp-report',
 	'/terms-and-conditions',
 	'/',
 	'/artifacts',
@@ -34,6 +40,15 @@ const PUBLIC_PATHS = [
 ];
 
 const UNVERIFIED_ALLOWED_PATHS = ['/auth/verify', '/logout'];
+
+const SEO_EXEMPT_PATHS = new Set(['/robots.txt', '/sitemap.xml', '/llms.txt']);
+
+const isAssetPath = (pathname: string): boolean => {
+	if (pathname.startsWith('/_app/') || pathname.startsWith('/asset/')) {
+		return true;
+	}
+	return /\.[a-z0-9]+$/i.test(pathname);
+};
 
 const isPublicPath = (pathname: string): boolean =>
 	PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
@@ -240,5 +255,26 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	return resolve(event);
+	const response = await resolve(event);
+	const pathname = event.url.pathname;
+
+	response.headers.set('X-Content-Type-Options', 'nosniff');
+	response.headers.set('X-Frame-Options', 'DENY');
+	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+	response.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+	if (!dev) {
+		response.headers.set(
+			'Strict-Transport-Security',
+			'max-age=63072000; includeSubDomains; preload'
+		);
+	}
+
+	const shouldAddRobotsTag =
+		!SEO_EXEMPT_PATHS.has(pathname) && !isAssetPath(pathname) && !isIndexablePath(pathname);
+	if (shouldAddRobotsTag) {
+		response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+	}
+
+	return response;
 };
