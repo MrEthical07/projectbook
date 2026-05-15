@@ -118,6 +118,8 @@ jobs:
           push: false
           load: true
           tags: projectbook-web:ci
+          build-args: |
+            PUBLIC_PROJECTBOOK_SITE_URL=${{ vars.PUBLIC_PROJECTBOOK_SITE_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -126,6 +128,7 @@ jobs:
           docker run -d --name projectbook-web-ci -p 3000:3000 \
             -e PROJECTBOOK_API_BASE_URL=http://127.0.0.1:8080/api/v1 \
             -e API_URL=http://127.0.0.1:8080 \
+            -e PUBLIC_PROJECTBOOK_SITE_URL=${{ vars.PUBLIC_PROJECTBOOK_SITE_URL }} \
             projectbook-web:ci
 
       - name: Wait for health endpoint
