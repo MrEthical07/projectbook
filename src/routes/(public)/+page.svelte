@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { buttonVariants } from '$lib/components/ui/button';
 	import { reveal } from '$lib/publicComponents/reveal';
 	import { getPublicPageSeo } from '$lib/seo/site';
 	import {
@@ -67,12 +68,15 @@
 		}
 	];
 	const chain = [
-		{ label: 'Story', Icon: BookOpen, color: '#a78bfa', glow: 'rgba(167,139,250,0.14)' },
-		{ label: 'Problem', Icon: Target, color: '#c084fc', glow: 'rgba(192,132,252,0.14)' },
-		{ label: 'Idea', Icon: Lightbulb, color: '#818cf8', glow: 'rgba(129,140,248,0.14)' },
-		{ label: 'Task', Icon: CheckSquare, color: '#a78bfa', glow: 'rgba(167,139,250,0.14)' },
-		{ label: 'Feedback', Icon: MessageSquare, color: '#c084fc', glow: 'rgba(192,132,252,0.14)' }
+		{ label: 'Story', Icon: BookOpen, color: '#a78bfa', glow: 'rgba(167,139,250,0.94)' },
+		{ label: 'Problem', Icon: Target, color: '#c084fc', glow: 'rgba(192,132,252,0.94)' },
+		{ label: 'Idea', Icon: Lightbulb, color: '#818cf8', glow: 'rgba(129,140,248,0.94)' },
+		{ label: 'Task', Icon: CheckSquare, color: '#a78bfa', glow: 'rgba(167,139,250,0.94)' },
+		{ label: 'Feedback', Icon: MessageSquare, color: '#c084fc', glow: 'rgba(192,132,252,0.94)' }
 	];
+
+	const STEP_DELAY = 0.65;
+	const LINE_OFFSET = 0.28;
 
 	const principles = [
 		{
@@ -251,13 +255,13 @@
 <div>
 	<section
 		class="relative flex min-h-screen flex-col items-center justify-center overflow-hidden
-          bg-[#07070f] px-6 pt-24 pb-20"
+          bg-[#FFFFFF] px-6 pt-24 pb-20"
 	>
 		<!-- Grid bg -->
 		<div
-			class="background-size:60px_60px pointer-events-none absolute
-      inset-0
-      bg-[linear-gradient(rgba(139,92,246,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.04)_1px,transparent_1px)]"
+			class="pointer-events-none absolute inset-0
+			bg-[linear-gradient(rgba(139,92,246,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.10)_1px,transparent_1px)]
+			bg-size-[60px_60px]"
 		></div>
 
 		<!-- Glow orb -->
@@ -265,7 +269,7 @@
 			class="pointer-events-none absolute top-1/2 left-1/2 h-125 w-200
                 -translate-x-1/2 -translate-y-1/2
                 blur-[50px]
-                [background:radial-gradient(ellipse_at_center,rgba(139,92,246,0.13)_0%,transparent_70%)]"
+                [background:radial-gradient(ellipse_at_center,rgba(139,92,246,0.23)_0%,transparent_70%)]"
 		></div>
 
 		<!-- Content -->
@@ -273,10 +277,10 @@
 			<!-- Badge -->
 			<div
 				class="hero-enter mb-10
-        inline-flex items-center gap-2 rounded-full border border-violet-500/30
-        bg-violet-500/10 px-4 py-1.5 font-mono text-sm text-violet-300 [animation-delay:0ms]"
+        inline-flex items-center gap-2 rounded-full border border-primary/30
+        bg-primary/10 px-4 py-1.5 font-mono text-sm text-primary [animation-delay:0ms]"
 			>
-				<span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400"></span>
+				<span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary"></span>
 				Design Thinking as First-Class Infrastructure
 			</div>
 
@@ -284,11 +288,11 @@
 			<h1
 				class="hero-enter mb-6
         text-[clamp(2.5rem,6vw,4.5rem)] leading-[1.1] font-bold tracking-[-0.02em]
-        text-white [animation-delay:100ms]"
+        text-gray-700 [animation-delay:100ms]"
 			>
 				Product work as a{' '}
 				<span
-					class="bg-linear-to-br from-[#a78bfa] via-[#818cf8] to-[#818cf8] bg-clip-text text-transparent"
+					class="bg-linear-to-br from-[#a78bfa] via-primary to-[#818cf8] bg-clip-text text-transparent"
 				>
 					connected execution system.
 				</span>
@@ -297,9 +301,9 @@
 			<!-- Sub -->
 			<p
 				class="hero-enter mb-12
-        max-w-xl text-lg leading-relaxed text-gray-400 [animation-delay:200ms]"
+        max-w-xl text-lg leading-relaxed text-gray-600 [animation-delay:200ms]"
 			>
-				ProjectBook models product development as a traceable chain of artifacts — from user insight
+				ProjectBook models product development as a traceable chain of artifacts - from user insight
 				to validated outcomes. Every decision has lineage. Every outcome has origin.
 			</p>
 
@@ -307,16 +311,20 @@
 			<div class="hero-enter mb-24 flex flex-wrap justify-center gap-4 [animation-delay:300ms]">
 				<a
 					href="/workflow"
-					class="flex items-center gap-2 rounded-xl bg-violet-600 px-6 py-3 font-medium
-                text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-xl hover:shadow-violet-500/30"
+					class={buttonVariants({
+						variant: 'default',
+						size: 'lg'
+					})}
 				>
 					Explore the System
 					<ChevronRight size={16} />
 				</a>
 				<a
 					href="/artifacts"
-					class="flex items-center gap-2 rounded-xl border border-white/15 px-6 py-3
-                font-medium text-white transition-all duration-200 hover:border-white/25 hover:bg-white/5"
+					class={buttonVariants({
+						variant: 'outline',
+						size: 'lg'
+					})}
 				>
 					View Artifacts
 				</a>
@@ -324,7 +332,7 @@
 
 			<!-- Execution chain -->
 			<div class="hero-enter flex w-full flex-col justify-center [animation-delay:500ms]">
-				<div class="mb-6 font-mono text-xs tracking-widest text-gray-500 uppercase">
+				<div class="mb-6 font-mono text-xs tracking-widest text-gray-600 uppercase">
 					The Execution Chain
 				</div>
 
@@ -337,17 +345,18 @@
                                   transition-transform duration-300 hover:scale-105
                                   md:h-20 md:w-20"
 									style="
-                    background:{node.color}12;
-                    border:1px solid {node.color}35;
-                    box-shadow:0 0 20px {node.color}15;
-                    --glow:{node.glow};
-                    animation-delay:{i * 0.56}s;
-                  "
+										background:{node.color}32;
+										backdrop-filter:blur(20px);
+										border:1px solid {node.color}35;
+										box-shadow:0 0 20px {node.color}15;
+										--glow:{node.glow};
+										animation-delay:{i * STEP_DELAY}s;
+									"
 								>
 									<node.Icon size={28} color={node.color} />
 								</div>
 
-								<span class="text-sm font-medium text-white">
+								<span class="text-sm font-medium text-gray-700">
 									{node.label}
 								</span>
 							</div>
@@ -361,10 +370,10 @@
 										class="relative h-px w-10 overflow-hidden rounded-full
                                       bg-violet-500/20 lg:w-14 xl:w-20"
 									>
-										<div class="anim-travel-h" style="animation-delay:{i * 0.65}s"></div>
+										<div class="anim-travel-h" style="animation-delay:{i * STEP_DELAY + LINE_OFFSET}s"></div>
 									</div>
 
-									<ArrowRight size={12} class="-ml-0.5 shrink-0 text-[#a78bfa]/50" />
+									<ArrowRight size={12} class="-ml-0.5 shrink-0 text-primary/50" />
 								</div>
 							{/if}
 						</div>
@@ -379,34 +388,28 @@
 							style="background:{node.color}12; border:1px solid {node.color}35"
 						>
 							<node.Icon size={15} color={node.color} />
-							<span class="text-xs font-medium text-white">{node.label}</span>
+							<span class="text-xs font-medium text-gray-800">{node.label}</span>
 						</div>
 					{/each}
 				</div>
 			</div>
 		</div>
-
-		<!-- Bottom fade -->
-		<div
-			class="pointer-events-none absolute right-0 bottom-0 left-0 h-32
-      [background:linear-gradient(to_bottom,transparent,#07070f)]"
-		></div>
 	</section>
 
-	<section class="relative overflow-hidden bg-[#07070f] px-6 py-32">
+	<section class="relative overflow-hidden bg-[#FFFFFF] px-6 py-32">
 		<div class="mx-auto max-w-6xl">
 			<!-- Header -->
 			<div use:reveal class="mb-20">
-				<div class="mb-5 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+				<div class="mb-5 font-mono text-xs tracking-widest text-primary uppercase">
 					§ The Problem
 				</div>
 				<h2
 					class="mb-6 max-w-2xl text-[clamp(1.8rem,4vw,3rem)] leading-[1.2] font-bold
-                  tracking-[-0.02em] text-white"
+                  tracking-[-0.02em] text-gray-800"
 				>
-					Fragmented tools break <span class="text-gray-500">thinking.</span>
+					Fragmented tools break <span class="text-primary">thinking.</span>
 				</h2>
-				<p class="max-w-xl leading-relaxed text-gray-400">
+				<p class="max-w-xl leading-relaxed text-gray-600">
 					Modern product teams scatter their work across disconnected systems. Each tool captures a
 					slice of reality, but none of them speak to each other. Context collapses. Decisions lose
 					their origin.
@@ -418,27 +421,25 @@
 				<div use:reveal={{ delay: 100 }}>
 					<div
 						class="relative h-80 overflow-hidden rounded-2xl
-                      border border-white/6 bg-[rgba(15,15,30,0.6)]"
+                      border border-white/6 bg-muted"
 					>
 						<!-- Tool pills -->
 						<div class="absolute inset-0 flex flex-wrap content-center justify-center gap-4 p-8">
 							{#each tools as tool, i}
 								<div
-									class="reveal in-view flex flex-col items-center gap-1.5 rounded-xl px-4 py-3"
-									style="background:rgba(30,30,50,0.8);
-                        border:1px dashed rgba(255,255,255,0.08);
-                        transform:translate({tool.x}px,{tool.y}px);
-                        transition-delay:{i * 70}ms"
+									class="reveal in-view flex flex-col items-center gap-1.5 rounded-xl px-4 py-3 bg-gray-200 border-dashed border border-gray-400"
+									style:transform={`translate(${tool.x}px, ${tool.y}px)`}
+									style:transition-delay={`${i * 70}ms`}
 								>
-									<tool.Icon size={18} class="text-gray-500" />
-									<span class="text-xs text-gray-500">{tool.label}</span>
+									<tool.Icon size={18} class="text-gray-600" />
+									<span class="text-xs text-gray-600">{tool.label}</span>
 								</div>
 							{/each}
 						</div>
 
 						<!-- Broken lines SVG -->
 						<svg
-							class="pointer-events-none absolute inset-0 h-full w-full opacity-15"
+							class="pointer-events-none absolute inset-0 h-full w-full opacity-25"
 							aria-hidden="true"
 						>
 							<line
@@ -446,7 +447,7 @@
 								y1="30%"
 								x2="45%"
 								y2="60%"
-								stroke="#9ca3af"
+								stroke="#121212"
 								stroke-width="1"
 								stroke-dasharray="4 6"
 							/>
@@ -455,7 +456,7 @@
 								y1="25%"
 								x2="40%"
 								y2="70%"
-								stroke="#9ca3af"
+								stroke="#121212"
 								stroke-width="1"
 								stroke-dasharray="4 6"
 							/>
@@ -464,7 +465,7 @@
 								y1="60%"
 								x2="55%"
 								y2="40%"
-								stroke="#9ca3af"
+								stroke="#121212"
 								stroke-width="1"
 								stroke-dasharray="4 6"
 							/>
@@ -473,7 +474,7 @@
 								y1="75%"
 								x2="65%"
 								y2="50%"
-								stroke="#9ca3af"
+								stroke="#121212"
 								stroke-width="1"
 								stroke-dasharray="4 6"
 							/>
@@ -483,7 +484,7 @@
 						<div class="absolute right-0 bottom-4 left-0 flex justify-center">
 							<div
 								class="inline-flex items-center gap-2 rounded-lg border border-red-500/20
-                          bg-red-950/40 px-3 py-1.5 font-mono text-xs text-red-400"
+                          bg-red-500/10 px-3 py-1.5 font-mono text-xs text-red-400"
 							>
 								<AlertTriangle size={12} />
 								No connection. No context. No continuity.
@@ -496,13 +497,11 @@
 				<div use:reveal={{ delay: 150 }} class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					{#each painPoints as pt, i}
 						<div
-							class="reveal in-view rounded-xl p-5"
-							style="background:rgba(15,15,28,0.8);
-                    border:1px solid rgba(255,255,255,0.06);
-                    transition-delay:{i * 80}ms"
+							class="reveal in-view rounded-xl p-5 bg-muted border"
+                    		style:transition-delay={`${i * 80}ms`}
 						>
-							<div class="mb-2 text-sm font-medium text-white">{pt.title}</div>
-							<div class="text-[0.8rem] leading-relaxed text-gray-500">{pt.desc}</div>
+							<div class="mb-2 text-sm font-medium text-gray-800">{pt.title}</div>
+							<div class="text-[0.8rem] leading-relaxed text-gray-600">{pt.desc}</div>
 						</div>
 					{/each}
 				</div>
@@ -510,27 +509,27 @@
 		</div>
 	</section>
 
-	<section id="workflow" class="relative bg-[#07070f] px-6 py-32">
+	<section id="workflow" class="relative bg-[#FFFFFF] px-6 py-32">
 		<!-- Subtle grid -->
 		<div
-			class="background-size:60px_60px pointer-events-none absolute
+			class="bg-size-[60px_60px] pointer-events-none absolute
       inset-0
-      bg-[linear-gradient(rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.03)_1px,transparent_1px)]"
+      bg-[linear-gradient(rgba(139,92,246,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.08)_1px,transparent_1px)]"
 		></div>
 
 		<div class="relative z-10 mx-auto max-w-6xl">
 			<!-- Header -->
 			<div use:reveal class="mb-24 text-center">
-				<div class="mb-5 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+				<div class="mb-5 font-mono text-xs tracking-widest text-primary uppercase">
 					§ Design Thinking Execution Flow
 				</div>
 				<h2
-					class="mb-6 text-[clamp(1.8rem,4vw,3rem)] leading-[1.2] font-bold tracking-[-0.02em] text-white"
+					class="mb-6 text-[clamp(1.8rem,4vw,3rem)] leading-[1.2] font-bold tracking-[-0.02em] text-gray-800"
 				>
 					Not task management.{' '}
-					<span class="text-[#a78bfa]">Execution continuity.</span>
+					<span class="text-primary">Execution continuity.</span>
 				</h2>
-				<p class="mx-auto max-w-xl leading-relaxed text-gray-400">
+				<p class="mx-auto max-w-xl leading-relaxed text-gray-600">
 					ProjectBook enforces a structured lifecycle where every artifact is a link in a connected
 					chain. Context, reasoning, and lineage are preserved at every step.
 				</p>
@@ -553,7 +552,7 @@
 						>
 							<!-- Card -->
 							<div
-								class="flex-1 rounded-2xl border border-white/[0.07] bg-[rgba(12,12,24,0.9)]
+								class="flex-1 rounded-2xl border border-white/[0.07] bg-muted
                           p-6 transition-all duration-300 hover:border-violet-500/30 md:p-8"
 							>
 								<div class="flex items-start gap-4">
@@ -565,7 +564,7 @@
 									</div>
 									<div class="min-w-0 flex-1">
 										<div class="mb-2 flex flex-wrap items-center gap-3">
-											<h3 class="text-lg font-semibold text-white">{node.label}</h3>
+											<h3 class="text-lg font-semibold text-gray-800">{node.label}</h3>
 											<span
 												class="rounded px-2 py-0.5 font-mono text-xs"
 												style="background:{node.accent}15; color:{node.accent}"
@@ -573,7 +572,7 @@
 												{node.tag}
 											</span>
 										</div>
-										<p class="text-sm leading-relaxed text-gray-400">{flowDescs[i]}</p>
+										<p class="text-sm leading-relaxed text-gray-600">{flowDescs[i]}</p>
 									</div>
 								</div>
 							</div>
@@ -602,18 +601,18 @@
 
 			<!-- Supporting systems -->
 			<div use:reveal class="mt-24">
-				<div class="mb-10 text-center font-mono text-xs tracking-widest text-gray-500 uppercase">
+				<div class="mb-10 text-center font-mono text-xs tracking-widest text-gray-600 uppercase">
 					Supporting Systems
 				</div>
 				<div class="flex flex-wrap justify-center gap-4">
 					{#each support as sys}
 						<div
 							class="flex items-center gap-3 rounded-xl border border-violet-500/15
-                        bg-[rgba(15,15,28,0.8)] px-5 py-3"
+                        bg-muted px-5 py-3"
 						>
-							<sys.Icon size={16} class="text-[#a78bfa]" />
+							<sys.Icon size={16} class="text-primary" />
 							<div>
-								<div class="text-sm font-medium text-white">{sys.label}</div>
+								<div class="text-sm font-medium text-gray-800">{sys.label}</div>
 								<div class="text-xs text-gray-500">{sys.desc}</div>
 							</div>
 						</div>
@@ -623,7 +622,7 @@
 		</div>
 	</section>
 
-	<section id="artifacts" class="relative overflow-hidden bg-[#07070f] px-6 py-32">
+	<section id="artifacts" class="relative overflow-hidden bg-[#FFFFFF] px-6 py-32">
 		<!-- Right glow -->
 		<div
 			class="pointer-events-none absolute top-1/2 right-0 h-150
@@ -634,17 +633,17 @@
 		<div class="relative z-10 mx-auto max-w-6xl">
 			<!-- Header -->
 			<div use:reveal class="mb-20">
-				<div class="mb-5 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+				<div class="mb-5 font-mono text-xs tracking-widest text-primary uppercase">
 					§ Artifact System
 				</div>
 				<h2
 					class="mb-6 max-w-2xl text-[clamp(1.8rem,4vw,3rem)] leading-[1.2] font-bold
-                  tracking-[-0.02em] text-white"
+                  tracking-[-0.02em] text-gray-800"
 				>
 					Artifacts are connected,{' '}
-					<span class="text-gray-500">not isolated.</span>
+					<span class="text-primary">not isolated.</span>
 				</h2>
-				<p class="max-w-xl leading-relaxed text-gray-400">
+				<p class="max-w-xl leading-relaxed text-gray-600">
 					Each artifact type represents a specific stage in product execution. They exist in
 					relationship to each other — forming a traceable web of decisions and outcomes.
 				</p>
@@ -655,8 +654,8 @@
 				{#each artifacts as a, i}
 					<div
 						use:reveal={{ delay: i * 60 }}
-						class="group cursor-default rounded-2xl border border-white/[0.07] bg-[rgba(12,12,24,0.9)] p-5
-                  transition-all duration-300 hover:border-violet-500/25"
+						class="group cursor-default rounded-2xl border bg-muted p-5
+                  transition-all duration-300 hover:border-primary"
 					>
 						<div
 							class="mb-4 flex h-10 w-10 items-center justify-center rounded-xl"
@@ -665,14 +664,14 @@
 							<a.Icon size={16} color={a.accent} />
 						</div>
 
-						<div class="mb-2 text-[0.95rem] font-semibold text-white">{a.label}</div>
+						<div class="mb-2 text-[0.95rem] font-semibold text-gray-800">{a.label}</div>
 						<p class="mb-4 text-[0.8rem] leading-relaxed text-gray-500">{a.desc}</p>
 
 						<div class="flex flex-wrap gap-1.5">
 							{#each a.links as link}
 								<span
 									class="flex items-center gap-1 rounded-md bg-violet-500/8 px-2 py-0.5 font-mono
-                            text-xs text-[#a78bfa]/70"
+                            text-xs text-primary/70"
 								>
 									<GitBranch size={10} />
 									{link}
@@ -694,7 +693,7 @@
 					</div>
 					<div>
 						<div class="mb-2 font-semibold text-yellow-400">Orphan Detection</div>
-						<p class="mb-4 max-w-2xl text-sm leading-relaxed text-gray-400">
+						<p class="mb-4 max-w-2xl text-sm leading-relaxed text-gray-600">
 							Artifacts without meaningful linkage become visible as disconnected workflow states.
 							The system surfaces orphaned artifacts — tasks without ideas, ideas without problems —
 							communicating execution integrity issues before they become systemic failures.
@@ -710,7 +709,7 @@
 		</div>
 	</section>
 
-	<section class="relative overflow-hidden bg-[#07070f] px-6 py-32">
+	<section class="relative overflow-hidden bg-[#FFFFFF] px-6 py-32">
 		<!-- Left glow -->
 		<div
 			class="pointer-events-none absolute top-1/2 left-0 h-150
@@ -721,16 +720,16 @@
 		<div class="relative z-10 mx-auto max-w-6xl">
 			<!-- Header -->
 			<div use:reveal class="mb-20">
-				<div class="mb-5 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+				<div class="mb-5 font-mono text-xs tracking-widest text-primary uppercase">
 					§ Execution Philosophy
 				</div>
 				<h2
 					class="mb-6 max-w-2xl text-[clamp(1.8rem,4vw,3rem)] leading-[1.2] font-bold
-                  tracking-[-0.02em] text-white"
+                  tracking-[-0.02em] text-gray-800"
 				>
 					Deliberate by design.
 				</h2>
-				<p class="max-w-xl leading-relaxed text-gray-400">
+				<p class="max-w-xl leading-relaxed text-gray-600">
 					ProjectBook values deliberate execution over uncontrolled editing. The system enforces
 					discipline — not as a constraint, but as a guarantee of coherence.
 				</p>
@@ -741,8 +740,8 @@
 				{#each principles as p, i}
 					<div
 						use:reveal={{ delay: i * 80 }}
-						class="group relative cursor-default overflow-hidden rounded-2xl border border-white/[0.07]
-                  bg-[rgba(12,12,24,0.9)] p-6 transition-all duration-300 hover:border-violet-500/25"
+						class="group relative cursor-default overflow-hidden rounded-2xl border 
+                  bg-muted p-6 transition-all duration-300 hover:border-primary"
 					>
 						<!-- Hover glow -->
 						<div
@@ -758,7 +757,7 @@
 							<p.Icon size={20} color={p.accent} />
 						</div>
 
-						<h3 class="mb-3 font-semibold text-white">{p.title}</h3>
+						<h3 class="mb-3 font-semibold text-gray-800">{p.title}</h3>
 						<p class="text-sm leading-relaxed text-gray-500">{p.desc}</p>
 					</div>
 				{/each}
@@ -767,10 +766,10 @@
 			<!-- Philosophy statement -->
 			<div use:reveal class="mt-20 text-center">
 				<div
-					class="inline-block rounded-2xl border border-violet-500/20
-                    bg-violet-500/6 px-8 py-5"
+					class="inline-block rounded-2xl border border-primary/40
+                    bg-primary/6 px-8 py-5"
 				>
-					<p class="max-w-lg font-mono text-sm leading-[1.8] text-violet-300">
+					<p class="max-w-lg font-mono text-sm leading-[1.8] text-primary">
 						"ProjectBook does not optimize for speed of editing.<br />
 						It optimizes for integrity of thinking."
 					</p>
@@ -779,7 +778,7 @@
 		</div>
 	</section>
 
-	<section id="cta" class="relative overflow-hidden bg-[#07070f] px-6 py-40">
+	<section id="cta" class="relative overflow-hidden bg-[#FFFFFF] px-6 py-40">
 		<!-- Glow -->
 		<div
 			class="pointer-events-none absolute top-1/2 left-1/2 h-150 w-225
@@ -796,18 +795,18 @@
 
 		<div class="relative z-10 mx-auto max-w-4xl text-center">
 			<div use:reveal>
-				<div class="mb-6 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+				<div class="mb-6 font-mono text-xs tracking-widest text-primary uppercase">
 					§ Begin Here
 				</div>
 
 				<h2
 					class="mb-6 text-[clamp(2rem,5vw,3.5rem)] leading-[1.15] font-bold
-                  tracking-[-0.02em] text-white"
+                  tracking-[-0.02em] text-gray-800"
 				>
 					A system that preserves thinking.
 				</h2>
 
-				<p class="mx-auto mb-16 max-w-md leading-relaxed text-gray-400">
+				<p class="mx-auto mb-16 max-w-md leading-relaxed text-gray-600">
 					ProjectBook is ready. The workflow is structured. The artifacts are connected. The
 					architecture is in place. Explore the system.
 				</p>
@@ -820,14 +819,14 @@
 							class="group flex items-center gap-3 rounded-2xl px-6 py-4 transition-all duration-200
                 {action.primary
 								? 'bg-violet-600 hover:bg-violet-500 hover:shadow-xl hover:shadow-violet-500/30'
-								: 'border border-white/10 hover:bg-white/5'}"
+								: 'border hover:bg-white/5'}"
 							style="transition-delay:{i * 80}ms"
 						>
 							<div>
-								<div class="text-left text-sm font-medium text-white">{action.label}</div>
+								<div class="text-left text-sm font-medium {action.primary ? 'text-white' : 'text-gray-800 '}">{action.label}</div>
 								<div
 									class="mt-0.5 text-left text-xs
-                  {action.primary ? 'text-violet-200/70' : 'text-gray-500'}"
+                  {action.primary ? 'text-white' : 'text-gray-500'}"
 								>
 									{action.desc}
 								</div>

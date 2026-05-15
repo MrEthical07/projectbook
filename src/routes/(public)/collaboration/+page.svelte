@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { buttonVariants } from '$lib/components/ui/button';
 	import { reveal } from '$lib/publicComponents/reveal';
 	import { getPublicPageSeo } from '$lib/seo/site';
 	import {
@@ -163,9 +164,9 @@
 	class="relative flex min-h-[72vh] flex-col items-center justify-center overflow-hidden px-6 pt-28 pb-20"
 >
 	<div
-		class="background-size:60px_60px pointer-events-none absolute
+		class="bg-size-[60px_60px] pointer-events-none absolute
     inset-0
-    bg-[linear-gradient(rgba(139,92,246,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.035)_1px,transparent_1px)]"
+    bg-[linear-gradient(rgba(139,92,246,0.085)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.085)_1px,transparent_1px)]"
 	></div>
 	<div
 		class="pointer-events-none absolute top-1/2 left-1/2 h-125 w-225
@@ -176,27 +177,27 @@
 
 	<div class="relative z-10 mx-auto flex max-w-4xl flex-col items-center text-center">
 		<div
-			class="hero-enter mb-10 inline-flex items-center gap-2 rounded-full border border-violet-500/30
-                bg-violet-500/10 px-4 py-1.5 font-mono text-sm text-violet-300 [animation-delay:0ms]"
+			class="hero-enter mb-10 inline-flex items-center gap-2 rounded-full border border-primary/30
+                bg-primary/10 px-4 py-1.5 font-mono text-sm text-primary [animation-delay:0ms]"
 		>
-			<span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400"></span>
+			<span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary"></span>
 			§ Structured Collaboration
 		</div>
 
 		<h1
 			class="hero-enter mb-6 text-[clamp(2.4rem,5.5vw,4.2rem)] leading-[1.1] font-bold tracking-[-0.025em]
-               text-white [animation-delay:100ms]"
+               text-gray-700 [animation-delay:100ms]"
 		>
 			Collaboration that{' '}
 			<span
-				class="bg-linear-to-br from-[#a78bfa] via-[#818cf8] to-[#818cf8] bg-clip-text text-transparent"
+				class="bg-linear-to-br from-primary via-primary to-[#818cf8] bg-clip-text text-transparent"
 			>
 				preserves structure.
 			</span>
 		</h1>
 
 		<p
-			class="hero-enter mb-5 max-w-2xl text-lg leading-relaxed text-gray-400 [animation-delay:200ms]"
+			class="hero-enter mb-5 max-w-2xl text-lg leading-relaxed text-gray-600 [animation-delay:200ms]"
 		>
 			In ProjectBook, teams work together within structured boundaries that preserve workflow
 			integrity. Every collaborator has a clear role in the execution chain.
@@ -216,7 +217,7 @@
 					>
 						<role.Icon size={16} color={role.accent} />
 						<div class="min-w-0">
-							<div class="truncate text-xs font-semibold text-white">{role.title}</div>
+							<div class="truncate text-xs font-semibold text-gray-700">{role.title}</div>
 							<div
 								class="truncate font-mono text-[0.6rem]"
 								style="color:{role.accent}; opacity:0.6"
@@ -238,14 +239,14 @@
 						>
 							<role.Icon size={16} color={role.accent} />
 							<div>
-								<div class="text-xs font-semibold text-white">{role.title}</div>
+								<div class="text-xs font-semibold text-gray-700">{role.title}</div>
 								<div class="font-mono text-[0.6rem]" style="color:{role.accent}; opacity:0.6">
 									{role.scope.join(', ')}
 								</div>
 							</div>
 						</div>
 						{#if i < roles.length - 1}
-							<ArrowRight size={12} class="shrink-0 text-[#a78bfa]/30" />
+							<ArrowRight size={12} class="shrink-0 text-primary/30" />
 						{/if}
 					</div>
 				{/each}
@@ -253,14 +254,10 @@
 		</div>
 	</div>
 
-	<div
-		class="pointer-events-none absolute right-0 bottom-0 left-0 h-24
-    [background:linear-gradient(to_bottom,transparent,#07070f)]"
-	></div>
 </section>
 
 <!-- ── Role cards ─────────────────────────────────────────────── -->
-<section class="relative bg-[#07070f] px-6 py-28">
+<section class="relative px-6 py-28">
 	<div
 		class="pointer-events-none absolute top-1/2 right-0 h-96 w-96 -translate-y-1/2
     [background:radial-gradient(ellipse_at_right,rgba(139,92,246,0.06)_0%,transparent_65%)]"
@@ -268,14 +265,14 @@
 
 	<div class="relative z-10 mx-auto max-w-6xl">
 		<div use:reveal class="mb-20">
-			<div class="mb-5 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+			<div class="mb-5 font-mono text-xs tracking-widest text-primary uppercase">
 				§ Team Roles
 			</div>
 			<h2
 				class="mb-5 max-w-2xl text-[clamp(1.8rem,3.5vw,2.8rem)] leading-[1.2] font-bold
-                 tracking-[-0.02em] text-white"
+                 tracking-[-0.02em] text-gray-700"
 			>
-				Every team member owns a part <span class="text-gray-500">of the chain.</span>
+				Every team member owns a part <span class="text-primary">of the chain.</span>
 			</h2>
 			<p class="max-w-lg leading-relaxed text-gray-500">
 				Different team members interact with different parts of the workflow depending on their
@@ -288,10 +285,10 @@
 				<div
 					use:reveal={{ delay: i * 100 }}
 					class="group overflow-hidden rounded-2xl border
-                 border-white/5 bg-[rgba(10,10,22,0.95)] transition-all duration-300 hover:border-violet-500/25"
+                  bg-muted/70 transition-all duration-300 hover:border-primary/25"
 				>
 					<!-- Card header -->
-					<div class="flex items-start gap-4 border-b border-white/5 px-6 py-5">
+					<div class="flex items-start gap-4 border-b px-6 py-5">
 						<div
 							class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
 							style="background:{role.bg}; border:1px solid {role.border}"
@@ -299,7 +296,7 @@
 							<role.Icon size={20} color={role.accent} />
 						</div>
 						<div>
-							<div class="mb-0.5 text-[1.05rem] font-semibold text-white">{role.title}</div>
+							<div class="mb-0.5 text-[1.05rem] font-semibold text-gray-700">{role.title}</div>
 							<div class="font-mono text-xs" style="color:{role.accent}; opacity:0.7">
 								{role.roleLabel}
 							</div>
@@ -312,7 +309,7 @@
 
 						<!-- Artifact scope -->
 						<div>
-							<div class="mb-2.5 font-mono text-[0.65rem] text-white/25">Artifact scope</div>
+							<div class="mb-2.5 font-mono text-[0.65rem] text-gray-700">Artifact scope</div>
 							<div class="flex flex-wrap gap-2">
 								{#each artifactChain as artifact}
 									{@const inScope = role.scope.includes(artifact.label)}
@@ -334,11 +331,11 @@
 
 						<!-- Contribution -->
 						<div
-							class="flex items-start gap-3 rounded-xl p-4"
-							style="background:{role.accent}07; border:1px solid {role.accent}18"
+							class="flex items-start gap-2 rounded-xl p-4"
+							style="background:{role.accent}15; border:1px solid {role.accent}50"
 						>
 							<div
-								class="mt-1.5 h-1 w-1 shrink-0 rounded-full"
+								class="mt-2.5 h-1 w-1 shrink-0 rounded-full"
 								style="background:{role.accent}"
 							></div>
 							<p
@@ -353,8 +350,8 @@
 						<div class="flex flex-wrap gap-1.5">
 							{#each role.principles as pr}
 								<span
-									class="rounded-md bg-white/3 px-2 py-0.5 font-mono
-                             text-[0.65rem] text-white/25"
+									class="rounded-md bg-black/5 px-2 py-0.5 font-mono
+                             text-[0.65rem] text-gray-700/80"
 								>
 									/ {pr}
 								</span>
@@ -368,7 +365,7 @@
 </section>
 
 <!-- ── Scope map (coverage matrix) ──────────────────────────── -->
-<section class="relative overflow-hidden bg-[#07070f] px-6 py-28">
+<section class="relative overflow-hidden px-6 py-28">
 	<div
 		class="pointer-events-none absolute top-1/2 left-0 h-96 w-96 -translate-y-1/2
     [background:radial-gradient(ellipse_at_left,rgba(139,92,246,0.07)_0%,transparent_65%)]"
@@ -376,14 +373,14 @@
 
 	<div class="relative z-10 mx-auto max-w-6xl">
 		<div use:reveal class="mb-20">
-			<div class="mb-5 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+			<div class="mb-5 font-mono text-xs tracking-widest text-primary uppercase">
 				§ Workflow Coverage
 			</div>
 			<h2
 				class="mb-5 max-w-2xl text-[clamp(1.8rem,3.5vw,2.8rem)] leading-[1.2] font-bold
-                 tracking-[-0.02em] text-white"
+                 tracking-[-0.02em] text-gray-700"
 			>
-				Every artifact is owned. <span class="text-gray-500">Nothing is ambiguous.</span>
+				Every artifact is owned. <span class="text-primary">Nothing is ambiguous.</span>
 			</h2>
 			<p class="max-w-lg leading-relaxed text-gray-500">
 				Across the full execution chain, every artifact has a team with clear responsibility. Gaps
@@ -393,18 +390,18 @@
 
 		<!-- Matrix — scrollable on mobile -->
 		<div use:reveal>
-			<p class="mb-2 text-right font-mono text-[0.65rem] text-white/18 sm:hidden">← scroll →</p>
+			<p class="mb-2 text-right font-mono text-[0.65rem] text-gray-700/18 sm:hidden">← scroll →</p>
 			<div class="-mx-2 overflow-x-auto px-2 sm:mx-0 sm:px-0">
 				<div
 					class="min-w-135 overflow-hidden rounded-2xl
-                    border border-white/[0.07] bg-[rgba(10,10,22,0.95)]"
+                    border bg-muted/50"
 				>
 					<!-- Header row -->
 					<div
-						class="grid border-b border-white/5 px-4 py-4 sm:px-6"
+						class="grid border-b px-4 py-4 sm:px-6"
 						style="grid-template-columns: 140px repeat(5, 1fr)"
 					>
-						<div class="font-mono text-[0.65rem] text-white/20">Team Role</div>
+						<div class="font-mono text-[0.65rem] text-gray-700">Team Role</div>
 						{#each artifactChain as artifact}
 							<div class="flex flex-col items-center gap-1.5">
 								<div
@@ -413,7 +410,7 @@
 								>
 									<artifact.Icon size={14} color={artifact.accent} />
 								</div>
-								<span class="text-center text-[0.7rem] font-medium text-white/50">
+								<span class="text-center text-[0.7rem] font-medium text-gray-700">
 									{artifact.label}
 								</span>
 							</div>
@@ -423,11 +420,10 @@
 					<!-- Role rows -->
 					{#each roles as role, ri}
 						<div
-							class="grid items-center px-4 py-4 transition-colors hover:bg-white/1.5 sm:px-6"
-							style="grid-template-columns: 140px repeat(5, 1fr);
-                     {ri < roles.length - 1
-								? 'border-bottom: 1px solid rgba(255,255,255,0.04)'
+							class="grid items-center px-4 py-4 transition-colors hover:bg-black/1.5 sm:px-6 {ri < roles.length - 1
+								? 'border-b border-muted-foreground/15'
 								: ''}"
+							style="grid-template-columns: 140px repeat(5, 1fr);"
 						>
 							<!-- Role label -->
 							<div class="flex items-center gap-2 pr-3 sm:gap-3 sm:pr-4">
@@ -438,7 +434,7 @@
 									<role.Icon size={14} color={role.accent} />
 								</div>
 								<div class="min-w-0">
-									<div class="truncate text-[0.82rem] font-medium text-white">{role.title}</div>
+									<div class="truncate text-[0.82rem] font-medium text-gray-700">{role.title}</div>
 									<div
 										class="truncate font-mono text-[0.6rem]"
 										style="color:{role.accent}; opacity:0.5"
@@ -470,19 +466,19 @@
 					<!-- Footer -->
 					<div
 						class="flex flex-col items-start gap-3 border-t
-                      border-white/5 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                     px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
 					>
-						<span class="font-mono text-[0.65rem] text-white/20">
+						<span class="font-mono text-[0.65rem] text-gray-700">
 							Coverage: 5/5 artifact stages — full chain ownership
 						</span>
 						<div class="flex shrink-0 items-center gap-4">
 							<div class="flex items-center gap-1.5">
-								<div class="border-pb-1/35 h-3 w-3 rounded-sm border bg-[#a78bfa]/18"></div>
-								<span class="font-mono text-[0.6rem] text-white/20">Active</span>
+								<div class="border-pb-1/35 h-3 w-3 rounded-sm border bg-primary/30"></div>
+								<span class="font-mono text-[0.6rem] text-gray-700">Active</span>
 							</div>
 							<div class="flex items-center gap-1.5">
-								<div class="h-3 w-3 rounded-sm border border-white/4 bg-white/3"></div>
-								<span class="font-mono text-[0.6rem] text-white/20">Outside</span>
+								<div class="h-3 w-3 rounded-sm border border-black/4 bg-black/3"></div>
+								<span class="font-mono text-[0.6rem] text-gray-700">Outside</span>
 							</div>
 						</div>
 					</div>
@@ -499,7 +495,7 @@
 </section>
 
 <!-- ── Collaboration principles ──────────────────────────────── -->
-<section class="relative overflow-hidden bg-[#07070f] px-6 py-28">
+<section class="relative overflow-hidden px-6 py-28">
 	<div
 		class="pointer-events-none absolute top-1/2 left-1/2 h-100 w-175
                -translate-x-1/2 -translate-y-1/2
@@ -508,14 +504,14 @@
 
 	<div class="relative z-10 mx-auto max-w-6xl">
 		<div use:reveal class="mb-16">
-			<div class="mb-5 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+			<div class="mb-5 font-mono text-xs tracking-widest text-primary uppercase">
 				§ Collaboration Principles
 			</div>
 			<h2
 				class="max-w-xl text-[clamp(1.8rem,3.5vw,2.6rem)] leading-[1.2] font-bold
-                 tracking-[-0.02em] text-white"
+                 tracking-[-0.02em] text-gray-700"
 			>
-				Collaboration without losing <span class="text-gray-500">execution clarity.</span>
+				Collaboration without losing <span class="text-primary">execution clarity.</span>
 			</h2>
 		</div>
 
@@ -523,8 +519,8 @@
 			{#each principles as p, i}
 				<div
 					use:reveal={{ delay: i * 100 }}
-					class="group relative overflow-hidden rounded-2xl border border-white/[0.07]
-                 bg-[rgba(10,10,22,0.95)] p-7 transition-all duration-300 hover:border-violet-500/25"
+					class="group relative overflow-hidden rounded-2xl border 
+                 bg-muted p-7 transition-all duration-300 hover:border-primary/25"
 				>
 					<div
 						class="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity
@@ -537,7 +533,7 @@
 					>
 						<p.Icon size={20} color={p.accent} />
 					</div>
-					<div class="] mb-3 font-semibold text-white">{p.title}</div>
+					<div class="] mb-3 font-semibold text-gray-700">{p.title}</div>
 					<p class="text-sm leading-relaxed text-gray-500">{p.desc}</p>
 				</div>
 			{/each}
@@ -546,12 +542,12 @@
 </section>
 
 <!-- ── Structure statement ───────────────────────────────────── -->
-<section class="relative bg-[#07070f] px-6 py-20">
+<section class="relative px-6 py-20">
 	<div class="mx-auto max-w-5xl">
 		<div
 			use:reveal
-			class="relative overflow-hidden rounded-2xl border border-violet-500/15
-             bg-violet-500/4 p-10 md:p-14"
+			class="relative overflow-hidden rounded-2xl border border-primary/15
+             bg-primary/4 p-10 md:p-14"
 		>
 			<!-- Corner decoration -->
 			<div
@@ -561,15 +557,15 @@
 
 			<div class="relative z-10 grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
 				<div>
-					<div class="mb-6 font-mono text-xs tracking-widest text-[#a78bfa] uppercase">
+					<div class="mb-6 font-mono text-xs tracking-widest text-primary uppercase">
 						§ Key Insight
 					</div>
 					<h3
 						class="mb-5 text-[clamp(1.4rem,2.5vw,2rem)] leading-tight font-bold
-                     tracking-[-0.02em] text-white"
+                     tracking-[-0.02em] text-gray-700"
 					>
 						Collaboration should preserve clarity,
-						<span class="text-gray-500"> not destroy it.</span>
+						<span class="text-primary"> not destroy it.</span>
 					</h3>
 					<p class="text-sm leading-relaxed text-gray-500">
 						Most collaboration tools add people to a shared canvas and hope for order to emerge.
@@ -580,30 +576,20 @@
 				<div class="space-y-3">
 					{#each [{ label: 'Unstructured collaboration', items: ['Anyone edits anything', 'Ownership is ambiguous', 'Context collapses over time', 'Execution breaks down at scale'] }, { label: 'Structured collaboration', items: ['Every role has clear scope', 'Artifact ownership is explicit', 'Context flows through the chain', 'Execution scales with structure'], positive: true }] as col}
 						<div
-							class="rounded-xl p-5"
-							style={col.positive
-								? 'background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.2)'
-								: 'background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06)'}
+							class="rounded-xl p-5 border {col.positive ? 'border-primary/60 bg-primary/20' : 'bg-muted/50'}"
 						>
 							<div
-								class="mb-3 font-mono text-xs"
-								style={col.positive ? 'color:#a78bfa' : 'color:rgba(255,255,255,0.3)'}
+								class="mb-3 font-mono text-xs {col.positive ? 'text-primary' : 'text-gray-700'}"
 							>
 								{col.label}
 							</div>
 							<ul class="space-y-1.5">
 								{#each col.items as item}
 									<li
-										class="flex items-center gap-2 text-xs"
-										style={col.positive
-											? 'color:rgba(255,255,255,0.6)'
-											: 'color:rgba(255,255,255,0.25)'}
+										class="flex items-center gap-2 text-xs {col.positive ? 'text-gray-700' : 'text-gray-700/40'}"
 									>
 										<span
-											class="h-1 w-1 shrink-0 rounded-full"
-											style={col.positive
-												? 'background:#a78bfa'
-												: 'background:rgba(255,255,255,0.2)'}
+											class="h-1 w-1 shrink-0 rounded-full {col.positive ? 'bg-primary' : 'bg-gray-700'}"
 										>
 										</span>
 										{item}
@@ -620,17 +606,20 @@
 		<div use:reveal class="mt-16 flex flex-col justify-center gap-4 sm:flex-row">
 			<a
 				href="/workflow"
-				class="flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-6 py-3
-               font-medium text-white transition-all duration-200 hover:bg-violet-500
-               hover:shadow-xl hover:shadow-violet-500/30"
+				class={buttonVariants({
+					variant: 'default',
+					size: 'lg'
+				})}
 			>
 				See the execution flow
 				<ChevronRight size={16} />
 			</a>
 			<a
 				href="/auth"
-				class="flex items-center justify-center gap-2 rounded-xl border border-white/12 px-6 py-3
-               font-medium text-white transition-all duration-200 hover:border-white/20 hover:bg-white/5"
+				class={buttonVariants({
+					variant: 'outline',
+					size: 'lg'
+				})}
 			>
 				Open App
 				<ExternalLink size={16} />

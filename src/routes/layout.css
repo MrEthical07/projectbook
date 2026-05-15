@@ -200,7 +200,7 @@
 	top: 0;
 	height: 100%;
 	width: 60%;
-	animation: travel-h 1.8s linear infinite;
+	animation: travel-h 3.25s linear infinite;
 	background: linear-gradient(90deg, transparent, #a78bfa, transparent);
 }
 
@@ -233,5 +233,5 @@
 	}
 }
 .node-glow {
-	animation: node-glow 2.8s ease-in-out infinite;
+	animation: node-glow 3.25s ease-in-out infinite;
 }
