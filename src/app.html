@@ -4,23 +4,19 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-		<script
-			nonce="%sveltekit.nonce%"
-			async
-			src="https://plausible.io/js/pa-iGLKwuLGJ5z8SYFHtTrbC.js"
-		></script>
 		<script nonce="%sveltekit.nonce%">
-			((window.plausible =
-				window.plausible ||
-				function () {
-					(plausible.q = plausible.q || []).push(arguments);
-				}),
-				(plausible.init =
-					plausible.init ||
-					function (i) {
-						plausible.o = i || {};
-					}));
-			plausible.init();
+			(function (w, d, s, l, i) {
+				if (!i) return;
+				w[l] = w[l] || [];
+				w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+				var f = d.getElementsByTagName(s)[0],
+					j = d.createElement(s),
+					dl = l != 'dataLayer' ? '&l=' + l : '';
+				j.async = true;
+				j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+				j.setAttribute('nonce', '%sveltekit.nonce%');
+				f.parentNode.insertBefore(j, f);
+			})(window, document, 'script', 'dataLayer', '%sveltekit.env.PUBLIC_GTM_ID%');
 		</script>
 
 		<meta name="author" content="ProjectBook" />
@@ -41,6 +37,14 @@
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<noscript>
+			<iframe
+				src="https://www.googletagmanager.com/ns.html?id=%sveltekit.env.PUBLIC_GTM_ID%"
+				height="0"
+				width="0"
+				style="display:none;visibility:hidden"
+			></iframe>
+		</noscript>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

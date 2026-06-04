@@ -31,22 +31,29 @@ const config = {
 		},
 		csp: {
 			directives: {
-				'script-src': ['self']
+				'script-src': ['self', 'https://www.googletagmanager.com'],
+				'worker-src': ['self', 'blob:']
 			},
-			 reportOnly: {
+			reportOnly: {
 				'default-src': ['self'],
-				'script-src': ['self'],
+				'script-src': ['self', 'https://www.googletagmanager.com'],
 				'style-src': ['self', 'unsafe-inline'],
-				'img-src': ['self', 'data:', 'blob:'],
+				'img-src': ['self', 'data:', 'blob:', 'https://www.google-analytics.com'],
 				'font-src': ['self', 'data:'],
-				'connect-src': ['self', 'https://api.projectbook.dev'],
+				'connect-src': [
+					'self',
+					'https://api.projectbook.dev',
+					'https://www.googletagmanager.com',
+					'https://www.google-analytics.com',
+					'https://region1.google-analytics.com'
+				],
 				'object-src': ['none'],
 				'base-uri': ['self'],
 				'form-action': ['self'],
 				'frame-ancestors': ['none'],
 				'report-uri': ['/csp-report']
 			},
-			mode: 'auto',
+			mode: 'auto'
 		}
 	}
 };

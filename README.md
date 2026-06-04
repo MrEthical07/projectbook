@@ -212,6 +212,16 @@ pnpm install
 pnpm run dev
 ```
 
+### Optional: Enable Google Tag Manager
+
+To enable Google Tag Manager automatically, set the public container ID environment variable before starting or deploying the app:
+
+```bash
+PUBLIC_GTM_ID=GTM-XXXXXXX
+```
+
+When `PUBLIC_GTM_ID` is set, the GTM snippet is injected automatically from `src/app.html`. Leave it unset to keep GTM disabled.
+
 ## Docker (Production)
 
 Build the production image from the web repository root:
