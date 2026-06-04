@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased] - 2026-04-14
 
+### Added
+
+- Environment-driven Google Tag Manager integration in `src/app.html`, including automatic enablement when `PUBLIC_GTM_ID` is set.
+- Documentation for configuring `PUBLIC_GTM_ID` so GTM can be enabled without hardcoding the container ID in the repo.
+
 ### Changed
 
 - Completed migration to a home/project information model across routes, remotes, datastore, and shared types.
