@@ -368,8 +368,7 @@
 									<Table.Cell class="max-w-75 truncate text-center">
 										<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
 									</Table.Cell>
-									<Table.Cell>
-										<div class="flex items-center gap-2">
+									<Table.Cell class="flex justify-center gap-2 text-center">
 											<Avatar.Root class="h-7 w-7">
 												<Avatar.Fallback>
 													{row.owner
@@ -380,7 +379,6 @@
 												</Avatar.Fallback>
 											</Avatar.Root>
 											<span>{row.owner}</span>
-										</div>
 									</Table.Cell>
 									<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
 								</Table.Row>

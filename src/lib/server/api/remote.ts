@@ -39,7 +39,8 @@ export const remoteQueryRequest = async <TData, TBody = unknown>(
 
 	try {
 		const data = await apiRequest<TData, TBody>(event, {
-			...options
+			...options,
+			allowCookieWrites: false
 		});
 		writeQueryCache(event, options, options.cachePolicy, data);
 		return data;

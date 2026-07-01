@@ -264,6 +264,11 @@
 		if (statusMutationPending) return;
 		if (nextStatus === status) return;
 
+		if(isDirty) {
+			toast.error('Please save changes before changing status.');
+			return;
+		}
+
 		if (nextStatus === 'In Progress' && status === 'Planned' && selectedIdeaId === '') {
 			toast.error('Cannot start task without linking an idea.');
 			return;

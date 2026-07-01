@@ -373,11 +373,6 @@
 													>Warning: No Problem Hypotheses</Badge.Badge
 												>
 											{/if}
-											{#if row.isOrphan}
-												<Badge.Badge class="border-red-500/20 bg-red-500/10 text-red-500"
-													>Warning: Orphan</Badge.Badge
-												>
-											{/if}
 										</div>
 									</Table.Cell>
 									<Table.Cell class="text-center">{row.personaName}</Table.Cell>
@@ -398,7 +393,7 @@
 										</div>
 									</Table.Cell>
 									<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
-									<Table.Cell>
+									<Table.Cell class="text-center">
 										<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
 									</Table.Cell>
 								</Table.Row>

@@ -94,7 +94,9 @@
 	let selectedProblemId = $derived(data.selectedProblemId ?? '');
 	let pendingProblemId = $derived(data.selectedProblemId ?? '');
 	let addSectionOpen = $state(false);
-	let statusDialogOpen = $state(false);
+	
+	let statusDialogSelectOpen = $state(false);
+	let statusDialogRejectOpen = $state(false);
 	let archiveDialogOpen = $state(false);
 	let unarchiveDialogOpen = $state(false);
 	let linkProblemOpen = $state(false);
@@ -280,7 +282,8 @@
 
 		if (!selectedProblemId) {
 			toast.error('Cannot change status without linking a problem.');
-			statusDialogOpen = false;
+			statusDialogRejectOpen = false;
+			statusDialogSelectOpen = false;
 			return;
 		}
 
@@ -288,31 +291,36 @@
 
 		if (!problem || problem.status !== 'Locked') {
 			toast.error('Idea must be linked to a valid locked problem.');
-			statusDialogOpen = false;
+			statusDialogRejectOpen = false;
+			statusDialogSelectOpen = false;
 			return;
 		}
 
 		if (!description || description.trim() === '') {
 			toast.error('Idea description cannot be empty.');
-			statusDialogOpen = false;
+			statusDialogRejectOpen = false;
+			statusDialogSelectOpen = false;
 			return;
 		}
 
 		if (!summaryTitle || summaryTitle.trim() === '') {
 			toast.error('Summary title cannot be empty.');
-			statusDialogOpen = false;
+			statusDialogRejectOpen = false;
+			statusDialogSelectOpen = false;
 			return;
 		}
 
 		if (!summaryDescription || summaryDescription.trim() === '') {
 			toast.error('Summary description cannot be empty.');
-			statusDialogOpen = false;
+			statusDialogRejectOpen = false;
+			statusDialogSelectOpen = false;
 			return;
 		}
 
 		if (isDirty) {
 			toast.error('Please save changes before changing status.');
-			statusDialogOpen = false;
+			statusDialogRejectOpen = false;
+			statusDialogSelectOpen = false;
 			return;
 		}
 
@@ -341,7 +349,8 @@
 
 			ideaStatus = targetStatus;
 			pendingStatus = null;
-			statusDialogOpen = false;
+			statusDialogRejectOpen = false;
+			statusDialogSelectOpen = false;
 		} catch (error) {
 			console.error('Failed to update idea status', error);
 			toast.error('Status change failed.');
@@ -885,6 +894,27 @@
 					/>
 				</section>
 
+				<section class="flex w-full flex-col gap-3 rounded-lg bg-background p-4">
+					<div class="flex w-full flex-row items-center gap-2">
+						<span class="font-medium text-nowrap">Final Idea Summary</span>
+						<Separator></Separator>
+					</div>
+					<div class="grid gap-3">
+						<Input
+							id="summary-title"
+							placeholder="Summary title"
+							bind:value={summaryTitle}
+							disabled={isSummaryReadOnly}
+						/>
+						<Textarea
+							id="summary-description"
+							placeholder="Short summary of the idea."
+							bind:value={summaryDescription}
+							disabled={isSummaryReadOnly}
+						/>
+					</div>
+				</section>
+				
 				<section class="flex w-full flex-col gap-2 rounded-lg bg-background p-4">
 					<div class="flex w-full flex-row items-center gap-2">
 						<span class="font-medium text-nowrap">Idea Status</span>
@@ -895,7 +925,7 @@
 						<Badge variant={statusVariant(pageStatus)}>{pageStatus}</Badge>
 					</div>
 					<div class="flex w-full gap-2">
-						<Dialog.Root bind:open={statusDialogOpen}>
+						<Dialog.Root bind:open={statusDialogSelectOpen}>
 							<Dialog.Trigger
 								class={buttonVariants()}
 								disabled={statusMutationPending || !canChangeIdeaStatus || isReadOnly}
@@ -966,7 +996,7 @@
 								</Dialog.Footer>
 							</Dialog.Content>
 						</Dialog.Root>
-						<Dialog.Root bind:open={statusDialogOpen}>
+						<Dialog.Root bind:open={statusDialogRejectOpen}>
 							<Dialog.Trigger
 								class={buttonVariants({ variant: 'destructive' })}
 								disabled={statusMutationPending || !canChangeIdeaStatus || isReadOnly}
@@ -1038,27 +1068,6 @@
 								</Dialog.Footer>
 							</Dialog.Content>
 						</Dialog.Root>
-					</div>
-				</section>
-
-				<section class="flex w-full flex-col gap-3 rounded-lg bg-background p-4">
-					<div class="flex w-full flex-row items-center gap-2">
-						<span class="font-medium text-nowrap">Final Idea Summary</span>
-						<Separator></Separator>
-					</div>
-					<div class="grid gap-3">
-						<Input
-							id="summary-title"
-							placeholder="Summary title"
-							bind:value={summaryTitle}
-							disabled={isSummaryReadOnly}
-						/>
-						<Textarea
-							id="summary-description"
-							placeholder="Short summary of the idea."
-							bind:value={summaryDescription}
-							disabled={isSummaryReadOnly}
-						/>
 					</div>
 				</section>
 

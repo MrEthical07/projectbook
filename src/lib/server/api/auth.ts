@@ -89,12 +89,28 @@ export const loginRequest = async (event: RequestEvent, payload: LoginPayload): 
 };
 
 export const verifyEmailRequest = async (event: RequestEvent, payload: VerifyEmailPayload) => {
-	return apiRequest<{ status?: string; email?: string }>(event, {
+	const data = await apiRequest<unknown, VerifyEmailPayload>(event, {
 		path: '/auth/verify-email',
 		method: 'POST',
 		auth: false,
 		body: payload
 	});
+
+	const tokens = extractApiAuthTokens(data);
+	if (tokens) {
+		setApiAuthTokenCookies(
+			event.cookies,
+			{
+				accessToken: tokens.accessToken,
+				refreshToken: tokens.refreshToken,
+				accessExpiresAt: tokens.accessExpiresAt
+			},
+			false,
+			{ clearPermissionContext: true }
+		);
+	}
+
+	return data as { status?: string; email?: string };
 };
 
 export const resendVerificationRequest = async (

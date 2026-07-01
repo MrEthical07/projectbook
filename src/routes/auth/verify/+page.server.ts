@@ -3,11 +3,18 @@ import type { Actions, PageServerLoad } from './$types';
 import { fail, superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { resendVerificationSchema, verifyEmailSchema } from '$lib/schemas/auth.schema';
-import { resendVerificationRequest, verifyEmailRequest } from '$lib/server/api/auth';
+import {
+	resendVerificationRequest,
+	sessionContextRequest,
+	verifyEmailRequest
+} from '$lib/server/api/auth';
 import { isApiRequestError } from '$lib/server/api/error-mapping';
 import {
+	clearApiAuthTokenCookies,
 	clearPermissionContextCookie,
 	clearPermissionContextRevalidateCooldownCookie,
+	getAccessTokenCookie,
+	getRefreshTokenCookie,
 	setAuthNoticeCookie
 } from '$lib/server/auth/cookies';
 
@@ -79,6 +86,34 @@ export const actions: Actions = {
 			verifyForm.valid = false;
 			verifyForm.errors._errors = ['Could not verify your account right now.'];
 			return fail(500, { verifyForm, resendForm });
+		}
+
+		const hasUsableAuthCookies =
+			typeof getAccessTokenCookie(cookies) === 'string' &&
+			typeof getRefreshTokenCookie(cookies) === 'string';
+
+		if (!hasUsableAuthCookies) {
+			clearApiAuthTokenCookies(cookies);
+			setAuthNoticeCookie(cookies, 'Email verified successfully. Sign in to continue.');
+			throw redirect(303, '/auth');
+		}
+
+		try {
+			await sessionContextRequest(event);
+		} catch (err) {
+			if (isApiRequestError(err) && err.statusCode === 401) {
+				clearApiAuthTokenCookies(cookies);
+				setAuthNoticeCookie(cookies, 'Email verified successfully. Sign in to continue.');
+				throw redirect(303, '/auth');
+			}
+
+			console.error('[auth:verify-email] session context failed after verify', err);
+			clearApiAuthTokenCookies(cookies);
+			setAuthNoticeCookie(
+				cookies,
+				'Email verified successfully. Sign in again to refresh your session.'
+			);
+			throw redirect(303, '/auth');
 		}
 
 		clearPermissionContextCookie(cookies);
