@@ -10,7 +10,7 @@
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as Badge from '$lib/components/ui/badge';
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
-	import { Button } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -29,7 +29,6 @@
 		linkedProblemStatement: string;
 		persona: string;
 		status: IdeaStatus;
-		tasksCount: number;
 		owner: string;
 		lastUpdated: string;
 		linkedProblemLocked: boolean;
@@ -204,7 +203,7 @@
 				<h1 class="text-3xl font-semibold">Ideas</h1>
 				{#if canCreateIdea}
 					<Dialog.Root bind:open={createOpen}>
-						<Dialog.Trigger>Add Idea</Dialog.Trigger>
+						<Dialog.Trigger class={buttonVariants()}>Add Idea</Dialog.Trigger>
 						<Dialog.Content>
 							<Dialog.Header>
 								<Dialog.Title>Create Idea</Dialog.Title>
@@ -307,8 +306,8 @@
 					<Label>Last Updated To</Label>
 					<Input type="date" bind:value={updatedTo} />
 				</div>
-				<div class="flex items-end gap-2">
-					<input id="idea-orphan-only" type="checkbox" bind:checked={orphanOnly} />
+				<div class="flex items-center gap-2">
+					<input id="idea-orphan-only" type="checkbox" bind:checked={orphanOnly} class="h-4 w-4" />
 					<Label for="idea-orphan-only">Orphan Only</Label>
 				</div>
 			</div>
@@ -335,9 +334,8 @@
 							<Table.Row>
 								<Table.Head>Idea Title</Table.Head>
 								<Table.Head class="text-center">Linked Problem Statement</Table.Head>
-								<Table.Head class="text-center">Persona</Table.Head>
+								<!-- <Table.Head class="text-center">Persona</Table.Head> -->
 								<Table.Head class="text-center">Status</Table.Head>
-								<Table.Head class="text-center">Tasks Count</Table.Head>
 								<Table.Head class="text-center">Owner</Table.Head>
 								<Table.Head class="text-center">Last Updated</Table.Head>
 							</Table.Row>
@@ -355,11 +353,6 @@
 													>Warning: Linked Problem Not Locked</Badge.Badge
 												>
 											{/if}
-											{#if row.status === 'Selected' && row.tasksCount === 0}
-												<Badge.Badge class="border-amber-300 bg-amber-50 text-amber-700"
-													>Warning: Selected With No Tasks</Badge.Badge
-												>
-											{/if}
 											{#if row.isOrphan}
 												<Badge.Badge class="border-red-300 bg-red-50 text-red-700"
 													>Warning: Orphan</Badge.Badge
@@ -369,24 +362,21 @@
 									</Table.Cell>
 									<Table.Cell class="text-center">{row.linkedProblemStatement || 'None'}</Table.Cell
 									>
-									<Table.Cell class="text-center">{row.persona}</Table.Cell>
+									<!-- <Table.Cell class="text-center">{row.persona}</Table.Cell> -->
 									<Table.Cell class="text-center">
 										<Badge.Badge class={statusClass(row.status)}>{row.status}</Badge.Badge>
 									</Table.Cell>
-									<Table.Cell class="text-center">{row.tasksCount}</Table.Cell>
-									<Table.Cell>
-										<div class="flex items-center gap-2">
-											<Avatar.Root class="h-7 w-7">
-												<Avatar.Fallback>
-													{row.owner
-														.split(' ')
-														.map((part) => part[0])
-														.join('')
-														.slice(0, 2)}
-												</Avatar.Fallback>
-											</Avatar.Root>
-											<span>{row.owner}</span>
-										</div>
+									<Table.Cell class="flex w-full items-center justify-center gap-2 text-center">
+										<Avatar.Root class="h-7 w-7">
+											<Avatar.Fallback>
+												{row.owner
+													.split(' ')
+													.map((part) => part[0])
+													.join('')
+													.slice(0, 2)}
+											</Avatar.Fallback>
+										</Avatar.Root>
+										<span>{row.owner}</span>
 									</Table.Cell>
 									<Table.Cell class="text-center">{row.lastUpdated}</Table.Cell>
 								</Table.Row>

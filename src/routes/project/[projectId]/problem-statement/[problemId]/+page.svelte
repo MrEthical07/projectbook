@@ -216,7 +216,7 @@
 		const hasStatement = Boolean(finalStatement.trim());
 		const hasOrphanApproval = hasSources || orphanAcknowledged;
 
-		return hasPainPoints && hasStatement && hasOrphanApproval;
+		return hasPainPoints && hasStatement && hasOrphanApproval && isLocked === false;
 	};
 
 	const addCustomPainPoint = () => {
