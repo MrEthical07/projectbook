@@ -1,4 +1,3 @@
-export const AUTH_SESSION_COOKIE = 'projectbook_session';
 export const AUTH_NOTICE_COOKIE = 'projectbook_auth_notice';
 export const AUTH_ACCESS_TOKEN_COOKIE = 'projectbook_access';
 export const AUTH_REFRESH_TOKEN_COOKIE = 'projectbook_refresh';

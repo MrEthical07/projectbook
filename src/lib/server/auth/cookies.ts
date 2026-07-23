@@ -7,7 +7,6 @@ import {
 	AUTH_PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_COOKIE,
 	AUTH_PERMISSION_CONTEXT_COOKIE,
 	AUTH_REFRESH_TOKEN_COOKIE,
-	AUTH_SESSION_COOKIE,
 	DEFAULT_SESSION_TTL_MS,
 	PERMISSION_CONTEXT_REVALIDATE_COOLDOWN_MS,
 	PERMISSION_CONTEXT_TTL_MS,
@@ -130,20 +129,6 @@ export const clearApiAuthTokenCookies = (cookies: Cookies): void => {
 	clearPermissionContextCookie(cookies);
 	clearPermissionContextRevalidateCooldownCookie(cookies);
 };
-
-export const setSessionCookie = (cookies: Cookies, token: string, expiresAt: Date): void => {
-	cookies.set(AUTH_SESSION_COOKIE, token, {
-		...baseCookieOptions,
-		expires: expiresAt
-	});
-};
-
-export const clearSessionCookie = (cookies: Cookies): void => {
-	cookies.delete(AUTH_SESSION_COOKIE, { path: '/' });
-};
-
-export const getSessionCookie = (cookies: Cookies): string | null =>
-	cookies.get(AUTH_SESSION_COOKIE) ?? null;
 
 export const setAuthNoticeCookie = (cookies: Cookies, message: string): void => {
 	cookies.set(AUTH_NOTICE_COOKIE, message, {
