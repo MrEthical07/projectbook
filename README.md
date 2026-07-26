@@ -1,279 +1,131 @@
+<div align="center">
+
+<img src="static/asset/logo.png" alt="ProjectBook" width="88" />
+
 # ProjectBook
 
-ProjectBook is a structured product-thinking system that transforms fragmented work into a traceable chain from user insight to validated outcomes.
+**The open-source workspace where every task traces back to the user insight that justified it.**
 
-## What It Is
+Story → Problem → Idea → Task → Feedback — every link enforced, so you never lose the *why* behind what you build.
 
-ProjectBook is a next-generation project workspace designed around Design Thinking as a first-class system, not just a methodology.
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/MrEthical07/projectbook?style=social)](https://github.com/MrEthical07/projectbook)
+[![Built with SvelteKit](https://img.shields.io/badge/built%20with-SvelteKit-ff3e00.svg)](https://kit.svelte.dev)
 
-Unlike traditional tools that isolate documents, tasks, and feedback, ProjectBook models product development as a connected chain of artifacts — from user stories and problem statements to ideas, prototype tasks, and real-world feedback. Every decision is traceable, every artifact is linked, and context is never lost.
+[**Live app**](https://projectbook.dev) · [**Try the demo**](https://demo.projectbook.dev) · [**Docs**](docs) · [**Backend repo**](https://github.com/MrEthical07/projectbook-backend)
 
-At its core, ProjectBook enforces a structured thinking model:
+</div>
 
-Insights lead to problems
-Problems lead to ideas
-Ideas lead to experiments
-Experiments lead to learning
+<!-- TODO (task: demo GIF): drop a 30–60s screen capture at docs/assets/demo.gif showing
+     create story → link problem → idea → task → feedback → orphan flag, then embed it here:
+     <p align="center"><img src="docs/assets/demo.gif" alt="ProjectBook in action" width="820" /></p>
+     Until it exists, the demo link above is the fallback. -->
 
-This ensures teams don’t just execute — they understand why they’re building what they build.
+---
 
-Built using SvelteKit with Svelte 5 runes, the platform delivers a highly reactive, modular UI with strict data boundaries, permission-aware rendering, and efficient server communication via remote functions. Combined with a hybrid backend architecture (Go + PostgreSQL + MongoDB), ProjectBook provides both flexibility and rigor.
+## What is ProjectBook?
 
-The result is a system that doesn’t just manage work — it preserves thinking.
+Most product work gets scattered across docs, boards, chat, and tickets — and the *reasoning* behind decisions gets lost along the way. Six months later nobody remembers why a feature exists or which user problem it was meant to solve.
 
-## Why ProjectBook Exists
+ProjectBook is an **open-source design-thinking workspace** that fixes this by modeling product development as one connected chain of artifacts. A user **story** frames a real insight, a **problem** is drawn from it, an **idea** answers the problem, a **task** implements the idea, and **feedback** validates the outcome — and the tool *enforces* those links instead of leaving them optional. Every piece of work can be traced back to the user insight that started it.
 
-Most tools separate documents, tasks, and feedback into disconnected systems.
-This fragmentation destroys context and breaks the reasoning behind decisions.
+It's self-hostable, Apache-2.0 licensed, and built on SvelteKit + Go.
 
-ProjectBook is built to enforce continuity:
-every artifact is connected, every decision is traceable, and every outcome is tied back to its origin.
+## Why it's different
 
-## System Overview
+Notion, Linear, Jira, Miro, and Productboard all let you link things — *if you remember to*. ProjectBook makes the chain a first-class rule of the system:
 
-ProjectBook is not built as separate frontend and backend layers.
+- **Enforced lineage, not optional tags** — artifacts can't drift out of their context.
+- **Orphans are surfaced, not hidden** — anything missing its upstream/downstream link is flagged (`isOrphan`) so gaps get closed before work moves forward.
+- **Design Thinking as structure, not a label** — Empathize → Define → Ideate → Prototype → Test maps directly onto the routes and data model.
+- **Answer "why are we building this?" instantly** — every task carries its idea, problem, and originating story with it.
 
-It is a single system where:
+## The chain
 
-- the backend enforces permissions, policies, and data integrity
-- the frontend reflects those rules through controlled data access and rendering
+```
+Empathize     Define        Ideate        Prototype     Test
+   │             │             │             │            │
+ Story  ──▶  Problem  ──▶    Idea    ──▶    Task   ──▶  Feedback
+(persona,   (framed from   (answers a    (implements   (validates the
+ research)   stories)       problem)      an idea)       outcome)
+```
 
-This ensures:
+Supporting artifacts — **Journeys, Pages, Resources, Calendar** — add context without cluttering the chain.
 
-- consistent permission enforcement
-- traceable data flow
-- predictable system behavior
+## Features
 
-## System Constraints
+- End-to-end traceability from user insight to validated outcome
+- Enforced artifact relationships with orphan-state visibility
+- Per-artifact editing with explicit save (no noisy autosave) and status workflows
+- Table/Kanban task views, filters, assignees, deadlines
+- Mask-based RBAC — fine-grained, per-domain permissions across the whole app
+- Permission-aware UI: you never see a control the backend wouldn't allow
+- Self-hostable; your data stays yours
 
-The frontend enforces strict architectural boundaries:
+## Screenshots
 
-- UI routes (`src/routes/**`) never call backend APIs directly — all access is routed through remote functions
-- Remote functions define the only allowed query/command boundaries
-- No intermediate service layer is allowed between UI and remote functions
-- All mutations must pass through schema validation (Zod) before execution
-- Permission checks must use bitmask-based `hasPerm` evaluation — not role-based logic
-- Full-state payloads are required for mutations (no partial patching)
+<!-- TODO (task: demo GIF / screenshots): add a few screenshots to docs/assets/ and embed here. -->
+> A picture's worth more than this README — **[try the live demo](https://demo.projectbook.dev)**.
 
-These constraints are enforced through structure and runtime checks, not developer convention.
+## Quickstart (development)
 
-## Why These Decisions Exist
-
-ProjectBook prioritizes:
-
-- traceability over flexibility
-- explicit flow over convenience
-- enforced structure over optional patterns
-
-This leads to deliberate constraints:
-
-- fewer abstraction layers in frontend
-- strict data boundaries in backend
-- controlled permission propagation
-
-This system intentionally sacrifices flexibility to guarantee consistency, traceability, and correctness.
-
-## Core Model
-
-Design Thinking Flow:
-Empathize → Define → Ideate → Prototype → Test
-
-Artifact Chain:
-Story → Problem → Idea → Task → Feedback
-
-Each step is explicitly linked.
-Nothing exists in isolation.
-
-## What Makes ProjectBook Different
-
-- Not a task manager — a structured thinking system
-- Enforces artifact relationships instead of optional linking
-- Eliminates context loss by design
-- Makes reasoning behind decisions traceable
-- Exposes orphaned artifacts instead of hiding them
-
-## Key Capabilities
-
-- End-to-end artifact traceability from user insight to validated outcome
-- Design Thinking phases enforced as system structure, not labels
-- Explicit artifact relationships with orphan-state visibility
-- Permission-aware execution across UI and backend
-- Structured workflow progression with enforced context continuity
-
-## Tech Stack
-
-- SvelteKit + Svelte 5
-- TypeScript
-- Vite
-- Zod
-- Tailwind CSS and shadcn-svelte UI components
-
-## System Guarantees
-
-The system ensures:
-
-- Every operation follows a defined execution path
-- Permissions are consistently enforced across UI and backend
-- Data relationships remain explicit and traceable
-- No hidden or implicit data mutations occur
-- System behavior is deterministic under defined inputs
-- No mutation can bypass validation or permission checks
-- UI state always reflects backend-enforced constraints
-
-## Tradeoffs
-
-This architecture introduces deliberate tradeoffs:
-
-- Reduced flexibility in favor of enforceable structure
-- Increased architectural rigidity due to strict boundaries
-- Additional complexity in permission propagation and cache invalidation
-- Full-state mutation model increases payload size but eliminates merge conflicts and state drift
-
-These tradeoffs are intentional to ensure consistency, traceability, and correctness.
-
-## What This System Avoids
-
-- No direct API calls from UI components
-- No hidden data access paths
-- No implicit permission checks
-- No loosely defined data relationships
-- No silent fallbacks or magic behavior
-
-Clarity and enforceability are prioritized over flexibility.
-
-## Execution Model
-
-ProjectBook enforces a strict end-to-end execution flow:
-
-UI → Route Load → Remote Functions → API Layer → Backend Modules → Store → Database
-
-### Frontend
-
-- Route-based data loading using SvelteKit load functions
-- Remote functions define strict query (`query()`) and mutation (`command()`) boundaries
-- All reads pass through cache-aware query handlers
-- All writes pass through validated command handlers with explicit invalidation
-- Local state managed via Svelte 5 runes using full-state snapshots
-
-### Backend
-
-- Request pipeline:
-  handler → service → repository → store → database
-- Policy stages:
-  auth → project scope → permission resolution → RBAC → rate limiting → caching
-
-### Example Flow
-
-Updating a task:
-
-1. User edits task in UI
-2. Local state updates via runes
-3. Remote command is triggered
-4. API helper sends request to backend
-5. Backend validates auth and permissions
-6. Service defines transaction
-7. Repository executes update via store
-8. Cache invalidation is triggered
-9. Updated data returns through same path
-
-All operations follow this controlled path.
-There are no alternate execution routes or hidden access paths.
-
-## Cache System
-
-- In-process query cache with structured tag-based invalidation
-- Cache applied only to read operations (`query`)
-- Explicit invalidation triggered by mutation responses
-- Cache scoped by user, project, and route context
-
-Cache correctness is enforced through explicit invalidation, not implicit TTL-based assumptions.
-
-## Technical Decisions
-
-- No service layer in frontend — direct remote-function model for clarity and control
-- Permission-aware rendering based on backend-issued context snapshots
-- Strict separation between UI, data access, and backend contracts
-- Hybrid backend architecture (Go + PostgreSQL + MongoDB) for structured and flexible data handling
-- Redis-backed caching with explicit invalidation strategies
-- Policy-driven middleware for authentication, rate limiting, and observability
-
-## System Design Philosophy
-
-- Explicit over implicit behavior
-- Structure over flexibility where it matters
-- Security and permissions enforced at every layer
-- No hidden coupling between artifacts
-- Fail-fast validation over silent fallback
-
-## Getting Started
+ProjectBook is two services: this SvelteKit web app and the [Go backend](https://github.com/MrEthical07/projectbook-backend) (Postgres + MongoDB + Redis). The web app needs a running backend to work.
 
 ```bash
 pnpm install
 pnpm run dev
 ```
 
-### Optional: Enable Google Tag Manager
+Set the backend URL via environment variables (`PROJECTBOOK_API_BASE_URL`, `API_URL`). See [docs/development-guide.md](docs/development-guide.md) for the full setup, and the [backend repo](https://github.com/MrEthical07/projectbook-backend) for its services.
 
-To enable Google Tag Manager automatically, set the public container ID environment variable before starting or deploying the app:
+### Self-hosting (production)
 
-```bash
-PUBLIC_GTM_ID=GTM-XXXXXXX
-```
-
-When `PUBLIC_GTM_ID` is set, the GTM snippet is injected automatically from `src/app.html`. Leave it unset to keep GTM disabled.
-
-## Docker (Production)
-
-Build the production image from the web repository root:
+Build and run the web image with runtime-injected config:
 
 ```bash
 docker build -t projectbook-web:prod .
-```
-
-Run the image with runtime-injected configuration:
-
-```bash
 docker run --rm -p 3000:3000 \
-	-e PROJECTBOOK_API_BASE_URL=http://host.docker.internal:8080/api/v1 \
-	-e API_URL=http://host.docker.internal:8080 \
-	-e NODE_ENV=production \
-	-e HOST=0.0.0.0 \
-	projectbook-web:prod
+  -e PROJECTBOOK_API_BASE_URL=http://host.docker.internal:8080/api/v1 \
+  -e API_URL=http://host.docker.internal:8080 \
+  -e NODE_ENV=production -e HOST=0.0.0.0 \
+  projectbook-web:prod
 ```
 
-Container notes:
+The image bundles no secrets — all config is via env vars, and the backend is an external dependency. See the [backend repo](https://github.com/MrEthical07/projectbook-backend) for its setup.
 
-- The image does not bundle secrets or `.env` files.
-- Runtime configuration is provided through environment variables.
-- The backend API is an external dependency and is not bundled into the web image.
+> 🚧 A single `docker compose up` that boots the whole stack (web + API + Postgres + Mongo + Redis) with a seeded demo project is on the roadmap — it'll make self-hosting a two-minute affair.
 
-### Note
+## Tech stack
 
-The projectbook requires fully configured and running backend api to work properly. Please refer to the [ProjectBook Backend](https://github.com/MrEthical07/projectbook-backend) repository for setup instructions. Make sure all env variables are properly set and the backend is running before starting the web application.
+**Frontend:** SvelteKit · Svelte 5 (runes) · TypeScript · Vite · Zod · Tailwind CSS · shadcn-svelte
+**Backend:** Go · PostgreSQL · MongoDB · Redis ([separate repo](https://github.com/MrEthical07/projectbook-backend))
+**Auth:** [goAuth](https://github.com/MrEthical07/goAuth) — a custom Go auth engine (JWT + Redis sessions + bitmask RBAC)
 
-## Documentation
+## Architecture (for contributors)
 
-- Full docs: [docs](docs)
-- Architecture: [docs/architecture.md](docs/architecture.md)
-- Mental model: [docs/mental-model.md](docs/mental-model.md)
-- Development guide: [docs/development-guide.md](docs/development-guide.md)
+ProjectBook favors explicit, traceable structure over flexibility. The frontend has **no service layer**: UI → route load → remote functions (`query()` / `command()`) → API layer → backend. Remote functions are the only read/write boundary, own Zod validation and permission checks, and send full-state snapshots (no partial patching). Permissions use bitmask `hasPerm` checks resolved from backend-issued context.
 
-## Changelog
+If you're contributing or curious about the internals (execution model, caching, tradeoffs, data flow), start here:
 
-- Release history: [CHANGELOG.md](CHANGELOG.md)
+- [Architecture](docs/architecture.md)
+- [Mental model](docs/mental-model.md)
+- [Data flow](docs/data-flow.md)
+- [Permissions](docs/permissions.md)
+- [Remote functions](docs/remote-functions.md)
+- [Development guide](docs/development-guide.md)
 
-## Project Links
+## Links
 
-- Frontend: https://github.com/MrEthical07/projectbook
-- Backend: https://github.com/MrEthical07/projectbook-backend
-- Live App: https://projectbook.dev
-- Demo: https://demo.projectbook.dev
-- Auth Engine (goAuth): https://github.com/MrEthical07/goAuth
+- **Live app:** https://projectbook.dev
+- **Demo:** https://demo.projectbook.dev
+- **Backend:** https://github.com/MrEthical07/projectbook-backend
+- **Auth engine (goAuth):** https://github.com/MrEthical07/goAuth
+- **Docs:** [docs/](docs)
 
-## Contribution
+## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/contribution-guide.md](docs/contribution-guide.md).
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/contribution-guide.md](docs/contribution-guide.md).
 
 ## License
 
-Licensed under Apache 2.0. See [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](LICENSE).
