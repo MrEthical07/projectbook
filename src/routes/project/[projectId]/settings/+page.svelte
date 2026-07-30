@@ -128,23 +128,24 @@
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 	let actionError = $state('');
 
-	let currentSignature = $derived(
-		JSON.stringify({
-			projectName,
-			projectDescription,
-			projectStatus,
-			whiteboardsEnabled,
-			advancedDatabasesEnabled,
-			calendarManualEventsEnabled,
-			resourceVersioningEnabled,
-			feedbackAggregationEnabled,
-			notifyArtifactCreated,
-			notifyArtifactLocked,
-			notifyFeedbackAdded,
-			notifyResourceUpdated,
-			deliveryChannel
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		projectName,
+		projectDescription,
+		projectStatus,
+		whiteboardsEnabled,
+		advancedDatabasesEnabled,
+		calendarManualEventsEnabled,
+		resourceVersioningEnabled,
+		feedbackAggregationEnabled,
+		notifyArtifactCreated,
+		notifyArtifactLocked,
+		notifyFeedbackAdded,
+		notifyResourceUpdated,
+		deliveryChannel
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let isDirty = $derived(currentSignature !== savedSignature);
 	let deletePhrase = $derived(`${projectName.toUpperCase()} DELETE CONFIRM`);
 	let canConfirmDelete = $derived(deleteConfirmText === deletePhrase);
@@ -154,6 +155,38 @@
 		if (savePhase === 'saved') return 'saved';
 		return 'idle';
 	});
+
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = $state.snapshot(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+		const snapshot = $state.snapshot(savedSnapshot);
+		projectName = snapshot.projectName;
+		projectDescription = snapshot.projectDescription;
+		projectStatus = snapshot.projectStatus;
+		whiteboardsEnabled = snapshot.whiteboardsEnabled;
+		advancedDatabasesEnabled = snapshot.advancedDatabasesEnabled;
+		calendarManualEventsEnabled = snapshot.calendarManualEventsEnabled;
+		resourceVersioningEnabled = snapshot.resourceVersioningEnabled;
+		feedbackAggregationEnabled = snapshot.feedbackAggregationEnabled;
+		notifyArtifactCreated = snapshot.notifyArtifactCreated;
+		notifyArtifactLocked = snapshot.notifyArtifactLocked;
+		notifyFeedbackAdded = snapshot.notifyFeedbackAdded;
+		notifyResourceUpdated = snapshot.notifyResourceUpdated;
+		deliveryChannel = snapshot.deliveryChannel;
+		savedSignature = JSON.stringify(savedSnapshot);
+		actionError = '';
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
+	};
 
 	const triggerSave = async () => {
 		if (!permissions) {
@@ -195,7 +228,7 @@
 				actionError = result.error;
 				return;
 			}
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 			savePhase = 'saved';
 			savedBadgeTimer = setTimeout(() => {
 				if (!isDirty) savePhase = 'idle';
@@ -208,7 +241,7 @@
 	};
 
 	onMount(() => {
-		savedSignature = currentSignature;
+		captureSavedSnapshot();
 	});
 
 	const archiveProject = async () => {
@@ -310,6 +343,16 @@
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
+					{#if canEdit}
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={discardChanges}
+							disabled={!isDirty || savePhase === 'saving'}
+						>
+							Discard
+						</Button>
+					{/if}
 					<Button
 						size="sm"
 						onclick={triggerSave}
