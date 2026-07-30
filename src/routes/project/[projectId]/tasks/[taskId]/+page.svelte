@@ -155,23 +155,24 @@
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const normalizedDeadline = (value: CalendarDate | undefined) => (value ? value.toString() : '');
-	let currentSignature = $derived(
-		JSON.stringify({
-			title,
-			status,
-			assignedToIds,
-			selectedIdeaId,
-			deadline: normalizedDeadline(deadlineDate),
-			hypothesis,
-			planItems,
-			executionLinks,
-			notesText,
-			activeModules,
-			abandonReason
-			// hasFeedback
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		title,
+		status,
+		assignedToIds,
+		selectedIdeaId,
+		deadline: normalizedDeadline(deadlineDate),
+		hypothesis,
+		planItems,
+		executionLinks,
+		notesText,
+		activeModules,
+		abandonReason
+		// hasFeedback
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
 	let savedSignature = $state('');
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 	let saveIndicator = $derived.by(() => {
 		if (savePhase === 'saving') {
@@ -188,6 +189,38 @@
 
 		return 'idle';
 	});
+
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = $state.snapshot(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+
+		const snapshot = $state.snapshot(savedSnapshot);
+		title = snapshot.title;
+		assignedToIds = snapshot.assignedToIds;
+		selectedIdeaId = snapshot.selectedIdeaId;
+		deadlineDate = snapshot.deadline ? parseDate(snapshot.deadline) : undefined;
+		hypothesis = snapshot.hypothesis;
+		planItems = snapshot.planItems;
+		executionLinks = snapshot.executionLinks;
+		notesText = snapshot.notesText;
+		activeModules = snapshot.activeModules;
+		abandonReason = snapshot.abandonReason;
+
+		planDragIndex = null;
+		savedSignature = JSON.stringify(savedSnapshot);
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
+	};
 
 	let isReadOnly = $derived(!canEditTask || status === 'Completed' || status === 'Abandoned');
 
@@ -299,7 +332,7 @@
 				return;
 			}
 			status = nextStatus;
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 			statusDialogOpen = false;
 			toast.success('Status changed');
 		} catch (error) {
@@ -369,7 +402,7 @@
 				return;
 			}
 
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 			savePhase = 'saved';
 			toast.success('Changes saved');
 			savedBadgeTimer = setTimeout(() => {
@@ -433,19 +466,7 @@
 			planDragIndex = null;
 			savePhase = 'idle';
 
-			savedSignature = JSON.stringify({
-				title,
-				status,
-				assignedToIds,
-				selectedIdeaId,
-				deadline: normalizedDeadline(deadlineDate),
-				hypothesis,
-				planItems,
-				executionLinks,
-				notesText,
-				activeModules,
-				abandonReason
-			});
+			captureSavedSnapshot();
 			saveReady = true;
 		});
 	});
@@ -581,6 +602,17 @@
 								<span class="text-emerald-600">Saved</span>
 							{/if}
 						</div>
+						{#if canEditTask}
+							<Button
+								class="mt-4"
+								variant="ghost"
+								size="sm"
+								onclick={discardChanges}
+								disabled={savePhase === 'saving' || !isDirty}
+							>
+								Discard
+							</Button>
+						{/if}
 						<Button
 							class="mt-4"
 							variant="outline"

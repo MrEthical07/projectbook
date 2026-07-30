@@ -141,6 +141,7 @@
 	type SavePhase = 'idle' | 'saving' | 'saved';
 	let savePhase = $state<SavePhase>('idle');
 	let savedSignature = $state('');
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -153,22 +154,22 @@
 	let selectedPainPoints = $derived<string[]>(data.selectedPainPoints ?? []);
 
 	let suggestedTitle = $derived(isDraft(status) && !title ? finalStatement : title);
-	let currentSignature = $derived(
-		JSON.stringify({
-			title,
-			finalStatement,
-			orphanAcknowledged,
-			selectedPainPoints,
-			customPainPoints,
-			linkedSources: linkedSources.map((source) => ({
-				id: source.id,
-				type: source.type
-			})),
-			activeModules,
-			moduleContent,
-			notesText
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		title,
+		finalStatement,
+		orphanAcknowledged,
+		selectedPainPoints,
+		customPainPoints,
+		linkedSources: linkedSources.map((source) => ({
+			id: source.id,
+			type: source.type
+		})),
+		activeModules,
+		moduleContent,
+		notesText
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 	let saveIndicator = $derived.by(() => {
 		if (savePhase === 'saving') {
@@ -244,6 +245,36 @@
 		notesText
 	});
 
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = $state.snapshot(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+
+		const snapshot = $state.snapshot(savedSnapshot);
+		title = snapshot.title;
+		finalStatement = snapshot.finalStatement;
+		orphanAcknowledged = snapshot.orphanAcknowledged;
+		selectedPainPoints = snapshot.selectedPainPoints;
+		customPainPoints = snapshot.customPainPoints;
+		activeModules = snapshot.activeModules;
+		moduleContent = snapshot.moduleContent;
+		notesText = snapshot.notesText;
+
+		newCustomPainPoint = '';
+		savedSignature = JSON.stringify(savedSnapshot);
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
+	};
+
 	const setSavedBadge = () => {
 		if (savedBadgeTimer) {
 			clearTimeout(savedBadgeTimer);
@@ -283,7 +314,7 @@
 				return false;
 			}
 			linkedSources = nextLinkedSources;
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 
 			// let newSourceInsights = (await getProblemPageData({ projectId, problemId })).sourceInsights;
 			// console.log("Fetched updated source insights:", newSourceInsights);
@@ -516,7 +547,7 @@
 				toast.error('error' in result ? result.error : 'Save failed.');
 				return;
 			}
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 			toast.success('Changes saved');
 			setSavedBadge();
 			return true;
@@ -591,20 +622,7 @@
 			selectedJourneyId = '';
 			newCustomPainPoint = '';
 
-			savedSignature = JSON.stringify({
-				title,
-				finalStatement,
-				orphanAcknowledged,
-				selectedPainPoints: selectedPainPoints,
-				customPainPoints,
-				linkedSources: linkedSources.map((source) => ({
-					id: source.id,
-					type: source.type
-				})),
-				activeModules,
-				moduleContent,
-				notesText
-			});
+			captureSavedSnapshot();
 			saveReady = true;
 		});
 	});
@@ -738,6 +756,16 @@
 								<span class="text-emerald-600">Saved</span>
 							{/if}
 						</div>
+						{#if canEditProblem}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={discardChanges}
+								disabled={savePhase === 'saving' || !isDirty}
+							>
+								Discard
+							</Button>
+						{/if}
 						<Button
 							size="sm"
 							onclick={triggerSave}

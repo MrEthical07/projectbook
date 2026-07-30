@@ -85,28 +85,59 @@
 	type SavePhase = 'idle' | 'saving' | 'saved';
 	let savePhase = $state<SavePhase>('idle');
 	let savedSignature = $state('');
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	let currentSignature = $derived(
-		JSON.stringify({
-			title,
-			outcome,
-			isArchived,
-			observation,
-			interpretation,
-			notesText,
-			linkedArtifacts,
-			activeModules,
-			evidenceText,
-			evidenceLocked,
-			nextStepsText
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		title,
+		outcome,
+		isArchived,
+		observation,
+		interpretation,
+		notesText,
+		linkedArtifacts,
+		activeModules,
+		evidenceText,
+		evidenceLocked,
+		nextStepsText
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
 	let pageStatus = $derived<PageStatus>(isArchived ? 'Archived' : outcome);
 	let isReadOnly = $derived(isArchived || !canEditFeedback);
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = $state.snapshot(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+
+		const snapshot = $state.snapshot(savedSnapshot);
+		title = snapshot.title;
+		observation = snapshot.observation;
+		interpretation = snapshot.interpretation;
+		notesText = snapshot.notesText;
+		linkedArtifacts = snapshot.linkedArtifacts;
+		activeModules = snapshot.activeModules;
+		evidenceText = snapshot.evidenceText;
+		evidenceLocked = snapshot.evidenceLocked;
+		nextStepsText = snapshot.nextStepsText;
+
+		savedSignature = JSON.stringify(savedSnapshot);
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
+	};
 
 	let saveIndicator = $derived.by(() => {
 		if (savePhase === 'saving') {
@@ -286,7 +317,7 @@
 				toast.error('Failed to save changes');
 				return false;
 			}
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 			savePhase = 'saved';
 			toast.success('Changes saved');
 			savedBadgeTimer = setTimeout(() => {
@@ -348,19 +379,7 @@
 			statusConfirmOpen = false;
 			statusMutationPending = false;
 
-			savedSignature = JSON.stringify({
-				title,
-				outcome,
-				isArchived,
-				observation,
-				interpretation,
-				notesText,
-				linkedArtifacts,
-				activeModules,
-				evidenceText,
-				evidenceLocked,
-				nextStepsText
-			});
+			captureSavedSnapshot();
 			saveReady = true;
 		});
 	});
@@ -490,6 +509,16 @@
 								<span class="text-emerald-600">Saved</span>
 							{/if}
 						</div>
+						{#if canEditFeedback}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={discardChanges}
+								disabled={savePhase === 'saving' || !isDirty}
+							>
+								Discard
+							</Button>
+						{/if}
 						<Button
 							size="sm"
 							onclick={triggerSave}
