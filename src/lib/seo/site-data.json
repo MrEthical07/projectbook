@@ -21,6 +21,11 @@
       "description": "Learn how ProjectBook supports a structured product workflow from research and problem framing to execution and validation."
     },
     {
+      "path": "/docs",
+      "title": "Docs - ProjectBook",
+      "description": "Reference documentation for ProjectBook: getting started, the design thinking flow, the artifact guide, and frequently asked questions."
+    },
+    {
       "path": "/terms-and-conditions",
       "title": "Terms and Conditions - ProjectBook",
       "description": "Read the ProjectBook terms and conditions for using the product and related services."
@@ -42,7 +47,6 @@
     "/my-account",
     "/auth/",
     "/logout",
-    "/docs",
     "/healthz",
     "/readyz",
     "/api/"
