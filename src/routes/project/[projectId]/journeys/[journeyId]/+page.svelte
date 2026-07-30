@@ -252,7 +252,7 @@
 
 	const captureSavedSnapshot = () => {
 		const snapshot = buildEditableSnapshot();
-		savedSnapshot = structuredClone(snapshot);
+		savedSnapshot = $state.snapshot(snapshot);
 		savedSignature = JSON.stringify(snapshot);
 	};
 
@@ -261,7 +261,7 @@
 			return;
 		}
 
-		const snapshot = structuredClone(savedSnapshot);
+		const snapshot = $state.snapshot(savedSnapshot);
 		journey.title = snapshot.title;
 		journey.description = snapshot.description;
 		journey.persona = snapshot.persona;

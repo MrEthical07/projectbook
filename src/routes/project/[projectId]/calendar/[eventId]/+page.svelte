@@ -228,7 +228,7 @@
 
 	const captureSavedSnapshot = () => {
 		const snapshot = buildEditableSnapshot();
-		savedSnapshot = structuredClone(snapshot);
+		savedSnapshot = $state.snapshot(snapshot);
 		savedSignature = JSON.stringify(snapshot);
 	};
 
@@ -237,7 +237,7 @@
 			return;
 		}
 
-		const snapshot = structuredClone(savedSnapshot);
+		const snapshot = $state.snapshot(savedSnapshot);
 		event = { ...snapshot } as CalendarEvent;
 		eventDateValue = parseDate(snapshot.date);
 		tagsInput = (snapshot.tags ?? []).join(', ');

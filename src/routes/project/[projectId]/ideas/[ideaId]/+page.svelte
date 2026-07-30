@@ -259,7 +259,7 @@
 
 	const captureSavedSnapshot = () => {
 		const snapshot = buildEditableSnapshot();
-		savedSnapshot = structuredClone(snapshot);
+		savedSnapshot = $state.snapshot(snapshot);
 		savedSignature = JSON.stringify(snapshot);
 	};
 
@@ -268,7 +268,7 @@
 			return;
 		}
 
-		const snapshot = structuredClone(savedSnapshot);
+		const snapshot = $state.snapshot(savedSnapshot);
 		title = snapshot.title;
 		description = snapshot.description;
 		summaryTitle = snapshot.summaryTitle;
@@ -535,7 +535,7 @@
 			statusMutationPending = false;
 			savePhase = 'idle';
 
-			savedSnapshot = structuredClone({
+			savedSnapshot = $state.snapshot({
 				...buildEditableSnapshot(),
 				selectedProblemId: isProblemLinkValid ? selectedProblemId : null
 			});
