@@ -139,23 +139,24 @@
 	type SavePhase = 'idle' | 'saving' | 'saved';
 	let savePhase = $state<SavePhase>('idle');
 	let savedSignature = $state('');
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
-	let currentSignature = $derived(
-		JSON.stringify({
-			title,
-			description,
-			ideaStatus,
-			isArchived,
-			summaryTitle,
-			summaryDescription,
-			notesText,
-			selectedProblemId,
-			activeModules,
-			moduleContent
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		title,
+		description,
+		ideaStatus,
+		isArchived,
+		summaryTitle,
+		summaryDescription,
+		notesText,
+		selectedProblemId: selectedProblemId as string | null,
+		activeModules,
+		moduleContent
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 	let saveIndicator = $derived.by(() => {
 		if (savePhase === 'saving') {
@@ -247,13 +248,42 @@
 
 			await invalidate((url) => url.pathname === page.url.pathname);
 			isArchived = nextArchived;
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 		} catch (error) {
 			console.error('Failed to update idea archive state', error);
 			toast.error('Status change failed.');
 		} finally {
 			statusMutationPending = false;
 		}
+	};
+
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = structuredClone(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+
+		const snapshot = structuredClone(savedSnapshot);
+		title = snapshot.title;
+		description = snapshot.description;
+		summaryTitle = snapshot.summaryTitle;
+		summaryDescription = snapshot.summaryDescription;
+		notesText = snapshot.notesText;
+		selectedProblemId = snapshot.selectedProblemId ?? '';
+		activeModules = snapshot.activeModules;
+		moduleContent = snapshot.moduleContent;
+
+		savedSignature = JSON.stringify(savedSnapshot);
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
 	};
 
 	const statusVariant = (currentStatus: PageStatus) => {
@@ -434,7 +464,7 @@
 			toast.error('error' in result ? result.error : 'Save failed.');
 			return;
 		}
-		savedSignature = currentSignature;
+		captureSavedSnapshot();
 		savePhase = 'saved';
 		toast.success('Changes saved');
 		savedBadgeTimer = setTimeout(() => {
@@ -505,18 +535,11 @@
 			statusMutationPending = false;
 			savePhase = 'idle';
 
-			savedSignature = JSON.stringify({
-				title,
-				description,
-				ideaStatus,
-				isArchived,
-				summaryTitle,
-				summaryDescription,
-				notesText,
-				selectedProblemId: isProblemLinkValid ? selectedProblemId : null,
-				activeModules,
-				moduleContent
+			savedSnapshot = structuredClone({
+				...buildEditableSnapshot(),
+				selectedProblemId: isProblemLinkValid ? selectedProblemId : null
 			});
+			savedSignature = JSON.stringify(savedSnapshot);
 			saveReady = true;
 		});
 	});
@@ -644,6 +667,16 @@
 								<span class="text-emerald-600">Saved</span>
 							{/if}
 						</div>
+						{#if canEditIdea}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={discardChanges}
+								disabled={savePhase === 'saving' || !isDirty}
+							>
+								Discard
+							</Button>
+						{/if}
 						<Button
 							size="sm"
 							onclick={triggerSave}
