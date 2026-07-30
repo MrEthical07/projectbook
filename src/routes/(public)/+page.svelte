@@ -293,43 +293,58 @@
         text-[clamp(2.5rem,6vw,4.5rem)] leading-[1.1] font-bold tracking-[-0.02em]
         text-gray-700 [animation-delay:100ms]"
 			>
-				Product work as a{' '}
+				Product thinking{' '}
 				<span
 					class="bg-linear-to-br from-[#a78bfa] via-primary to-[#818cf8] bg-clip-text text-transparent"
 				>
-					connected execution system.
+					you can trace.
 				</span>
 			</h1>
 
 			<!-- Sub -->
 			<p
 				class="hero-enter mb-12
-        max-w-xl text-lg leading-relaxed text-gray-600 [animation-delay:200ms]"
+        max-w-2xl text-lg leading-relaxed text-gray-600 [animation-delay:200ms]"
 			>
-				ProjectBook models product development as a traceable chain of artifacts - from user insight
-				to validated outcomes. Every decision has lineage. Every outcome has origin.
+				ProjectBook is the open-source design-thinking workspace where every task traces back to the
+				user insight that justified it — story to problem to idea to task to feedback, every link
+				enforced.
 			</p>
 
 			<!-- CTAs -->
-			<div class="hero-enter mb-24 flex flex-wrap justify-center gap-4 [animation-delay:300ms]">
+			<div
+				class="hero-enter mb-6 flex flex-wrap items-center justify-center gap-4 [animation-delay:300ms]"
+			>
 				<a
-					href="/workflow"
+					href="https://demo.projectbook.dev"
 					class={buttonVariants({
 						variant: 'default',
 						size: 'lg'
 					})}
 				>
-					Explore the System
+					Try the live demo
 					<ChevronRight size={16} />
 				</a>
 				<a
-					href="/artifacts"
+					href="/auth"
 					class={buttonVariants({
 						variant: 'outline',
 						size: 'lg'
 					})}
 				>
-					View Artifacts
+					Open the app
+				</a>
+			</div>
+
+			<div class="hero-enter mb-24 [animation-delay:400ms]">
+				<a
+					href="https://github.com/MrEthical07/projectbook"
+					rel="noreferrer"
+					target="_blank"
+					class="inline-flex items-center gap-1.5 text-sm text-gray-600 underline-offset-4 transition hover:text-primary hover:underline"
+				>
+					View on GitHub
+					<ExternalLink size={14} />
 				</a>
 			</div>
 
