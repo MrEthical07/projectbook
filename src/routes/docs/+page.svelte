@@ -1,17 +1,37 @@
 <script lang="ts">
+	import { getPublicPageSeo } from '$lib/seo/site';
+
 	let { data } = $props();
 
 	let sections = $derived(data.sections);
+
+	const seo = getPublicPageSeo('/docs');
+	const fallbackTitle = 'Docs - ProjectBook';
 </script>
 
 <svelte:head>
-	<title>Docs • ProjectBook</title>
-	<meta
-		name="description"
-		content="Reference documentation for workflows, artifacts, and platform usage."
-	/>
-	<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-	<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+	<title>{seo?.title ?? fallbackTitle}</title>
+	<meta name="description" content={seo?.description ?? ''} />
+	<meta name="robots" content="index, follow" />
+	<meta name="googlebot" content="index, follow" />
+	{#if seo?.canonical}
+		<link rel="canonical" href={seo.canonical} />
+	{/if}
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content={seo?.title ?? fallbackTitle} />
+	<meta property="og:description" content={seo?.description ?? ''} />
+	{#if seo?.canonical}
+		<meta property="og:url" content={seo.canonical} />
+	{/if}
+	{#if seo?.ogImage}
+		<meta property="og:image" content={seo.ogImage} />
+	{/if}
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content={seo?.title ?? fallbackTitle} />
+	<meta name="twitter:description" content={seo?.description ?? ''} />
+	{#if seo?.ogImage}
+		<meta name="twitter:image" content={seo.ogImage} />
+	{/if}
 </svelte:head>
 
 <main class="min-h-screen bg-background p-4 sm:p-8">

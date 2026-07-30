@@ -36,7 +36,8 @@ const PUBLIC_PATHS = [
 	'/',
 	'/artifacts',
 	'/workflow',
-	'/collaboration'
+	'/collaboration',
+	'/docs'
 ];
 
 const UNVERIFIED_ALLOWED_PATHS = ['/auth/verify', '/logout'];

@@ -1,4 +1,4 @@
-import { command, query } from '$app/server';
+import { command, getRequestEvent, query } from '$app/server';
 import { z } from 'zod';
 import {
 	encodePathSegment,
@@ -264,6 +264,20 @@ export const getProjectCreationReference = query(async () => {
 });
 
 export const getUserDocsSections = query(async () => {
+	// /docs is a public page, so anonymous visitors have no session to authenticate
+	// the backend lookup with. The section list only labels the sidebar anchors, and
+	// the fallback matches the statically rendered sections, so skip the call.
+	const sections = getRequestEvent().locals.user
+		? await fetchDocsSections()
+		: [...docsFallbackSections];
+
+	return sections.map((section) => ({
+		id: slugifySectionId(section),
+		title: section
+	}));
+});
+
+const fetchDocsSections = async (): Promise<string[]> => {
 	const docs = await remoteQueryRequest<{ sections?: string[] }>({
 		path: '/home/docs',
 		method: 'GET',
@@ -273,16 +287,11 @@ export const getUserDocsSections = query(async () => {
 			tags: ['home', 'home-docs']
 		}
 	});
-	const sections =
-		Array.isArray(docs.sections) && docs.sections.length > 0
-			? docs.sections
-			: [...docsFallbackSections];
 
-	return sections.map((section) => ({
-		id: slugifySectionId(section),
-		title: section
-	}));
-});
+	return Array.isArray(docs.sections) && docs.sections.length > 0
+		? docs.sections
+		: [...docsFallbackSections];
+};
 
 export const getUserAccountSettings = query(async () => {
 	const account = await remoteQueryRequest<{

@@ -20,6 +20,7 @@ const run = async () => {
 		'/artifacts',
 		'/collaboration',
 		'/workflow',
+		'/docs',
 		'/terms-and-conditions',
 		'/privacy-policy'
 	];
@@ -40,6 +41,7 @@ const run = async () => {
 		'src/routes/(public)/artifacts/+page.svelte',
 		'src/routes/(public)/collaboration/+page.svelte',
 		'src/routes/(public)/workflow/+page.svelte',
+		'src/routes/docs/+page.svelte',
 		'src/routes/terms-and-conditions/+page.svelte',
 		'src/routes/privacy-policy/+page.svelte'
 	];
@@ -74,11 +76,7 @@ const run = async () => {
 		);
 	}
 
-	const privatePages = [
-		'src/routes/docs/+page.svelte',
-		'src/routes/my-account/+page.svelte',
-		'src/routes/logout/+page.svelte'
-	];
+	const privatePages = ['src/routes/my-account/+page.svelte', 'src/routes/logout/+page.svelte'];
 
 	for (const pagePath of privatePages) {
 		const contents = await readText(pagePath);

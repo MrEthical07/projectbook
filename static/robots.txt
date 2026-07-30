@@ -3,6 +3,7 @@ Allow: /
 Allow: /artifacts
 Allow: /collaboration
 Allow: /workflow
+Allow: /docs
 Allow: /terms-and-conditions
 Allow: /privacy-policy
 Allow: /robots.txt
@@ -20,7 +21,6 @@ Disallow: /account
 Disallow: /my-account
 Disallow: /auth/
 Disallow: /logout
-Disallow: /docs
 Disallow: /healthz
 Disallow: /readyz
 Disallow: /api/
