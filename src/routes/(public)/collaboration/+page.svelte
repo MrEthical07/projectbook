@@ -143,6 +143,9 @@
 		<link rel="canonical" href={seo.canonical} />
 	{/if}
 	<meta property="og:type" content="website" />
+	{#if seo?.siteName}
+		<meta property="og:site_name" content={seo.siteName} />
+	{/if}
 	<meta property="og:title" content={seo?.title ?? 'Structured Collaboration - ProjectBook'} />
 	<meta property="og:description" content={seo?.description ?? ''} />
 	{#if seo?.canonical}
