@@ -107,22 +107,23 @@
 	let pendingStatus = $state<StoryStatus | null>(null);
 	let statusMutationPending = $state(false);
 	let savedSignature = $state('');
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let saveReady = $state(false);
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	let currentSignature = $derived(
-		JSON.stringify({
-			title: story.title,
-			description: story.description,
-			persona: story.persona,
-			context: story.context,
-			empathyMap: story.empathyMap,
-			painPoints: story.painPoints,
-			hypothesis: story.hypothesis,
-			notes: story.notes,
-			addOnSections
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		title: story.title,
+		description: story.description,
+		persona: story.persona,
+		context: story.context,
+		empathyMap: story.empathyMap,
+		painPoints: story.painPoints,
+		hypothesis: story.hypothesis,
+		notes: story.notes,
+		addOnSections
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 	let saveIndicator = $derived.by(() => {
 		if (savePhase === 'saving') return 'saving';
@@ -252,7 +253,7 @@
 			savePhase = 'idle';
 			return;
 		}
-		savedSignature = currentSignature;
+		captureSavedSnapshot();
 		savePhase = 'saved';
 		toast.success('Changes saved');
 		savedBadgeTimer = setTimeout(() => {
@@ -260,6 +261,38 @@
 				savePhase = 'idle';
 			}
 		}, 1400);
+	};
+
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = structuredClone(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+
+		const snapshot = structuredClone(savedSnapshot);
+		story.title = snapshot.title;
+		story.description = snapshot.description;
+		story.persona = snapshot.persona;
+		story.context = snapshot.context;
+		story.empathyMap = snapshot.empathyMap;
+		story.painPoints = snapshot.painPoints;
+		story.hypothesis = snapshot.hypothesis;
+		story.notes = snapshot.notes;
+		addOnSections = snapshot.addOnSections;
+
+		newPoint = '';
+		newHypothesis = '';
+		savedSignature = JSON.stringify(savedSnapshot);
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
 	};
 
 	const statusVariant = (s: string) => {
@@ -305,17 +338,7 @@
 			}
 			story.status = targetStatus;
 			await invalidate((url) => url.pathname === page.url.pathname);
-			savedSignature = JSON.stringify({
-				title: story.title,
-				description: story.description,
-				persona: story.persona,
-				context: story.context,
-				empathyMap: story.empathyMap,
-				painPoints: story.painPoints,
-				hypothesis: story.hypothesis,
-				notes: story.notes,
-				addOnSections
-			});
+			captureSavedSnapshot();
 			pendingStatus = null;
 			statusConfirmOpen = false;
 			toast.success('Status updated');
@@ -357,17 +380,7 @@
 			statusMutationPending = false;
 			newPoint = '';
 			newHypothesis = '';
-			savedSignature = JSON.stringify({
-				title: s.title,
-				description: s.description,
-				persona: s.persona,
-				context: s.context,
-				empathyMap: s.empathyMap,
-				painPoints: s.painPoints,
-				hypothesis: s.hypothesis,
-				notes: s.notes,
-				addOnSections: a
-			});
+			captureSavedSnapshot();
 			saveReady = true;
 		});
 	});
@@ -444,6 +457,15 @@
 						>
 							<Info class="h-4 w-4" />
 						</Button>
+						{#if !isReadOnly}
+							<Button
+								variant="outline"
+								onclick={discardChanges}
+								disabled={savePhase === 'saving' || !isDirty}
+							>
+								Discard
+							</Button>
+						{/if}
 						<Button
 							onclick={triggerSave}
 							disabled={isReadOnly || savePhase === 'saving' || !isDirty}
