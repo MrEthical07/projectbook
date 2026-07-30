@@ -2,8 +2,8 @@
   "publicPages": [
     {
       "path": "/",
-      "title": "ProjectBook - Structured Product Execution",
-      "description": "ProjectBook helps product teams turn research, ideas, tasks, documents, and feedback into a connected product workflow."
+      "title": "ProjectBook — open-source design-thinking workspace",
+      "description": "Trace every task back to the user insight that justified it. Story to problem to idea to task to feedback, every link enforced. Open source, self-hostable."
     },
     {
       "path": "/artifacts",
