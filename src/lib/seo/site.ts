@@ -13,11 +13,13 @@ type PublicPageSeo = {
 	description: string;
 	canonical: string | null;
 	ogImage: string | null;
+	siteName: string;
 };
 
 const publicPages = siteData.publicPages as PublicPage[];
 const disallowPaths = siteData.disallowPaths as string[];
 const ogImagePath = siteData.ogImagePath as string;
+const siteName = siteData.siteName as string;
 
 const normalizePath = (pathname: string): string => {
 	if (pathname.length > 1 && pathname.endsWith('/')) {
@@ -59,7 +61,8 @@ export const getPublicPageSeo = (pathname: string, fallbackOrigin?: string): Pub
 		title: page.title,
 		description: page.description,
 		canonical,
-		ogImage
+		ogImage,
+		siteName
 	};
 };
 
@@ -85,4 +88,4 @@ export const buildSitemapXml = (origin: string): string => {
 	].join('\n');
 };
 
-export { publicPages, disallowPaths, ogImagePath };
+export { publicPages, disallowPaths, ogImagePath, siteName };

@@ -47,5 +47,6 @@
     "/readyz",
     "/api/"
   ],
-  "ogImagePath": "/asset/logo.png"
+  "ogImagePath": "/asset/logo.png",
+  "siteName": "ProjectBook"
 }

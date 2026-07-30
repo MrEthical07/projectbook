@@ -58,6 +58,26 @@ const run = async () => {
 			contents.includes('property="og:title"'),
 			`Missing og:title in ${pagePath}`
 		);
+		assert(
+			contents.includes('property="og:site_name"'),
+			`Missing og:site_name in ${pagePath}`
+		);
+		assert(
+			contents.includes('property="og:url"'),
+			`Missing og:url in ${pagePath}`
+		);
+		assert(
+			contents.includes('property="og:image"'),
+			`Missing og:image in ${pagePath}`
+		);
+		assert(
+			contents.includes('name="twitter:card" content="summary_large_image"'),
+			`Missing twitter:card in ${pagePath}`
+		);
+		assert(
+			contents.includes('name="twitter:image"'),
+			`Missing twitter:image in ${pagePath}`
+		);
 	}
 
 	const privateLayouts = [
