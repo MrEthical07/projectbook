@@ -95,19 +95,20 @@
 	let pendingStatus = $state<JourneyStatus | null>(null);
 	let statusMutationPending = $state(false);
 	let savedSignature = $state('');
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let saveReady = $state(false);
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	let currentSignature = $derived(
-		JSON.stringify({
-			title: journey.title,
-			description: journey.description,
-			persona: journey.persona,
-			context: journey.context,
-			stages: journey.stages,
-			notes: journey.notes
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		title: journey.title,
+		description: journey.description,
+		persona: journey.persona,
+		context: journey.context,
+		stages: journey.stages,
+		notes: journey.notes
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 	let saveIndicator = $derived.by(() => {
 		if (savePhase === 'saving') return 'saving';
@@ -179,7 +180,7 @@
 				savePhase = 'idle';
 				return;
 			}
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 			savePhase = 'saved';
 			toast.success('Changes saved');
 			savedBadgeTimer = setTimeout(() => {
@@ -237,14 +238,7 @@
 			}
 			journey.status = targetStatus;
 			await invalidate((url) => url.pathname === page.url.pathname);
-			savedSignature = JSON.stringify({
-				title: journey.title,
-				description: journey.description,
-				persona: journey.persona,
-				context: journey.context,
-				stages: journey.stages,
-				notes: journey.notes
-			});
+			captureSavedSnapshot();
 			pendingStatus = null;
 			statusConfirmOpen = false;
 			toast.success('Status updated');
@@ -254,6 +248,37 @@
 		} finally {
 			statusMutationPending = false;
 		}
+	};
+
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = structuredClone(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+
+		const snapshot = structuredClone(savedSnapshot);
+		journey.title = snapshot.title;
+		journey.description = snapshot.description;
+		journey.persona = snapshot.persona;
+		journey.context = snapshot.context;
+		journey.stages = snapshot.stages;
+		journey.notes = snapshot.notes;
+
+		isAddingStage = false;
+		newStageName = '';
+		newActionByStage = {};
+		newPainPointByStage = {};
+		savedSignature = JSON.stringify(savedSnapshot);
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
 	};
 
 	onDestroy(() => {
@@ -284,14 +309,7 @@
 			newStageName = '';
 			newActionByStage = {};
 			newPainPointByStage = {};
-			savedSignature = JSON.stringify({
-				title: j.title,
-				description: j.description,
-				persona: j.persona,
-				context: j.context,
-				stages: j.stages,
-				notes: j.notes
-			});
+			captureSavedSnapshot();
 			saveReady = true;
 		});
 	});
@@ -368,6 +386,15 @@
 						>
 							<Info class="h-4 w-4" />
 						</Button>
+						{#if !isReadOnly}
+							<Button
+								variant="outline"
+								onclick={discardChanges}
+								disabled={savePhase === 'saving' || !isDirty}
+							>
+								Discard
+							</Button>
+						{/if}
 						<Button
 							onclick={triggerSave}
 							disabled={isReadOnly || savePhase === 'saving' || !isDirty}

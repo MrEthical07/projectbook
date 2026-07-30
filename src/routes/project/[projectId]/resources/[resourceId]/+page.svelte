@@ -82,22 +82,50 @@
 	type SavePhase = 'idle' | 'saving' | 'saved';
 	let savePhase = $state<SavePhase>('idle');
 	let savedSignature = $state('');
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
 	let isReadOnly = $derived(status === 'Archived' || !canEditResource);
-	let currentSignature = $derived(
-		JSON.stringify({
-			name,
-			docType,
-			description,
-			notesText,
-			linkedArtifacts,
-			versions
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		name,
+		docType,
+		description,
+		notesText,
+		linkedArtifacts,
+		versions
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = structuredClone(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+
+		const snapshot = structuredClone(savedSnapshot);
+		name = snapshot.name;
+		docType = snapshot.docType;
+		description = snapshot.description;
+		notesText = snapshot.notesText;
+		linkedArtifacts = snapshot.linkedArtifacts;
+		versions = snapshot.versions;
+
+		savedSignature = JSON.stringify(savedSnapshot);
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
+	};
+
 	let saveIndicator = $derived.by(() => {
 		if (savePhase === 'saving') {
 			return 'saving';
@@ -200,7 +228,7 @@
 			return;
 		}
 		updatedAt = new Date().toISOString().slice(0, 10);
-		savedSignature = currentSignature;
+		captureSavedSnapshot();
 		savePhase = 'saved';
 		savedBadgeTimer = setTimeout(() => {
 			if (!isDirty) {
@@ -242,14 +270,7 @@
 			pendingStatus = null;
 			statusMutationPending = false;
 			savePhase = 'idle';
-			savedSignature = JSON.stringify({
-				name,
-				docType,
-				description,
-				notesText,
-				linkedArtifacts,
-				versions
-			});
+			captureSavedSnapshot();
 			saveReady = true;
 		});
 	});
@@ -368,6 +389,16 @@
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
+					{#if canEditResource}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={discardChanges}
+							disabled={savePhase === 'saving' || !isDirty}
+						>
+							Discard
+						</Button>
+					{/if}
 					<Button
 						size="sm"
 						onclick={triggerSave}

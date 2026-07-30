@@ -179,30 +179,72 @@
 	type SavePhase = 'idle' | 'saving' | 'saved';
 	let savePhase = $state<SavePhase>('idle');
 	let savedSignature = $state('');
+	let savedSnapshot = $state<ReturnType<typeof buildEditableSnapshot> | null>(null);
 	let saveReady = $state(false);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBadgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-	let currentSignature = $derived(
-		JSON.stringify({
-			status,
-			title,
-			owner,
-			description,
-			tags,
-			linkedArtifacts,
-			docHeading,
-			docBody,
-			views,
-			activeViewId,
-			tableColumns,
-			tableRows,
-			databaseItems
-		})
-	);
+	const buildEditableSnapshot = () => ({
+		status,
+		title,
+		owner,
+		description,
+		tags,
+		linkedArtifacts,
+		docHeading,
+		docBody,
+		views,
+		activeViewId,
+		tableColumns,
+		tableRows,
+		databaseItems
+	});
+
+	let currentSignature = $derived(JSON.stringify(buildEditableSnapshot()));
 
 	let isDirty = $derived(saveReady && currentSignature !== savedSignature);
 	let isReadOnly = $derived(status === 'Archived' || readOnlyView || !canEditPage);
+
+	const captureSavedSnapshot = () => {
+		const snapshot = buildEditableSnapshot();
+		savedSnapshot = structuredClone(snapshot);
+		savedSignature = JSON.stringify(snapshot);
+	};
+
+	const discardChanges = () => {
+		if (!savedSnapshot || !isDirty) {
+			return;
+		}
+
+		const snapshot = structuredClone(savedSnapshot);
+		title = snapshot.title;
+		owner = snapshot.owner;
+		description = snapshot.description;
+		tags = snapshot.tags;
+		linkedArtifacts = snapshot.linkedArtifacts;
+		docHeading = snapshot.docHeading;
+		docBody = snapshot.docBody;
+		views = snapshot.views;
+		activeViewId = snapshot.activeViewId;
+		tableColumns = snapshot.tableColumns;
+		tableRows = snapshot.tableRows;
+		databaseItems = snapshot.databaseItems;
+
+		blocks = [];
+		dragId = '';
+		addViewOpen = false;
+		newViewName = '';
+		newViewType = 'Table';
+		renameColumnOpen = false;
+		renameColumnId = '';
+		renameColumnValue = '';
+		savedSignature = JSON.stringify(savedSnapshot);
+
+		if (savedBadgeTimer) {
+			clearTimeout(savedBadgeTimer);
+		}
+		savePhase = 'idle';
+	};
 	let activeView = $derived.by(() => {
 		const resolvedView = views.find((view) => view.id === activeViewId);
 		if (!resolvedView) {
@@ -260,7 +302,7 @@
 
 			status = nextStatus;
 			await invalidate((url) => url.pathname === page.url.pathname);
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 			archiveDialogOpen = false;
 			unarchiveDialogOpen = false;
 			toast.success('Status updated');
@@ -590,7 +632,7 @@
 				return;
 			}
 			lastEdited = new Date().toISOString().slice(0, 10);
-			savedSignature = currentSignature;
+			captureSavedSnapshot();
 			savePhase = 'saved';
 			savedBadgeTimer = setTimeout(() => {
 				if (!isDirty) {
@@ -695,21 +737,7 @@
 		tableRows = nextTableRows;
 		databaseItems = nextDatabaseItems;
 		savePhase = 'idle';
-		savedSignature = JSON.stringify({
-			status: nextStatus,
-			title: nextTitle,
-			owner: nextOwner,
-			description: nextDescription,
-			tags: nextTags,
-			linkedArtifacts: nextLinkedArtifacts,
-			docHeading: nextDocHeading,
-			docBody: nextDocBody,
-			views: normalizedViews,
-			activeViewId: resolvedViewId,
-			tableColumns: nextTableColumns,
-			tableRows: nextTableRows,
-			databaseItems: nextDatabaseItems
-		});
+		captureSavedSnapshot();
 		saveReady = true;
 	});
 </script>
@@ -949,6 +977,16 @@
 							<span class="text-emerald-600">Saved</span>
 						{/if}
 					</div>
+					{#if canEditPage}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={discardChanges}
+							disabled={savePhase === 'saving' || !isDirty}
+						>
+							Discard
+						</Button>
+					{/if}
 					<Button
 						size="sm"
 						onclick={triggerSave}
