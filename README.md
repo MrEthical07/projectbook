@@ -88,12 +88,22 @@ docker run --rm -p 3000:3000 \
   -e PROJECTBOOK_API_BASE_URL=http://host.docker.internal:8080/api/v1 \
   -e API_URL=http://host.docker.internal:8080 \
   -e NODE_ENV=production -e HOST=0.0.0.0 \
+  -e ORIGIN=http://localhost:3000 \
   projectbook-web:prod
 ```
 
-The image bundles no secrets — all config is via env vars, and the backend is an external dependency. See the [backend repo](https://github.com/MrEthical07/projectbook-backend) for its setup.
+`ORIGIN` must match the URL you open in the browser; `adapter-node` uses it to validate form POSTs, and a mismatch makes every login fail as cross-site. The image bundles no secrets — all config is via env vars, and the backend is an external dependency. See the [backend repo](https://github.com/MrEthical07/projectbook-backend) for its setup.
 
-> 🚧 A single `docker compose up` that boots the whole stack (web + API + Postgres + Mongo + Redis) with a seeded demo project is on the roadmap — it'll make self-hosting a two-minute affair.
+#### One command for the whole stack
+
+To run everything — web app, Go API, Postgres, MongoDB, and Redis — clone this repo and the backend side by side, then:
+
+```bash
+cd projectbook-backend
+docker compose up --build
+```
+
+Full instructions, including the one extra step needed for the first login (email is disabled by default), are in [SELF-HOSTING.md](https://github.com/MrEthical07/projectbook-backend/blob/main/SELF-HOSTING.md) in the backend repo.
 
 ## Tech stack
 
