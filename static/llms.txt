@@ -8,6 +8,7 @@ ProjectBook helps product teams organize product work across research, problem f
 - https://projectbook.dev/artifacts
 - https://projectbook.dev/collaboration
 - https://projectbook.dev/workflow
+- https://projectbook.dev/blog
 - https://projectbook.dev/pricing
 - https://projectbook.dev/terms-and-conditions
 - https://projectbook.dev/privacy-policy

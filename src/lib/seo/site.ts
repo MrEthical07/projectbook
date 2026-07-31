@@ -1,5 +1,6 @@
 import { dev } from '$app/environment';
 import { PUBLIC_PROJECTBOOK_SITE_URL } from '$env/static/public';
+import { publishedPosts } from '$lib/content/blog';
 import siteData from './site-data.json';
 
 type PublicPage = {
@@ -18,6 +19,12 @@ type PublicPageSeo = {
 
 const publicPages = siteData.publicPages as PublicPage[];
 const disallowPaths = siteData.disallowPaths as string[];
+/**
+ * Indexable roots whose child pages are generated rather than enumerated in
+ * site-data.json. Without this, hooks.server.ts would stamp a noindex header
+ * on every blog post.
+ */
+const extraIndexablePaths = ['/blog'];
 const ogImagePath = siteData.ogImagePath as string;
 const siteName = siteData.siteName as string;
 
@@ -66,15 +73,48 @@ export const getPublicPageSeo = (pathname: string, fallbackOrigin?: string): Pub
 	};
 };
 
+/**
+ * SEO for pages whose content is not part of the static publicPages list, such
+ * as individual blog posts. Mirrors getPublicPageSeo so callers can share the
+ * same head markup.
+ */
+export const buildPageSeo = (
+	pathname: string,
+	title: string,
+	description: string,
+	fallbackOrigin?: string
+): PublicPageSeo => {
+	const origin = getSiteOrigin(fallbackOrigin);
+	const normalized = normalizePath(pathname);
+
+	return {
+		title,
+		description,
+		canonical: origin ? buildAbsoluteUrl(origin, normalized) : null,
+		ogImage: origin ? buildAbsoluteUrl(origin, ogImagePath) : null,
+		siteName
+	};
+};
+
 export const isIndexablePath = (pathname: string): boolean => {
 	const normalized = normalizePath(pathname);
-	return publicPages.some((page) => page.path === normalized);
+	if (publicPages.some((page) => page.path === normalized)) {
+		return true;
+	}
+	return extraIndexablePaths.some(
+		(path) => normalized === path || normalized.startsWith(`${path}/`)
+	);
 };
 
 export const buildSitemapXml = (origin: string): string => {
-	const urlEntries = publicPages
-		.map((page) => {
-			const loc = buildAbsoluteUrl(origin, page.path);
+	const paths = [
+		...publicPages.map((page) => page.path),
+		...publishedPosts.map((post) => `/blog/${post.slug}`)
+	];
+
+	const urlEntries = paths
+		.map((path) => {
+			const loc = buildAbsoluteUrl(origin, path);
 			return `  <url>\n    <loc>${loc}</loc>\n  </url>`;
 		})
 		.join('\n');
