@@ -38,6 +38,7 @@ const PUBLIC_PATHS = [
 	'/workflow',
 	'/collaboration',
 	'/blog',
+	'/pricing',
 	'/docs'
 ];
 

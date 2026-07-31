@@ -12,6 +12,7 @@
 		{ label: 'Artifacts', href: '/artifacts' },
 		{ label: 'Collaboration', href: '/collaboration' },
 		{ label: 'Blog', href: '/blog' }
+		{ label: 'Pricing', href: '/pricing' }
 	];
 
 	onMount(() => {
