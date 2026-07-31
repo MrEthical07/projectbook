@@ -64,7 +64,7 @@
 			desc: 'Understand the architecture',
 			Icon: BookOpen,
 			primary: false,
-			href: 'https://github.com/MrEthical07/projectbook/tree/main/docs'
+			href: '/docs'
 		}
 	];
 	const chain = [
