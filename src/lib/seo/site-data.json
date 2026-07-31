@@ -21,6 +21,11 @@
       "description": "Learn how ProjectBook supports a structured product workflow from research and problem framing to execution and validation."
     },
     {
+      "path": "/pricing",
+      "title": "Pricing - ProjectBook",
+      "description": "ProjectBook is open source and free to self-host, forever. The hosted version is free while in beta."
+    },
+    {
       "path": "/docs",
       "title": "Docs - ProjectBook",
       "description": "Reference documentation for ProjectBook: getting started, the design thinking flow, the artifact guide, and frequently asked questions."
