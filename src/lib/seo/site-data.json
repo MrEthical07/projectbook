@@ -24,6 +24,8 @@
       "path": "/blog",
       "title": "Blog - ProjectBook",
       "description": "Notes on building ProjectBook: product thinking, structured execution, and what we are learning as we ship an open-source design-thinking workspace."
+    },
+    {
       "path": "/pricing",
       "title": "Pricing - ProjectBook",
       "description": "ProjectBook is open source and free to self-host, forever. The hosted version is free while in beta."
