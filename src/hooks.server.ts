@@ -46,11 +46,19 @@ const UNVERIFIED_ALLOWED_PATHS = ['/auth/verify', '/logout'];
 
 const SEO_EXEMPT_PATHS = new Set(['/robots.txt', '/sitemap.xml', '/llms.txt']);
 
+/**
+ * Matching any trailing ".ext" would treat real routes as assets: a project id
+ * or slug containing a dot (/project/my.project) would then skip the noindex
+ * header below. Only well-known static asset extensions count.
+ */
+const ASSET_EXTENSION_PATTERN =
+	/\.(?:css|js|mjs|cjs|map|json|txt|xml|ico|png|jpe?g|gif|svg|webp|avif|bmp|woff2?|ttf|otf|eot|mp4|webm|ogg|mp3|wav|pdf|zip|wasm)$/i;
+
 const isAssetPath = (pathname: string): boolean => {
 	if (pathname.startsWith('/_app/') || pathname.startsWith('/asset/')) {
 		return true;
 	}
-	return /\.[a-z0-9]+$/i.test(pathname);
+	return ASSET_EXTENSION_PATTERN.test(pathname);
 };
 
 const isPublicPath = (pathname: string): boolean =>
@@ -264,7 +272,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('X-Frame-Options', 'DENY');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+	response.headers.set(
+		'Permissions-Policy',
+		'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+	);
 	if (!dev) {
 		response.headers.set(
 			'Strict-Transport-Security',

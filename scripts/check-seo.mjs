@@ -27,7 +27,10 @@ const run = async () => {
 		'/privacy-policy'
 	];
 
-	assert(siteData.publicPages.length === expectedPublicPaths.length, 'Unexpected public page count');
+	assert(
+		siteData.publicPages.length === expectedPublicPaths.length,
+		'Unexpected public page count'
+	);
 	for (const path of expectedPublicPaths) {
 		assert(
 			siteData.publicPages.some((page) => page.path === path),
@@ -56,34 +59,16 @@ const run = async () => {
 			contents.includes('name="robots" content="index, follow"'),
 			`Missing indexable robots meta in ${pagePath}`
 		);
-		assert(
-			contents.includes('rel="canonical"'),
-			`Missing canonical link in ${pagePath}`
-		);
-		assert(
-			contents.includes('property="og:title"'),
-			`Missing og:title in ${pagePath}`
-		);
-		assert(
-			contents.includes('property="og:site_name"'),
-			`Missing og:site_name in ${pagePath}`
-		);
-		assert(
-			contents.includes('property="og:url"'),
-			`Missing og:url in ${pagePath}`
-		);
-		assert(
-			contents.includes('property="og:image"'),
-			`Missing og:image in ${pagePath}`
-		);
+		assert(contents.includes('rel="canonical"'), `Missing canonical link in ${pagePath}`);
+		assert(contents.includes('property="og:title"'), `Missing og:title in ${pagePath}`);
+		assert(contents.includes('property="og:site_name"'), `Missing og:site_name in ${pagePath}`);
+		assert(contents.includes('property="og:url"'), `Missing og:url in ${pagePath}`);
+		assert(contents.includes('property="og:image"'), `Missing og:image in ${pagePath}`);
 		assert(
 			contents.includes('name="twitter:card" content="summary_large_image"'),
 			`Missing twitter:card in ${pagePath}`
 		);
-		assert(
-			contents.includes('name="twitter:image"'),
-			`Missing twitter:image in ${pagePath}`
-		);
+		assert(contents.includes('name="twitter:image"'), `Missing twitter:image in ${pagePath}`);
 	}
 
 	const privateLayouts = [
@@ -114,6 +99,38 @@ const run = async () => {
 
 	await access(new URL('static/robots.txt', projectRoot));
 	await access(new URL('static/llms.txt', projectRoot));
+
+	// Cross-file consistency. These four sources of truth drifted apart before,
+	// so verify they still agree rather than only that the files exist.
+	const robots = await readText('static/robots.txt');
+	const robotsAllow = [...robots.matchAll(/^Allow:\s*(\S+)/gm)].map((match) => match[1]);
+	const robotsDisallow = [...robots.matchAll(/^Disallow:\s*(\S+)/gm)].map((match) => match[1]);
+
+	for (const page of siteData.publicPages) {
+		assert(robotsAllow.includes(page.path), `robots.txt is missing Allow for ${page.path}`);
+		assert(!robotsDisallow.includes(page.path), `robots.txt disallows public page ${page.path}`);
+	}
+
+	for (const path of siteData.disallowPaths) {
+		assert(robotsDisallow.includes(path), `robots.txt is missing Disallow for ${path}`);
+	}
+
+	const llms = await readText('static/llms.txt');
+	const [llmsPublicSection, llmsDisallowedSection = ''] = llms.split('## Disallowed areas');
+	const llmsUrls = (section) =>
+		[...section.matchAll(/^- https:\/\/projectbook\.dev(\/\S*)?$/gm)].map(
+			(match) => match[1] ?? '/'
+		);
+	const llmsPublic = llmsUrls(llmsPublicSection);
+	const llmsDisallowed = llmsUrls(llmsDisallowedSection);
+
+	for (const page of siteData.publicPages) {
+		assert(llmsPublic.includes(page.path), `llms.txt is missing public page ${page.path}`);
+		assert(
+			!llmsDisallowed.includes(page.path),
+			`llms.txt lists public page ${page.path} under "Disallowed areas"`
+		);
+	}
 
 	let robotsRouteExists = false;
 	try {

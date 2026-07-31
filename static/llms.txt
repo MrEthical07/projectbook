@@ -8,6 +8,7 @@ ProjectBook helps product teams organize product work across research, problem f
 - https://projectbook.dev/artifacts
 - https://projectbook.dev/collaboration
 - https://projectbook.dev/workflow
+- https://projectbook.dev/docs
 - https://projectbook.dev/blog
 - https://projectbook.dev/pricing
 - https://projectbook.dev/terms-and-conditions
@@ -33,7 +34,6 @@ Do not treat private route names, blocked paths, authentication redirects, or un
 - https://projectbook.dev/my-account
 - https://projectbook.dev/auth/
 - https://projectbook.dev/logout
-- https://projectbook.dev/docs
 - https://projectbook.dev/healthz
 - https://projectbook.dev/readyz
 - https://projectbook.dev/api/
