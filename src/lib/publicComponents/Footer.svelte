@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { Book, BookMarked, BookOpen } from '@lucide/svelte';
+	import { BookOpen } from '@lucide/svelte';
 
 	const pageLinks = [
 		{ label: 'Workflow', href: '/workflow' },
 		{ label: 'Artifacts', href: '/artifacts' },
-		{ label: 'Collaboration', href: '/collaboration' }
+		{ label: 'Collaboration', href: '/collaboration' },
+		{ label: 'Docs', href: '/docs' }
 	];
-	const extLinks = [
-		{ label: 'GitHub', href: 'https://github.com/MrEthical07/projectbook' },
-		{ label: 'Documentation', href: 'https://github.com/MrEthical07/projectbook/tree/main/docs' }
-	];
+	const extLinks = [{ label: 'GitHub', href: 'https://github.com/MrEthical07/projectbook' }];
+
+	const currentYear = new Date().getFullYear();
 </script>
 
-<footer class="border-t border bg-muted px-6 py-12">
+<footer class="border border-t bg-muted px-6 py-12">
 	<div class="mx-auto max-w-6xl">
 		<div class="flex flex-col items-center justify-between gap-8 md:flex-row">
 			<!-- Logo -->
@@ -27,20 +27,25 @@
 
 			<!-- Links -->
 			<nav class="flex flex-wrap justify-center gap-6">
-				{#each pageLinks as l}
+				{#each pageLinks as l (l.href)}
 					<a href={l.href} class="text-sm text-gray-600 transition-colors hover:text-gray-800">
 						{l.label}
 					</a>
 				{/each}
-				{#each extLinks as l}
-					<a href={l.href} class="text-sm text-gray-600 transition-colors hover:text-gray-800">
+				{#each extLinks as l (l.href)}
+					<a
+						href={l.href}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-sm text-gray-600 transition-colors hover:text-gray-800"
+					>
 						{l.label}
 					</a>
 				{/each}
 			</nav>
 
 			<!-- Meta -->
-			<div class="font-mono text-xs text-gray-600">ProjectBook · 2026</div>
+			<div class="font-mono text-xs text-gray-600">ProjectBook · {currentYear}</div>
 		</div>
 
 		<div class="mt-8 border-t pt-8 text-center">

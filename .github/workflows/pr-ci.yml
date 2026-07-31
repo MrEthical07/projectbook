@@ -65,6 +65,9 @@ jobs:
       - name: Route budget + type checks
         run: pnpm run check
 
+      - name: SEO checks
+        run: pnpm run check:seo
+
       - name: Run tests when present
         run: pnpm run --if-present test
 

@@ -21,9 +21,10 @@
 		return () => window.removeEventListener('scroll', onScroll);
 	});
 
-	/* Close drawer on route change */
+	/* Close drawer on route change. Reading the pathname registers the
+	   dependency that re-runs this effect on navigation. */
 	$effect(() => {
-		page.url.pathname;
+		void page.url.pathname;
 		mobileOpen = false;
 	});
 </script>
@@ -32,9 +33,7 @@
 	<!-- ── Bar ── -->
 	<div
 		class="transition-all duration-300
-    {scrolled || mobileOpen
-			? 'border-b border bg-white/95 backdrop-blur-xl'
-			: 'bg-transparent'}"
+    {scrolled || mobileOpen ? 'border border-b bg-white/95 backdrop-blur-xl' : 'bg-transparent'}"
 	>
 		<div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6">
 			<!-- Logo -->
@@ -49,7 +48,7 @@
 
 			<!-- Desktop nav -->
 			<nav class="hidden items-center gap-7 md:flex">
-				{#each links as link}
+				{#each links as link (link.href)}
 					{@const active = page.url.pathname === link.href}
 					<a
 						href={link.href}
@@ -74,6 +73,7 @@
 				<a
 					href="https://github.com/MrEthical07/projectbook"
 					target="_blank"
+					rel="noopener noreferrer"
 					class="hidden h-9 w-9 items-center justify-center rounded-lg border-2 border-gray-800/70 p-2 text-gray-800/80
                  transition-all duration-200 hover:border-gray-800 hover:bg-gray-800/8 hover:text-gray-800 hover:shadow-md
                  hover:shadow-gray-800/25 md:flex"
@@ -115,7 +115,7 @@
 			class="border-b bg-white backdrop-blur-xl md:hidden"
 		>
 			<div class="space-y-1 px-5 py-4">
-				{#each links as link}
+				{#each links as link (link.href)}
 					{@const active = page.url.pathname === link.href}
 					<a
 						href={link.href}
@@ -133,8 +133,9 @@
 				<a
 					href="https://github.com/MrEthical07/projectbook"
 					target="_blank"
-					class="hover:bg-black/5 transition-colors flex items-center justify-between gap-2 rounded-xl border
-                 border-transparent px-4 py-3 text-gray-600"
+					rel="noopener noreferrer"
+					class="flex items-center justify-between gap-2 rounded-xl border border-transparent px-4
+                 py-3 text-gray-600 transition-colors hover:bg-black/5"
 					aria-label="GitHub"
 				>
 					Github

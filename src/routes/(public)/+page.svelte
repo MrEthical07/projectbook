@@ -339,7 +339,7 @@
 			<div class="hero-enter mb-24 [animation-delay:400ms]">
 				<a
 					href="https://github.com/MrEthical07/projectbook"
-					rel="noreferrer"
+					rel="noopener noreferrer"
 					target="_blank"
 					class="inline-flex items-center gap-1.5 text-sm text-gray-600 underline-offset-4 transition hover:text-primary hover:underline"
 				>

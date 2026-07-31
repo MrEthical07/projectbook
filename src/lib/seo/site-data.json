@@ -47,6 +47,7 @@
     "/my-account",
     "/auth/",
     "/logout",
+    "/csp-report",
     "/healthz",
     "/readyz",
     "/api/"
