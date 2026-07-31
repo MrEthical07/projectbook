@@ -37,6 +37,8 @@ const PUBLIC_PATHS = [
 	'/artifacts',
 	'/workflow',
 	'/collaboration',
+	'/blog',
+	'/pricing',
 	'/docs'
 ];
 

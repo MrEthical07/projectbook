@@ -3,6 +3,8 @@ Allow: /
 Allow: /artifacts
 Allow: /collaboration
 Allow: /workflow
+Allow: /blog
+Allow: /pricing
 Allow: /docs
 Allow: /terms-and-conditions
 Allow: /privacy-policy
