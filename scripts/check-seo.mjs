@@ -20,6 +20,7 @@ const run = async () => {
 		'/artifacts',
 		'/collaboration',
 		'/workflow',
+		'/blog',
 		'/docs',
 		'/terms-and-conditions',
 		'/privacy-policy'
@@ -41,6 +42,7 @@ const run = async () => {
 		'src/routes/(public)/artifacts/+page.svelte',
 		'src/routes/(public)/collaboration/+page.svelte',
 		'src/routes/(public)/workflow/+page.svelte',
+		'src/routes/(public)/blog/+page.svelte',
 		'src/routes/docs/+page.svelte',
 		'src/routes/terms-and-conditions/+page.svelte',
 		'src/routes/privacy-policy/+page.svelte'

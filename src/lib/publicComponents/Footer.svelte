@@ -4,7 +4,8 @@
 	const pageLinks = [
 		{ label: 'Workflow', href: '/workflow' },
 		{ label: 'Artifacts', href: '/artifacts' },
-		{ label: 'Collaboration', href: '/collaboration' }
+		{ label: 'Collaboration', href: '/collaboration' },
+		{ label: 'Blog', href: '/blog' }
 	];
 	const extLinks = [
 		{ label: 'GitHub', href: 'https://github.com/MrEthical07/projectbook' },

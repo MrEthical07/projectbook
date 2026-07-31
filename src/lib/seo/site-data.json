@@ -21,6 +21,11 @@
       "description": "Learn how ProjectBook supports a structured product workflow from research and problem framing to execution and validation."
     },
     {
+      "path": "/blog",
+      "title": "Blog - ProjectBook",
+      "description": "Notes on building ProjectBook: product thinking, structured execution, and what we are learning as we ship an open-source design-thinking workspace."
+    },
+    {
       "path": "/docs",
       "title": "Docs - ProjectBook",
       "description": "Reference documentation for ProjectBook: getting started, the design thinking flow, the artifact guide, and frequently asked questions."

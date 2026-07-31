@@ -10,7 +10,8 @@
 	const links = [
 		{ label: 'Workflow', href: '/workflow' },
 		{ label: 'Artifacts', href: '/artifacts' },
-		{ label: 'Collaboration', href: '/collaboration' }
+		{ label: 'Collaboration', href: '/collaboration' },
+		{ label: 'Blog', href: '/blog' }
 	];
 
 	onMount(() => {
