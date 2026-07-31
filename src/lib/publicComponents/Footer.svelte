@@ -5,13 +5,9 @@
 		{ label: 'Workflow', href: '/workflow' },
 		{ label: 'Artifacts', href: '/artifacts' },
 		{ label: 'Collaboration', href: '/collaboration' },
-		{ label: 'Docs', href: '/docs' }
-		{ label: 'Blog', href: '/blog' }
+		{ label: 'Docs', href: '/docs' },
+		{ label: 'Blog', href: '/blog' },
 		{ label: 'Pricing', href: '/pricing' }
-	];
-	const extLinks = [
-		{ label: 'GitHub', href: 'https://github.com/MrEthical07/projectbook' },
-		{ label: 'Documentation', href: 'https://github.com/MrEthical07/projectbook/tree/main/docs' }
 	];
 	const extLinks = [{ label: 'GitHub', href: 'https://github.com/MrEthical07/projectbook' }];
 
